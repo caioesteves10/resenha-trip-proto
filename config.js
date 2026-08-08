@@ -1,6 +1,6 @@
 // config.js — fica ao lado do index.html. O navegador lê este arquivo ao abrir o app.
 
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: "AIzaSyC8PEkWFqd40YCl8Kl79ad2qznEeGcd2Pc",
   authDomain: "resenha-trip-proto.firebaseapp.com",
   projectId: "resenha-trip-proto",
