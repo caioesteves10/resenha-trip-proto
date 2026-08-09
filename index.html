@@ -685,6 +685,20 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
   #viagens{max-width:920px}
   .vg-lista{display:grid;grid-template-columns:1fr 1fr;gap:22px}
 }
+
+/* ---- criar viagem (Fase 4b) ---- */
+.pasta-nova{display:block;width:100%;margin-top:14px;border:2px dashed var(--line2);background:var(--panel2);border-radius:14px;padding:18px;text-align:center;color:var(--navy);font-weight:800;font-size:15px;cursor:pointer;font-family:inherit}
+.pasta-nova:hover{border-color:var(--orange);color:var(--orange)}
+.cv-l{display:block;font-size:12px;font-weight:700;color:var(--muted);margin:12px 0 5px;letter-spacing:.02em}
+.cv-row{display:flex;gap:8px;align-items:flex-end}
+.cv-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.cv-chip{display:inline-flex;align-items:center;gap:5px;background:var(--panel2);border:1px solid var(--line2);border-radius:99px;padding:5px 6px 5px 12px;font-size:13px;font-weight:600;color:var(--text)}
+.cv-chip button{background:none;border:none;color:var(--muted);font-size:17px;line-height:1;cursor:pointer;padding:0 3px}
+.cv-drop{position:relative}
+.cv-droplist{position:absolute;left:0;right:0;top:100%;z-index:5;background:var(--panel);border:1px solid var(--line2);border-radius:12px;margin-top:4px;max-height:230px;overflow:auto;box-shadow:var(--shadowlg)}
+.cv-dropit{display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;font-size:14px}
+.cv-dropit:hover{background:var(--panel2)}
+.cv-err{color:var(--danger);font-size:13px;margin:10px 0 4px;min-height:1em}
 </style>
 </head>
 <body>
@@ -1644,16 +1658,16 @@ async function carregarMinhasViagens(){
 }
 function renderViagens(vs){
   const box=$("#vg-lista");if(!box)return;
+  const nova='<button class="pasta-nova" id="vg-nova">+ Nova viagem</button>';
   if(!vs||!vs.length){
-    box.innerHTML=`<div class="empty">Você ainda não está em nenhuma viagem.<br>Abra a viagem da família ou peça um convite.</div>`;
-    return;
-  }
-  box.innerHTML=vs.map(v=>{
-    const rota=(v.cidades||[]).join(" › ")||"—";
-    const aba=v.tagline||"viagem";
-    const n=(v.membros&&v.membros.length)||1;
-    const quem=n===1?"1 pessoa":n+" pessoas";
-    return `<button class="pasta" data-id="${esc(v.id)}">
+    box.innerHTML='<div class="empty" style="margin-bottom:14px">Você ainda não está em nenhuma viagem.</div>'+nova;
+  }else{
+    box.innerHTML=vs.map(v=>{
+      const rota=(v.cidades||[]).join(" › ")||"—";
+      const aba=v.tagline||"viagem";
+      const n=(v.membros&&v.membros.length)||1;
+      const quem=n===1?"1 pessoa":n+" pessoas";
+      return `<button class="pasta" data-id="${esc(v.id)}">
       <span class="pasta-aba">${esc(aba)}</span>
       <span class="pasta-corpo">
         <span class="pasta-nome">${esc(v.nome||"Viagem")}</span>
@@ -1661,13 +1675,118 @@ function renderViagens(vs){
         <span class="pasta-datas">${esc(fmtPeriodo(v.inicio,v.fim))}</span>
         <span class="pasta-pe"><span>${esc(quem)}</span><span class="chev">›</span></span>
       </span></button>`;
-  }).join("");
-  box.querySelectorAll(".pasta").forEach(b=>b.onclick=()=>abrirViagem(b.dataset.id));
+    }).join("")+nova;
+    box.querySelectorAll(".pasta").forEach(b=>b.onclick=()=>abrirViagem(b.dataset.id));
+  }
+  const bn=$("#vg-nova");if(bn)bn.onclick=abrirCriarViagem;
 }
 async function abrirViagem(id){
   $("#viagens").classList.add("hidden");
   if(id&&id!==VIAGEM.id){_primeiraCarga=true;await trocarViagem(id);}
   enterApp();
+}
+/* ---- criar viagem: assistente + gravação (Fase 4b) ------
+   Monta a viagem a partir da CIDADES_DB (fuso/coords vêm dela), distribui
+   as datas entre as cidades, gera um código e grava tudo já com o marcador
+   "seeded" para o ensureSeed NÃO despejar o conteúdo da família. */
+function _iso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function gerarCodigo(){const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let s="";for(let i=0;i<6;i++)s+=A[Math.floor(Math.random()*A.length)];return s;}
+function distribuirDatas(inicio,fim,n){
+  const d0=ymd(inicio),d1=ymd(fim);
+  const total=Math.max(n,Math.round((d1-d0)/86400000)),base=Math.floor(total/n),resto=total%n,out=[];
+  let cur=new Date(d0);
+  for(let i=0;i<n;i++){const noites=base+(i<resto?1:0);const de=new Date(cur);const ate=new Date(cur);ate.setDate(ate.getDate()+Math.max(1,noites));out.push({de:_iso(de),ate:_iso(ate)});cur=new Date(ate);}
+  if(out.length)out[out.length-1].ate=fim;
+  return out;
+}
+async function criarViagem(d){
+  if(MOCK||!db||!UID)throw new Error("sem-banco");
+  const code=gerarCodigo(),usados={};
+  const cds=d.cidades.map(c=>({n:c.n,pais:c.flag||"",tz:c.tz||"",lat:c.lat||0,lng:c.lng||0}));
+  cds.forEach(c=>{let base=(normNome(c.n).replace(/[^a-z]/g,"").slice(0,3))||"cid",k=base,i=2;while(usados[k]){k=base+i;i++;}usados[k]=1;c.k=k;});
+  const datas=distribuirDatas(d.inicio,d.fim,cds.length);
+  cds.forEach((c,i)=>{c.de=datas[i].de;c.ate=datas[i].ate;});
+  const hoje=new Date(),mesAtual=hoje.getFullYear()+"-"+String(hoje.getMonth()+1).padStart(2,"0");
+  const config={nome:d.nome,tagline:d.tagline||"Viagem",inicio:d.inicio,fim:d.fim,moeda:"BRL",moedaViagem:d.moeda||"EUR",inicioPoupanca:mesAtual,fx:{EUR:6.20,USD:5.45},cidades:cds,pessoas:d.pessoas.slice(),codigo:code,nota:""};
+  const ts=FB.serverTimestamp?FB.serverTimestamp():Date.now();
+  const P=(...seg)=>FB.doc(db,"viagens",code,...seg);
+  const b=FB.writeBatch(db);
+  b.set(FB.doc(db,"viagens",code),{nome:config.nome,tagline:config.tagline,cidades:cds.map(c=>c.n),inicio:d.inicio,fim:d.fim,membros:[UID],codigo:code,criadoEm:ts,atualizadoEm:ts});
+  b.set(P("dados","config"),config);
+  b.set(P("dados","roteiro"),{dias:[]});
+  b.set(P("dados","custos"),{itens:[]});
+  b.set(P("dados","racha"),{despesas:[],pagamentos:[]});
+  b.set(P("dados","reservas"),{itens:[]});
+  b.set(P("dados","tarefas"),{itens:[]});
+  b.set(P("dados","essenciais"),{itens:[]});
+  b.set(P("dados","seeded"),{done:true,at:Date.now()});
+  d.pessoas.forEach(p=>b.set(P("viajantes",p),{meta:0,depositos:[],compras:[],checklist:[],pessoais:[],realizados:[],mala:[]}));
+  await b.commit();
+  return code;
+}
+function abrirCriarViagem(){
+  if(MOCK){toast("Sem conexão — não dá pra criar viagem agora.");return;}
+  const cidsel=[],psel=STATE.me?[STATE.me]:[];
+  const chaves=Object.keys(CIDADES_DB.db),nomeBonito=k=>k.charAt(0).toUpperCase()+k.slice(1);
+  $("#modal").innerHTML=`<div class="modal"><div class="box">
+    <h3>Nova viagem</h3>
+    <label class="cv-l">Nome da viagem</label>
+    <input id="cv-nome" placeholder="Ex.: Eurotrip 2028" autocomplete="off">
+    <label class="cv-l">Rótulo da pasta (curto)</label>
+    <input id="cv-tag" placeholder="Ex.: Turma da firma" autocomplete="off">
+    <label class="cv-l">Cidades (na ordem da viagem)</label>
+    <div class="cv-drop"><input id="cv-cidbusca" placeholder="Buscar cidade…" autocomplete="off"><div id="cv-cidlista" class="cv-droplist" style="display:none"></div></div>
+    <div id="cv-cidsel" class="cv-chips"></div>
+    <div class="cv-row" style="margin-top:12px">
+      <div style="flex:1"><label class="cv-l" style="margin-top:0">Início</label><input id="cv-ini" type="date"></div>
+      <div style="flex:1"><label class="cv-l" style="margin-top:0">Fim</label><input id="cv-fim" type="date"></div>
+    </div>
+    <label class="cv-l">Pessoas</label>
+    <div class="cv-row"><input id="cv-pess" placeholder="Nome e Enter" autocomplete="off" style="flex:2"><button class="btn sec" id="cv-pessadd" style="flex:0 0 auto;padding:0 16px">Add</button></div>
+    <div id="cv-psel" class="cv-chips"></div>
+    <label class="cv-l">Moeda da viagem</label>
+    <select id="cv-moeda"><option value="EUR">Euro (€)</option><option value="USD">Dólar (US$)</option><option value="BRL">Real (R$)</option></select>
+    <div id="cv-err" class="cv-err"></div>
+    <button class="btn" id="cv-criar">Criar viagem</button>
+    <button class="btn gh" id="cv-cancel">Cancelar</button>
+  </div></div>`;
+  const close=()=>{$("#modal").innerHTML="";};
+  $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};
+  $("#cv-cancel").onclick=close;
+  const renderCid=()=>{
+    $("#cv-cidsel").innerHTML=cidsel.map((c,i)=>`<span class="cv-chip">${c.flag||""} ${esc(c.n)}<button data-i="${i}" aria-label="remover">×</button></span>`).join("");
+    $("#cv-cidsel").querySelectorAll("button").forEach(b=>b.onclick=()=>{cidsel.splice(+b.dataset.i,1);renderCid();});
+  };
+  const lista=$("#cv-cidlista"),busca=$("#cv-cidbusca");
+  busca.oninput=()=>{
+    const nq=normNome(busca.value);
+    if(!nq){lista.style.display="none";return;}
+    const res=chaves.filter(k=>k.includes(nq)).slice(0,8);
+    if(!res.length){lista.style.display="none";return;}
+    lista.innerHTML=res.map(k=>{const e=CIDADES_DB.db[k];return `<div class="cv-dropit" data-k="${k}">${e.flag||""} ${esc(nomeBonito(k))} <span style="color:var(--dim);font-size:12px">${esc(e.pais||"")}</span></div>`;}).join("");
+    lista.style.display="block";
+    lista.querySelectorAll(".cv-dropit").forEach(it=>it.onclick=()=>{const k=it.dataset.k,e=CIDADES_DB.db[k];cidsel.push({n:nomeBonito(k),flag:e.flag,tz:e.tz,lat:e.lat,lng:e.lng});busca.value="";lista.style.display="none";renderCid();});
+  };
+  const renderPess=()=>{
+    $("#cv-psel").innerHTML=psel.map((p,i)=>`<span class="cv-chip">${esc(p)}<button data-i="${i}" aria-label="remover">×</button></span>`).join("");
+    $("#cv-psel").querySelectorAll("button").forEach(b=>b.onclick=()=>{psel.splice(+b.dataset.i,1);renderPess();});
+  };
+  const addPess=()=>{const v=$("#cv-pess").value.trim();if(!v)return;if(!psel.includes(v))psel.push(v);$("#cv-pess").value="";renderPess();};
+  $("#cv-pessadd").onclick=addPess;
+  $("#cv-pess").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addPess();}});
+  renderCid();renderPess();
+  $("#cv-criar").onclick=async()=>{
+    const nome=$("#cv-nome").value.trim(),tag=$("#cv-tag").value.trim();
+    const ini=$("#cv-ini").value,fim=$("#cv-fim").value,moeda=$("#cv-moeda").value,err=$("#cv-err");
+    if(!nome){err.textContent="Dê um nome à viagem.";return;}
+    if(!cidsel.length){err.textContent="Escolha ao menos uma cidade.";return;}
+    if(!ini||!fim){err.textContent="Preencha início e fim.";return;}
+    if(fim<ini){err.textContent="O fim não pode ser antes do início.";return;}
+    if(!psel.length){err.textContent="Adicione ao menos uma pessoa.";return;}
+    const btn=$("#cv-criar");btn.disabled=true;btn.textContent="Criando…";
+    try{const code=await criarViagem({nome,tagline:tag,cidades:cidsel.slice(),inicio:ini,fim,pessoas:psel.slice(),moeda});close();if(code)abrirViagem(code);}
+    catch(e){console.warn("criarViagem:",e);btn.disabled=false;btn.textContent="Criar viagem";err.textContent="Não deu pra criar agora. Tente de novo.";}
+  };
 }
 function enterApp(){
   $("#login").classList.add("hidden");$("#app").classList.remove("hidden");$("#nav").classList.remove("hidden");
