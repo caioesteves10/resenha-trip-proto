@@ -878,7 +878,7 @@ const checarPessoa=(n,v)=>conferir(PIN_HASH[n],v,PINS[n]);
 const checarAdmin=v=>conferir(ADMIN_HASH,v,ADMIN_PIN);
 
 /* ---- 3. ESTADO ----------------------------------------- */
-let db=null, FB=null, MOCK=false, PERSIST_OK=false;
+let db=null, FB=null, MOCK=false, PERSIST_OK=false, UID=null;
 /* ---- contexto da viagem ativa (Fase 0) -----------------
    Todo acesso a dados passa por estes helpers, que apontam para
    viagens/{VIAGEM.id}/dados/*  e  viagens/{VIAGEM.id}/viajantes/*.
@@ -1218,6 +1218,22 @@ function linkBtn(url,label){
 const sameDay=(base)=>String(base).slice(0,10)===hojeViagem();
 
 /* ---- 5. FIREBASE --------------------------------------- */
+/* ---- perfil do usuário (Fase 1) ------------------------
+   Grava/atualiza usuarios/{uid} com o nome e o último acesso.
+   É o "perfil durável" deste aparelho: o uid anônimo persiste entre
+   aberturas, então este doc amarra a pessoa às suas viagens
+   (usado a partir da Fase 2 para listar "as minhas viagens"). */
+async function garantirPerfil(){
+  if(MOCK||!db||!UID)return;
+  try{
+    const ref=FB.doc(db,"usuarios",UID);
+    const ts=(FB.serverTimestamp?FB.serverTimestamp():Date.now());
+    const dados={ultimoAcesso:ts};
+    if(STATE.me)dados.nome=STATE.me;
+    if(FB.getDoc){try{const s=await FB.getDoc(ref);if(!s.exists())dados.criadoEm=ts;}catch(e){}}
+    await FB.setDoc(ref,dados,{merge:true});
+  }catch(e){console.warn("perfil:",e&&e.code);}
+}
 async function initFB(){
   try{
     let A,F,U;
@@ -1250,6 +1266,7 @@ async function initFB(){
           console.warn("Offline no login anônimo — seguindo com o cache local.");
         }
       }
+      UID=auth.currentUser?auth.currentUser.uid:null;STATE.uid=UID;
     }
     /* Persistência offline: leituras e ESCRITAS continuam funcionando sem rede.
        O que for lançado offline fica numa fila local e sobe sozinho ao reconectar. */
@@ -1272,6 +1289,7 @@ async function initFB(){
       PERSIST_OK=false;
     }
     if(!db)db=F.getFirestore(app);
+    await garantirPerfil();
     await ensureSeed();listen();
   }catch(e){
     console.warn("Firestore indisponível — modo local:",e);
@@ -1444,7 +1462,7 @@ $("#enter").onclick=async()=>{
   const ok=await checarPessoa(pick,pin);
   b.disabled=false;b.textContent="Entrar";
   if(!ok){$("#lerr").textContent="Senha incorreta.";$("#pin").value="";return;}
-  STATE.me=pick;localStorage.setItem(LS.me,pick);enterApp();
+  STATE.me=pick;localStorage.setItem(LS.me,pick);garantirPerfil();enterApp();
 };
 $("#pin").addEventListener("keydown",e=>{if(e.key==="Enter")$("#enter").click();});
 $("#logout").onclick=(e)=>{e.stopPropagation();abrirPerfil();};
