@@ -5,7 +5,7 @@
    - NUNCA intercepta o tráfego do Firestore: ele tem o próprio mecanismo offline
    Ao publicar uma versão nova, troque o número em VERSAO abaixo.            */
 
-const VERSAO = "proto-v3";
+const VERSAO = "proto-v4";
 const CACHE_APP = "app-" + VERSAO;
 const CACHE_EXT = "ext-" + VERSAO;
 
@@ -101,30 +101,4 @@ async function externo(req) {
     const res = await fetch(req);
     if (res && (res.ok || res.type === "opaque")) cache.put(req, res.clone());
     return res;
-  } catch (e) {
-    return new Response("", { status: 504 });
-  }
-}
-
-self.addEventListener("fetch", e => {
-  const req = e.request;
-  if (req.method !== "GET") return;
-
-  let url;
-  try { url = new URL(req.url); } catch (err) { return; }
-
-  if (NUNCA.some(h => url.hostname.includes(h))) return;   // deixa passar direto
-
-  if (req.mode === "navigate") { e.respondWith(casco(req)); return; }
-
-  if (url.origin === self.location.origin) { e.respondWith(arquivoLocal(req)); return; }
-
-  if (EXTERNOS.some(h => url.hostname === h || url.hostname.endsWith("." + h))) {
-    e.respondWith(externo(req));
-  }
-});
-
-/* o app pode pedir para o SW assumir na hora (após tocar em "Atualizar") */
-self.addEventListener("message", e => {
-  if (e.data && e.data.type === "skip-waiting") self.skipWaiting();
-});
+  } catch 
