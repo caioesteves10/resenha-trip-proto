@@ -1234,6 +1234,43 @@ async function garantirPerfil(){
     await FB.setDoc(ref,dados,{merge:true});
   }catch(e){console.warn("perfil:",e&&e.code);}
 }
+/* ---- coleção de viagens: resumo + membros + query (Fase 2) ----
+   O doc pai viagens/{id} passa a carregar um RESUMO leve (nome, cidades,
+   datas) e a lista de membros[] (uids). A home da Fase 3 lista "as minhas
+   viagens" com uma query array-contains no uid — sem assinar os dados
+   completos. entrarNaViagem() faz o auto-join na viagem que a pessoa abre
+   (transição; na Fase 5 vira entrada por código com regra estrita). */
+let _resumoAnt="";
+async function entrarNaViagem(id){
+  if(MOCK||!db||!UID)return;
+  try{await FB.setDoc(FB.doc(db,"viagens",id),
+    {membros:FB.arrayUnion(UID),atualizadoEm:(FB.serverTimestamp?FB.serverTimestamp():Date.now())},
+    {merge:true});}catch(e){console.warn("entrarNaViagem:",e&&e.code);}
+}
+async function atualizarResumo(id){
+  if(MOCK||!db)return;
+  const c=STATE.config||{};
+  const resumo={
+    nome:c.nome||"Viagem",
+    tagline:c.tagline||"",
+    cidades:(c.cidades||[]).map(x=>x&&(x.n||x.nome)).filter(Boolean),
+    inicio:c.inicio||"", fim:c.fim||""
+  };
+  const chave=JSON.stringify(resumo);
+  if(chave===_resumoAnt)return;      // nada mudou desde a última gravação
+  _resumoAnt=chave;
+  resumo.atualizadoEm=(FB.serverTimestamp?FB.serverTimestamp():Date.now());
+  try{await FB.setDoc(FB.doc(db,"viagens",id),resumo,{merge:true});}
+  catch(e){console.warn("atualizarResumo:",e&&e.code);}
+}
+async function listarMinhasViagens(){
+  if(MOCK||!db||!UID||!FB.query||!FB.where||!FB.getDocs)return [];
+  try{
+    const q=FB.query(FB.collection(db,"viagens"),FB.where("membros","array-contains",UID));
+    const snap=await FB.getDocs(q);
+    return snap.docs.map(d=>Object.assign({id:d.id},d.data()));
+  }catch(e){console.warn("listarMinhasViagens:",e&&e.code);return [];}
+}
 async function initFB(){
   try{
     let A,F,U;
@@ -1290,7 +1327,9 @@ async function initFB(){
     }
     if(!db)db=F.getFirestore(app);
     await garantirPerfil();
-    await ensureSeed();listen();
+    await ensureSeed();
+    await entrarNaViagem(VIAGEM.id);
+    listen();
   }catch(e){
     console.warn("Firestore indisponível — modo local:",e);
     MOCK=true;loadLocal();
@@ -1359,17 +1398,18 @@ function pararListeners(){UNSUBS.forEach(fn=>{try{fn();}catch(e){}});UNSUBS=[];}
 async function trocarViagem(id){
   if(MOCK)return;
   pararListeners();
-  VIAGEM.id=id;
+  VIAGEM.id=id;_resumoAnt="";
   ["config","roteiro","custos","racha","reservas","tarefas","essenciais"].forEach(k=>{STATE[k]=JSON.parse(JSON.stringify(SEED[k]));});
   STATE.pessoas={};
   PEOPLE.forEach(p=>STATE.pessoas[p]={meta:0,depositos:[],compras:[],checklist:[],pessoais:[],realizados:[],mala:[]});
   _pend.clear();atualizarSync();renderAll();
-  await ensureSeed();listen();
+  await ensureSeed();await entrarNaViagem(id);listen();
 }
 function listen(){
   const opts={includeMetadataChanges:true};
   const doc1=(id,key,fb)=>UNSUBS.push(FB.onSnapshot(caminho(id),opts,d=>{
     STATE[key]=d.exists()?Object.assign({},fb,d.data()):JSON.parse(JSON.stringify(fb));
+    if(id==="config")atualizarResumo(VIAGEM.id);
     marcarPend("v:"+id,d.metadata);renderAll();}));
   doc1("config","config",SEED.config);
   doc1("roteiro","roteiro",SEED.roteiro);
