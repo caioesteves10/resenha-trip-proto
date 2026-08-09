@@ -892,7 +892,7 @@ const DATA={
     ]
   }
 };
-const PEOPLE=DATA.people, PINS=DATA.pins, ADMIN_PIN=DATA.adminPin, SEED=DATA.seed;
+const PEOPLE=DATA.people.slice(), PINS=DATA.pins, ADMIN_PIN=DATA.adminPin, SEED=DATA.seed;
 
 /* verificação de senha: PBKDF2-SHA256 quando há hash, texto puro como último recurso */
 async function pbkdf2(pass,saltHex,iter){
@@ -1445,7 +1445,7 @@ function listen(){
   const opts={includeMetadataChanges:true};
   const doc1=(id,key,fb)=>UNSUBS.push(FB.onSnapshot(caminho(id),opts,d=>{
     STATE[key]=d.exists()?Object.assign({},fb,d.data()):JSON.parse(JSON.stringify(fb));
-    if(id==="config")atualizarResumo(VIAGEM.id);
+    if(id==="config"){atualizarResumo(VIAGEM.id);sincronizarPessoas();}
     marcarPend("v:"+id,d.metadata);renderAll();}));
   doc1("config","config",SEED.config);
   doc1("roteiro","roteiro",SEED.roteiro);
@@ -1467,6 +1467,7 @@ function loadLocal(){
       ["config","roteiro","custos","racha","reservas","tarefas","essenciais"].forEach(k=>{if(o[k])STATE[k]=Object.assign({},SEED[k],o[k]);});
       if(o.pessoas)PEOPLE.forEach(p=>{if(o.pessoas[p])STATE.pessoas[p]=Object.assign(STATE.pessoas[p],o.pessoas[p]);});}
   }catch(e){console.warn(e);}
+  sincronizarPessoas();
 }
 function saveLocal(){
   try{localStorage.setItem(LS.mock,JSON.stringify({config:STATE.config,roteiro:STATE.roteiro,custos:STATE.custos,racha:STATE.racha,reservas:STATE.reservas,tarefas:STATE.tarefas,essenciais:STATE.essenciais,pessoas:STATE.pessoas}));}catch(e){}
@@ -1526,7 +1527,7 @@ const checklistMaster=()=>{const m=STATE.config.checklistMaster;return (Array.is
 let pick=null;
 function showLogin(){
   $("#app").classList.add("hidden");$("#nav").classList.add("hidden");$("#login").classList.remove("hidden");
-  $("#pgrid").innerHTML=PEOPLE.map(n=>`<button class="pbtn" data-n="${esc(n)}">${esc(n)}</button>`).join("");
+  $("#pgrid").innerHTML=DATA.people.map(n=>`<button class="pbtn" data-n="${esc(n)}">${esc(n)}</button>`).join("");
   $("#pgrid").querySelectorAll(".pbtn").forEach(b=>b.onclick=()=>{
     pick=b.dataset.n;$("#pgrid").querySelectorAll(".pbtn").forEach(x=>x.classList.toggle("on",x===b));});
   $("#pin").value="";$("#lerr").textContent="";
@@ -2176,7 +2177,26 @@ function mesInfo(p){
           ok:cumpriu,pct:alvo>0?clamp(noMes/alvo*100,0,100):100,meses:mr,
           ritmoFuturo:ritmoFuturo,proximo:proxMes(mk),faltaTotal:faltaTotal,acabou:faltaTotal<=0.005};
 }
-const CORPESSOA={};["#E8722E","#1B3A6B","#3E82C4","#1E9E74"].forEach((c,i)=>CORPESSOA[PEOPLE[i]]=c);
+const CORPESSOA={};
+/* ---- pessoas por viagem (Fase 4a) ----------------------
+   PEOPLE é uma cópia mutável: seu CONTEÚDO é sincronizado com as pessoas
+   da viagem aberta (config.pessoas), caindo na família da principal quando
+   não houver. Como a referência do array não muda, os 65 pontos que usam
+   PEOPLE passam a refletir a viagem atual sem precisar tocar em nenhum. */
+function recalcCores(){
+  const cores=["#E8722E","#1B3A6B","#3E82C4","#1E9E74","#D98A2B","#7A5AC9","#2AA198","#C0507A"];
+  Object.keys(CORPESSOA).forEach(k=>delete CORPESSOA[k]);
+  PEOPLE.forEach((p,i)=>CORPESSOA[p]=cores[i%cores.length]);
+}
+function ensurePessoas(){
+  PEOPLE.forEach(p=>{if(!STATE.pessoas[p])STATE.pessoas[p]={meta:0,depositos:[],compras:[],checklist:[],pessoais:[],realizados:[],mala:[]};});
+}
+function sincronizarPessoas(){
+  const cfg=(STATE.config&&Array.isArray(STATE.config.pessoas)&&STATE.config.pessoas.length)?STATE.config.pessoas:DATA.people;
+  PEOPLE.length=0; cfg.forEach(p=>PEOPLE.push(p));
+  recalcCores(); ensurePessoas();
+}
+recalcCores();
 function grupoLinha(){
   // meses: do início do plano (ou 1º depósito) até o mês mais recente com depósito ou hoje
   const todosMeses=[];PEOPLE.forEach(p=>((STATE.pessoas[p]||{}).depositos||[]).forEach(dep=>{if(dep.mes)todosMeses.push(dep.mes);}));
@@ -4132,7 +4152,7 @@ try{
   if(C.ADMIN_HASH)ADMIN_HASH=C.ADMIN_HASH;
 }catch(e){console.warn("config.js nao encontrado ou com erro:",e);}
 
-if(STATE.me&&PEOPLE.indexOf(STATE.me)>-1)showViagens();else showLogin();
+if(STATE.me&&DATA.people.indexOf(STATE.me)>-1)showViagens();else showLogin();
 initFB();
 carregarFX();
 let ULT_MES=monthKey(new Date());
