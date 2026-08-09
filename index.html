@@ -879,6 +879,14 @@ const checarAdmin=v=>conferir(ADMIN_HASH,v,ADMIN_PIN);
 
 /* ---- 3. ESTADO ----------------------------------------- */
 let db=null, FB=null, MOCK=false, PERSIST_OK=false;
+/* ---- contexto da viagem ativa (Fase 0) -----------------
+   Todo acesso a dados passa por estes helpers, que apontam para
+   viagens/{VIAGEM.id}/dados/*  e  viagens/{VIAGEM.id}/viajantes/*.
+   id fixo "principal" por ora; trocarViagem() troca isso na Fase 3. */
+const VIAGEM={id:"principal"};
+const caminho       =nome=>FB.doc(db,"viagens",VIAGEM.id,"dados",nome);
+const caminhoPessoas=()  =>FB.collection(db,"viagens",VIAGEM.id,"viajantes");
+const caminhoPessoa =nome=>FB.doc(db,"viagens",VIAGEM.id,"viajantes",nome);
 const LS={me:"tr27_user",admin:"tr27_admin",tab:"tr27_tab",mock:"tr27_mock",cur:"tr27_cur",csub:"tr27_csub",intro:"tr27_intro",viamode:"tr27_viamode"};
 const STATE={
   config:JSON.parse(JSON.stringify(SEED.config)),
@@ -1282,7 +1290,7 @@ async function initFB(){
   }
 }
 async function ensureSeed(){
-  const sref=FB.doc(db,NS.viagem,"seeded");
+  const sref=caminho("seeded");
   let snap;
   try{snap=await FB.getDoc(sref);}
   catch(e){
@@ -1293,11 +1301,11 @@ async function ensureSeed(){
   }
   if(snap.exists())return;
   const b=FB.writeBatch(db);
-  b.set(FB.doc(db,NS.viagem,"config"),SEED.config);
-  b.set(FB.doc(db,NS.viagem,"roteiro"),SEED.roteiro);
-  b.set(FB.doc(db,NS.viagem,"custos"),SEED.custos);
-  b.set(FB.doc(db,NS.viagem,"racha"),SEED.racha);
-  PEOPLE.forEach(p=>b.set(FB.doc(db,NS.pessoas,p),{meta:0,depositos:[],compras:[],checklist:[],pessoais:[],realizados:[],mala:[]}));
+  b.set(caminho("config"),SEED.config);
+  b.set(caminho("roteiro"),SEED.roteiro);
+  b.set(caminho("custos"),SEED.custos);
+  b.set(caminho("racha"),SEED.racha);
+  PEOPLE.forEach(p=>b.set(caminhoPessoa(p),{meta:0,depositos:[],compras:[],checklist:[],pessoais:[],realizados:[],mala:[]}));
   b.set(sref,{done:true,at:Date.now()});
   await b.commit();
 }
@@ -1323,11 +1331,28 @@ function marcarPend(chave,meta){
 window.addEventListener("online",atualizarSync);
 window.addEventListener("offline",atualizarSync);
 
+/* ---- registro de listeners e troca de viagem (Fase 0) ----
+   listen() agora guarda os canceladores do onSnapshot em UNSUBS.
+   trocarViagem() desliga os listeners atuais, zera os dados da viagem
+   (a sessao — quem sou eu, moeda — permanece) e reassina no novo id.
+   Na Fase 0 o id e sempre "principal"; a troca real chega na Fase 3. */
+let UNSUBS=[];
+function pararListeners(){UNSUBS.forEach(fn=>{try{fn();}catch(e){}});UNSUBS=[];}
+async function trocarViagem(id){
+  if(MOCK)return;
+  pararListeners();
+  VIAGEM.id=id;
+  ["config","roteiro","custos","racha","reservas","tarefas","essenciais"].forEach(k=>{STATE[k]=JSON.parse(JSON.stringify(SEED[k]));});
+  STATE.pessoas={};
+  PEOPLE.forEach(p=>STATE.pessoas[p]={meta:0,depositos:[],compras:[],checklist:[],pessoais:[],realizados:[],mala:[]});
+  _pend.clear();atualizarSync();renderAll();
+  await ensureSeed();listen();
+}
 function listen(){
   const opts={includeMetadataChanges:true};
-  const doc1=(id,key,fb)=>FB.onSnapshot(FB.doc(db,NS.viagem,id),opts,d=>{
+  const doc1=(id,key,fb)=>UNSUBS.push(FB.onSnapshot(caminho(id),opts,d=>{
     STATE[key]=d.exists()?Object.assign({},fb,d.data()):JSON.parse(JSON.stringify(fb));
-    marcarPend("v:"+id,d.metadata);renderAll();});
+    marcarPend("v:"+id,d.metadata);renderAll();}));
   doc1("config","config",SEED.config);
   doc1("roteiro","roteiro",SEED.roteiro);
   doc1("custos","custos",SEED.custos);
@@ -1335,10 +1360,10 @@ function listen(){
   doc1("reservas","reservas",SEED.reservas);
   doc1("tarefas","tarefas",SEED.tarefas);
   doc1("essenciais","essenciais",SEED.essenciais);
-  FB.onSnapshot(FB.collection(db,NS.pessoas),opts,s=>{
+  UNSUBS.push(FB.onSnapshot(caminhoPessoas(),opts,s=>{
     PEOPLE.forEach(p=>{if(!STATE.pessoas[p])STATE.pessoas[p]={meta:0,depositos:[],compras:[],checklist:[],pessoais:[],realizados:[],mala:[]};});
     s.forEach(d=>{const v=d.data()||{};STATE.pessoas[d.id]={meta:Number(v.meta)||0,verba:Number(v.verba)||0,depositos:v.depositos||[],compras:v.compras||[],checklist:v.checklist||[],pessoais:v.pessoais||[],realizados:v.realizados||[],mala:v.mala||[],malaTpls:v.malaTpls||[]};});
-    marcarPend("pessoas",s.metadata);renderAll();});
+    marcarPend("pessoas",s.metadata);renderAll();}));
   atualizarSync();
 }
 function loadLocal(){
@@ -1356,7 +1381,7 @@ async function saveDoc(id,obj){
   STATE[id]=Object.assign({},STATE[id],obj);
   renderAll();
   if(MOCK){saveLocal();return;}
-  try{await FB.setDoc(FB.doc(db,NS.viagem,id),obj,{merge:true});}
+  try{await FB.setDoc(caminho(id),obj,{merge:true});}
   catch(e){console.error(e);toast("Erro ao salvar: "+String((e&&e.code)||(e&&e.message)||e).slice(0,60));}
 }
 /* ---- escritas atômicas em arrays compartilhados -------------------
@@ -1368,7 +1393,7 @@ async function addArr(id,campo,itens){
   STATE[id]=Object.assign({},STATE[id],{[campo]:((STATE[id]||{})[campo]||[]).concat(lista)});
   renderAll();
   if(MOCK){saveLocal();return;}
-  try{await FB.setDoc(FB.doc(db,NS.viagem,id),{[campo]:FB.arrayUnion.apply(null,lista)},{merge:true});}
+  try{await FB.setDoc(caminho(id),{[campo]:FB.arrayUnion.apply(null,lista)},{merge:true});}
   catch(e){console.error(e);toast("Erro ao salvar: "+String((e&&e.code)||(e&&e.message)||e).slice(0,60));}
 }
 async function delArr(id,campo,itens){
@@ -1377,14 +1402,14 @@ async function delArr(id,campo,itens){
   STATE[id]=Object.assign({},STATE[id],{[campo]:((STATE[id]||{})[campo]||[]).filter(x=>!ids.has(x.id))});
   renderAll();
   if(MOCK){saveLocal();return;}
-  try{await FB.setDoc(FB.doc(db,NS.viagem,id),{[campo]:FB.arrayRemove.apply(null,lista)},{merge:true});}
+  try{await FB.setDoc(caminho(id),{[campo]:FB.arrayRemove.apply(null,lista)},{merge:true});}
   catch(e){console.error(e);toast("Erro ao excluir: "+String((e&&e.code)||(e&&e.message)||e).slice(0,60));}
 }
 async function savePessoa(nome,obj){
   STATE.pessoas[nome]=Object.assign({},STATE.pessoas[nome],obj);
   renderAll();
   if(MOCK){saveLocal();return;}
-  try{await FB.setDoc(FB.doc(db,NS.pessoas,nome),obj,{merge:true});}
+  try{await FB.setDoc(caminhoPessoa(nome),obj,{merge:true});}
   catch(e){console.error(e);toast("Erro ao salvar: "+String((e&&e.code)||(e&&e.message)||e).slice(0,60));}
 }
 const meDoc=()=>STATE.pessoas[STATE.me]||{meta:0,depositos:[],compras:[],checklist:[],pessoais:[],realizados:[],mala:[]};
@@ -2829,7 +2854,7 @@ async function marcarFeito(ai,val){
   STATE.roteiro=Object.assign({},STATE.roteiro,{feitos:m});
   renderAll();
   if(MOCK){saveLocal();return;}
-  try{await FB.setDoc(FB.doc(db,NS.viagem,"roteiro"),{feitos:{[ai]:!!val}},{merge:true});}
+  try{await FB.setDoc(caminho("roteiro"),{feitos:{[ai]:!!val}},{merge:true});}
   catch(e){console.error(e);toast("Erro ao salvar: "+String((e&&e.code)||(e&&e.message)||e).slice(0,60));}
 }
 /* próximos passeios (não concluídos) a partir de agora, durante a viagem */
