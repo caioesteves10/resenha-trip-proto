@@ -500,7 +500,7 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 .lg i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px}
 
 /* login */
-.login{padding:calc(34px + env(safe-area-inset-top)) 20px 34px;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;justify-content:center;max-width:420px;margin:0 auto}
+.login{position:relative;z-index:1;padding:calc(52px + env(safe-area-inset-top)) 20px calc(40px + env(safe-area-inset-bottom));min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;justify-content:flex-start;max-width:420px;margin:0 auto}
 .login .disp{font-size:40px;text-align:center;margin:8px 0 4px}
 .login .ll{color:var(--muted);text-align:center;font-size:13.5px;margin:14px 0 16px}
 .pgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:16px}
@@ -521,6 +521,19 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 .au-social{width:100%}
 .auth-splash{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
 .auth-splash .disp{font-size:40px;text-align:center}
+.tapname{cursor:pointer}
+.tapname::after{content:"▾";font-size:.5em;margin-left:8px;color:rgba(255,255,255,.6);vertical-align:middle}
+.troca-lista{display:flex;flex-direction:column;gap:8px;margin:4px 0 12px;max-height:46vh;overflow-y:auto}
+.troca-item{text-align:left;background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:11px 13px;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;gap:2px}
+.troca-item.on{border-color:var(--navy);background:var(--panel2)}
+.troca-nome{font-weight:700;color:var(--navy);font-size:15px}
+.troca-atual{font-size:10px;font-weight:700;color:var(--orange);border:1px solid var(--orange);border-radius:6px;padding:1px 5px;margin-left:4px}
+.troca-rota{font-size:12.5px;color:var(--muted)}
+.adm-list{display:flex;flex-direction:column;gap:8px;margin:4px 0 12px;max-height:52vh;overflow-y:auto}
+.adm-row{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line2);border-radius:11px;padding:10px 12px;font-size:13.5px}
+.adm-row .s{color:var(--muted);font-size:12px}
+.adm-cod{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.adm-cod code{background:var(--panel2);border:1px solid var(--line2);border-radius:6px;padding:2px 6px;font-weight:700;color:var(--navy)}
 
 .toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translateX(-50%);
  background:var(--navy);color:#fff;font-weight:800;padding:11px 18px;border-radius:12px;font-size:13.5px;
@@ -1715,6 +1728,7 @@ async function sairDaConta(){
   if(!auth||!auth.currentUser)showLogin();
 }
 {const _vt=$("#vg-trocar");if(_vt)_vt.onclick=sairDaConta;}
+{const _tn=$("#tripname");if(_tn){_tn.classList.add("tapname");_tn.onclick=abrirTrocadorViagem;}}
 $("#logout").onclick=(e)=>{e.stopPropagation();abrirPerfil();};
 function abrirPerfil(){
   $("#modal").innerHTML=`<div class="modal"><div class="box">
@@ -1817,11 +1831,58 @@ async function carregarMinhasViagens(){
   vs.sort((a,b)=>tsNum(b.atualizadoEm)-tsNum(a.atualizadoEm));
   renderViagens(vs);
 }
+async function abrirTrocadorViagem(){
+  const atual=VIAGEM.id;
+  let vs=[];
+  if(!MOCK){try{vs=await listarMinhasViagens();vs.sort((a,b)=>tsNum(b.atualizadoEm)-tsNum(a.atualizadoEm));}catch(e){}}
+  const linhas=vs.map(v=>`<button class="troca-item ${v.id===atual?'on':''}" data-id="${esc(v.id)}">
+      <span class="troca-nome">${esc(v.nome||"Viagem")}${v.id===atual?' <span class="troca-atual">atual</span>':''}</span>
+      <span class="troca-rota">${esc((v.cidades||[]).join(" › ")||"—")}</span>
+    </button>`).join("");
+  $("#modal").innerHTML=`<div class="modal"><div class="box">
+    <h3>Trocar de viagem</h3>
+    <div class="troca-lista">${linhas||'<div class="empty">Você só está nesta viagem.</div>'}</div>
+    <button class="btn sec" id="troca-nova">＋ Nova viagem</button>
+    <button class="btn sec" id="troca-cod">🔑 Entrar por código</button>
+    <button class="btn gh" id="troca-home">🧳 Ver todas as minhas viagens</button>
+    <button class="btn gh" id="troca-fechar">Fechar</button>
+  </div></div>`;
+  const close=()=>{$("#modal").innerHTML="";};
+  $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};
+  $("#troca-fechar").onclick=close;
+  $("#modal").querySelectorAll(".troca-item").forEach(b=>b.onclick=()=>{const id=b.dataset.id;close();if(id!==atual)abrirViagem(id);});
+  $("#troca-nova").onclick=()=>{close();abrirCriarViagem();};
+  $("#troca-cod").onclick=()=>{close();abrirEntrarCodigo();};
+  $("#troca-home").onclick=()=>{close();showViagens();};
+}
+async function verTodasViagensAdmin(){
+  if(MOCK||!db){toast("Só funciona online.");return;}
+  let vs=[];
+  try{const snap=await FB.getDocs(FB.collection(db,"viagens"));vs=snap.docs.map(d=>Object.assign({id:d.id},d.data()));}
+  catch(e){toast("Sem permissão de admin.");return;}
+  vs.sort((a,b)=>tsNum(b.atualizadoEm)-tsNum(a.atualizadoEm));
+  const linhas=vs.map(v=>`<div class="adm-row">
+     <div><b>${esc(v.nome||"Viagem")}</b><br><span class="s">${esc((v.cidades||[]).join(" › ")||"—")}</span></div>
+     <div class="adm-cod"><code>${esc(v.id)}</code>
+       <button class="resv-copy" data-cod="${esc(v.id)}">copiar</button>
+       <button class="resv-copy" data-abrir="${esc(v.id)}">abrir</button></div>
+   </div>`).join("")||'<div class="empty">Nenhuma viagem no banco.</div>';
+  $("#modal").innerHTML=`<div class="modal"><div class="box">
+    <h3>Todas as viagens (admin)</h3>
+    <div class="adm-list">${linhas}</div>
+    <button class="btn gh" id="adm-fechar">Fechar</button></div></div>`;
+  const close=()=>{$("#modal").innerHTML="";};
+  $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};
+  $("#adm-fechar").onclick=close;
+  $("#modal").querySelectorAll("[data-cod]").forEach(b=>b.onclick=async()=>{try{await navigator.clipboard.writeText(b.dataset.cod);toast("Código copiado ✓");}catch(e){toast(b.dataset.cod);}});
+  $("#modal").querySelectorAll("[data-abrir]").forEach(b=>b.onclick=()=>{close();abrirViagem(b.dataset.abrir);});
+}
 function renderViagens(vs){
   const box=$("#vg-lista");if(!box)return;
   const nova='<button class="pasta-nova" id="vg-nova">+ Nova viagem</button><button class="pasta-nova pasta-cod" id="vg-cod">🔑 Entrar por código</button>';
+  const admBtn=IS_ADMIN?'<button class="au-link" id="vg-admin" style="margin:12px auto 0;display:block">👑 Ver todas as viagens (admin)</button>':'';
   if(!vs||!vs.length){
-    box.innerHTML='<div class="empty" style="margin-bottom:14px">Você ainda não está em nenhuma viagem.</div>'+nova;
+    box.innerHTML='<div class="empty" style="margin-bottom:14px">Você ainda não está em nenhuma viagem.</div>'+nova+admBtn;
   }else{
     box.innerHTML=vs.map(v=>{
       const rota=(v.cidades||[]).join(" › ")||"—";
@@ -1836,11 +1897,12 @@ function renderViagens(vs){
         <span class="pasta-datas">${esc(fmtPeriodo(v.inicio,v.fim))}</span>
         <span class="pasta-pe"><span>${esc(quem)}</span><span class="chev">›</span></span>
       </span></button>`;
-    }).join("")+nova;
+    }).join("")+nova+admBtn;
     box.querySelectorAll(".pasta").forEach(b=>b.onclick=()=>abrirViagem(b.dataset.id));
   }
   const bn=$("#vg-nova");if(bn)bn.onclick=abrirCriarViagem;
   const bc=$("#vg-cod");if(bc)bc.onclick=abrirEntrarCodigo;
+  const ba=$("#vg-admin");if(ba)ba.onclick=verTodasViagensAdmin;
 }
 async function abrirViagem(id){
   $("#viagens").classList.add("hidden");
