@@ -689,6 +689,8 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 /* ---- criar viagem (Fase 4b) ---- */
 .pasta-nova{display:block;width:100%;margin-top:14px;border:2px dashed var(--line2);background:var(--panel2);border-radius:14px;padding:18px;text-align:center;color:var(--navy);font-weight:800;font-size:15px;cursor:pointer;font-family:inherit}
 .pasta-nova:hover{border-color:var(--orange);color:var(--orange)}
+.pasta-cod{border-style:solid;border-color:var(--line2);color:var(--muted)}
+.pasta-cod:hover{border-color:var(--navy);color:var(--navy)}
 .cv-l{display:block;font-size:12px;font-weight:700;color:var(--muted);margin:12px 0 5px;letter-spacing:.02em}
 #cv-form input,#cv-form select{width:100%}
 .cv-row{display:flex;gap:10px;align-items:flex-end}
@@ -1414,7 +1416,6 @@ async function initFB(){
     if(!db)db=F.getFirestore(app);
     await garantirPerfil();
     await ensureSeed();
-    await entrarNaViagem(VIAGEM.id);
     listen();
     _bootResolve&&_bootResolve();
   }catch(e){
@@ -1490,7 +1491,7 @@ async function trocarViagem(id){
   STATE.pessoas={};
   PEOPLE.forEach(p=>STATE.pessoas[p]={meta:0,depositos:[],compras:[],checklist:[],pessoais:[],realizados:[],mala:[]});
   _pend.clear();atualizarSync();renderAll();
-  await ensureSeed();await entrarNaViagem(id);listen();
+  await ensureSeed();listen();
 }
 function listen(){
   const opts={includeMetadataChanges:true};
@@ -1695,7 +1696,7 @@ async function carregarMinhasViagens(){
 }
 function renderViagens(vs){
   const box=$("#vg-lista");if(!box)return;
-  const nova='<button class="pasta-nova" id="vg-nova">+ Nova viagem</button>';
+  const nova='<button class="pasta-nova" id="vg-nova">+ Nova viagem</button><button class="pasta-nova pasta-cod" id="vg-cod">🔑 Entrar por código</button>';
   if(!vs||!vs.length){
     box.innerHTML='<div class="empty" style="margin-bottom:14px">Você ainda não está em nenhuma viagem.</div>'+nova;
   }else{
@@ -1716,6 +1717,7 @@ function renderViagens(vs){
     box.querySelectorAll(".pasta").forEach(b=>b.onclick=()=>abrirViagem(b.dataset.id));
   }
   const bn=$("#vg-nova");if(bn)bn.onclick=abrirCriarViagem;
+  const bc=$("#vg-cod");if(bc)bc.onclick=abrirEntrarCodigo;
 }
 async function abrirViagem(id){
   $("#viagens").classList.add("hidden");
@@ -1908,6 +1910,48 @@ function abrirCriarViagem(){
   };
 }
 
+/* ---- entrar por código (Fase 5) --------------------------
+   Busca viagens/{código}, adiciona o uid aos membros e abre.
+   As regras do Firestore garantem que só membros leem os dados. */
+async function entrarPorCodigo(codigo){
+  const raw=(codigo||"").trim();
+  if(!raw)return {erro:"Digite o código."};
+  if(MOCK||!db||!UID)return {erro:"Sem conexão com o banco."};
+  try{
+    let id=raw, ref=FB.doc(db,"viagens",id), snap=await FB.getDoc(ref);
+    if(!snap.exists()){const up=raw.toUpperCase();if(up!==raw){id=up;ref=FB.doc(db,"viagens",id);snap=await FB.getDoc(ref);}}
+    if(!snap.exists())return {erro:"Código não encontrado. Confira as letras."};
+    await FB.setDoc(ref,{membros:FB.arrayUnion(UID),atualizadoEm:(FB.serverTimestamp?FB.serverTimestamp():Date.now())},{merge:true});
+    return {ok:true,id:id,nome:(snap.data()&&snap.data().nome)||"viagem"};
+  }catch(e){console.warn("entrarPorCodigo:",e&&e.code);return {erro:"Não deu pra entrar. Verifique o código."};}
+}
+function abrirEntrarCodigo(){
+  if(MOCK){toast("Sem conexão — não dá pra entrar por código agora.");return;}
+  $("#modal").innerHTML=`<div class="modal"><div class="box" id="cv-form">
+    <h3>Entrar por código</h3>
+    <p style="color:var(--muted);font-size:14px;margin:2px 0 6px">Peça o código pra quem criou a viagem e digite abaixo.</p>
+    <label class="cv-l">Código da viagem</label>
+    <input id="ec-code" placeholder="Ex.: K7QF2M" autocomplete="off" autocapitalize="characters" spellcheck="false" style="text-transform:uppercase;letter-spacing:.14em;font-weight:800">
+    <div id="ec-err" class="cv-err"></div>
+    <div class="cv-acts">
+      <button class="btn" id="ec-ok">Entrar</button>
+      <button class="btn gh" id="ec-cancel">Cancelar</button>
+    </div>
+  </div></div>`;
+  const close=()=>{$("#modal").innerHTML="";};
+  $("#ec-cancel").onclick=close;
+  const inp=$("#ec-code");inp.focus();
+  inp.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("#ec-ok").click();}});
+  $("#ec-ok").onclick=async()=>{
+    const err=$("#ec-err"),btn=$("#ec-ok");
+    const code=inp.value.trim();
+    if(!code){err.textContent="Digite o código.";return;}
+    btn.disabled=true;btn.textContent="Entrando…";
+    const r=await entrarPorCodigo(code);
+    if(r&&r.ok){close();toast("Tudo certo! Você entrou em "+(r.nome||"viagem")+".");abrirViagem(r.id);}
+    else{btn.disabled=false;btn.textContent="Entrar";err.textContent=(r&&r.erro)||"Não deu pra entrar.";}
+  };
+}
 function enterApp(){
   $("#login").classList.add("hidden");$("#app").classList.remove("hidden");$("#nav").classList.remove("hidden");
   if(emViagem()&&!sessionStorage.getItem("tr27_via")){curTab="roteiro";try{sessionStorage.setItem("tr27_via","1");}catch(e){}}
