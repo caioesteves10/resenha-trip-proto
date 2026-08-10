@@ -1602,6 +1602,7 @@ function abrirPerfil(){
     <button class="btn sec pf" id="pf-moeda">💱 Moeda: ${STATE.cur}</button>
     <button class="btn sec pf" id="pf-ajuda">❓ Como usar o app</button>
     ${!MOCK?'<button class="btn sec pf" id="pf-viagens">🧳 Trocar de viagem</button>':""}
+    ${(STATE.config&&STATE.config.codigo)?`<button class="btn sec pf" id="pf-codigo">🔑 Código da viagem: ${esc(STATE.config.codigo)}</button>`:""}
     <button class="btn gh pf" id="pf-sair" style="color:var(--danger)">Trocar de usuário</button>
     <button class="btn gh pf" id="pf-fechar">Fechar</button>
   </div></div>`;
@@ -1610,6 +1611,7 @@ function abrirPerfil(){
   $("#pf-fechar").onclick=close;
   $("#pf-sair").onclick=()=>{close();localStorage.removeItem(LS.me);STATE.me=null;showLogin();};
   const _bv=$("#pf-viagens");if(_bv)_bv.onclick=()=>{close();showViagens();};
+  const _bc=$("#pf-codigo");if(_bc)_bc.onclick=async()=>{try{await navigator.clipboard.writeText(STATE.config.codigo);toast("Código copiado ✓");}catch(e){toast(STATE.config.codigo);}};
   $("#pf-moeda").onclick=()=>{const o=moedasVista();STATE.cur=o[(o.indexOf(STATE.cur)+1)%3];localStorage.setItem(LS.cur,STATE.cur);close();renderAll();};
   $("#pf-meta").onclick=()=>{close();show("cofre");renderCofre();setTimeout(()=>{const m=$("#metaedit");if(m)m.click();},80);};
   $("#pf-ajuda").onclick=()=>{close();mostrarIntro(true);};
@@ -1905,7 +1907,7 @@ function abrirCriarViagem(){
     if(!de||!ate){err.textContent="Toque no início e no fim no calendário.";return;}
     if(!psel.length){err.textContent="Adicione ao menos uma pessoa.";return;}
     const btn=$("#cv-criar");btn.disabled=true;btn.textContent="Criando…";
-    try{const code=await criarViagem({nome,tagline:tag,cidades:cidsel.slice(),inicio:de,fim:ate,pessoas:psel.slice(),moeda:moedaPrin,moedasVista:[moedaPrin].concat(moedasV.filter(m=>m!==moedaPrin))});close();if(code)abrirViagem(code);}
+    try{const code=await criarViagem({nome,tagline:tag,cidades:cidsel.slice(),inicio:de,fim:ate,pessoas:psel.slice(),moeda:moedaPrin,moedasVista:[moedaPrin].concat(moedasV.filter(m=>m!==moedaPrin))});close();if(code)mostrarCodigoViagem(code,nome,()=>abrirViagem(code));}
     catch(e){console.warn("criarViagem:",e);btn.disabled=false;btn.textContent="Criar viagem";err.textContent="Não deu pra criar agora. Tente de novo.";}
   };
 }
@@ -1951,6 +1953,23 @@ function abrirEntrarCodigo(){
     if(r&&r.ok){close();toast("Tudo certo! Você entrou em "+(r.nome||"viagem")+".");abrirViagem(r.id);}
     else{btn.disabled=false;btn.textContent="Entrar";err.textContent=(r&&r.erro)||"Não deu pra entrar.";}
   };
+}
+function mostrarCodigoViagem(code,nome,aoAbrir){
+  $("#modal").innerHTML=`<div class="modal"><div class="box" style="text-align:center">
+    <h3>Viagem criada 🎉</h3>
+    <p style="color:var(--muted);font-size:14px;margin:2px 0 12px">Compartilhe este código pra o grupo entrar em <b>${esc(nome||"sua viagem")}</b>:</p>
+    <div style="font-size:30px;font-weight:800;letter-spacing:.22em;color:var(--navy);background:var(--panel2);border:1px solid var(--line2);border-radius:12px;padding:16px 10px;margin-bottom:12px">${esc(code)}</div>
+    <div class="cv-acts">
+      <button class="btn" id="cd-share">📤 Compartilhar convite</button>
+      <button class="btn sec" id="cd-copy">Copiar código</button>
+      <button class="btn gh" id="cd-abrir">Abrir viagem</button>
+    </div>
+  </div></div>`;
+  const abrir=()=>{$("#modal").innerHTML="";aoAbrir&&aoAbrir();};
+  const convite=`Entra na nossa viagem "${nome||""}" no Resenha Trip com o código ${code}`;
+  $("#cd-copy").onclick=async()=>{try{await navigator.clipboard.writeText(code);toast("Código copiado ✓");}catch(e){toast(code);}};
+  $("#cd-share").onclick=async()=>{try{if(navigator.share){await navigator.share({text:convite});}else{await navigator.clipboard.writeText(convite);toast("Convite copiado ✓");}}catch(e){}};
+  $("#cd-abrir").onclick=abrir;
 }
 function enterApp(){
   $("#login").classList.add("hidden");$("#app").classList.remove("hidden");$("#nav").classList.remove("hidden");
