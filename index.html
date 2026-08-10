@@ -690,14 +690,24 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 .pasta-nova{display:block;width:100%;margin-top:14px;border:2px dashed var(--line2);background:var(--panel2);border-radius:14px;padding:18px;text-align:center;color:var(--navy);font-weight:800;font-size:15px;cursor:pointer;font-family:inherit}
 .pasta-nova:hover{border-color:var(--orange);color:var(--orange)}
 .cv-l{display:block;font-size:12px;font-weight:700;color:var(--muted);margin:12px 0 5px;letter-spacing:.02em}
-.cv-row{display:flex;gap:8px;align-items:flex-end}
+#cv-form input,#cv-form select{width:100%}
+.cv-row{display:flex;gap:10px;align-items:flex-end}
+.cv-col{flex:1 1 0;min-width:0}            /* min-width:0 impede o input de data de estourar */
+.cv-col input{width:100%;min-width:0}
+.cv-addrow{display:flex;gap:8px;align-items:stretch}
+.cv-addrow input{flex:1 1 auto;min-width:0}
+.cv-addrow .btn{width:auto;flex:0 0 auto;padding:0 16px;font-size:14px}
 .cv-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.cv-chip{display:inline-flex;align-items:center;gap:5px;background:var(--panel2);border:1px solid var(--line2);border-radius:99px;padding:5px 6px 5px 12px;font-size:13px;font-weight:600;color:var(--text)}
-.cv-chip button{background:none;border:none;color:var(--muted);font-size:17px;line-height:1;cursor:pointer;padding:0 3px}
-.cv-drop{position:relative}
-.cv-droplist{position:absolute;left:0;right:0;top:100%;z-index:5;background:var(--panel);border:1px solid var(--line2);border-radius:12px;margin-top:4px;max-height:230px;overflow:auto;box-shadow:var(--shadowlg)}
-.cv-dropit{display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;font-size:14px}
-.cv-dropit:hover{background:var(--panel2)}
+.cv-chips:empty{margin-top:0}
+.cv-chip{display:inline-flex;align-items:center;gap:5px;background:var(--panel2);border:1px solid var(--line2);border-radius:99px;padding:6px 6px 6px 12px;font-size:13px;font-weight:600;color:var(--text)}
+.cv-chip button{background:none;border:none;color:var(--muted);font-size:18px;line-height:1;cursor:pointer;padding:0 4px}
+.cv-results{margin-top:6px;background:var(--panel);border:1px solid var(--line2);border-radius:12px;max-height:210px;overflow:auto}
+.cv-results:empty{display:none}
+.cv-dropit{display:flex;align-items:center;gap:8px;padding:11px 12px;cursor:pointer;font-size:14px;border-bottom:1px solid var(--line)}
+.cv-dropit:last-child{border-bottom:none}
+.cv-dropit:hover,.cv-dropit:active{background:var(--panel2)}
+.cv-acts{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+.cv-acts .btn{width:100%}
 .cv-err{color:var(--danger);font-size:13px;margin:10px 0 4px;min-height:1em}
 </style>
 </head>
@@ -1728,53 +1738,76 @@ function abrirCriarViagem(){
   if(MOCK){toast("Sem conexão — não dá pra criar viagem agora.");return;}
   const cidsel=[],psel=STATE.me?[STATE.me]:[];
   const chaves=Object.keys(CIDADES_DB.db),nomeBonito=k=>k.charAt(0).toUpperCase()+k.slice(1);
-  $("#modal").innerHTML=`<div class="modal"><div class="box">
+  const flagPais=cc=>{if(!cc||cc.length!==2)return "";const A=0x1F1E6;return String.fromCodePoint(A+cc.toUpperCase().charCodeAt(0)-65)+String.fromCodePoint(A+cc.toUpperCase().charCodeAt(1)-65);};
+  $("#modal").innerHTML=`<div class="modal"><div class="box" id="cv-form">
     <h3>Nova viagem</h3>
     <label class="cv-l">Nome da viagem</label>
     <input id="cv-nome" placeholder="Ex.: Eurotrip 2028" autocomplete="off">
     <label class="cv-l">Rótulo da pasta (curto)</label>
     <input id="cv-tag" placeholder="Ex.: Turma da firma" autocomplete="off">
     <label class="cv-l">Cidades (na ordem da viagem)</label>
-    <div class="cv-drop"><input id="cv-cidbusca" placeholder="Buscar cidade…" autocomplete="off"><div id="cv-cidlista" class="cv-droplist" style="display:none"></div></div>
+    <input id="cv-cidbusca" placeholder="Digite uma cidade e escolha…" autocomplete="off">
+    <div id="cv-cidlista" class="cv-results"></div>
     <div id="cv-cidsel" class="cv-chips"></div>
     <div class="cv-row" style="margin-top:12px">
-      <div style="flex:1"><label class="cv-l" style="margin-top:0">Início</label><input id="cv-ini" type="date"></div>
-      <div style="flex:1"><label class="cv-l" style="margin-top:0">Fim</label><input id="cv-fim" type="date"></div>
+      <div class="cv-col"><label class="cv-l" style="margin-top:0">Início</label><input id="cv-ini" type="date"></div>
+      <div class="cv-col"><label class="cv-l" style="margin-top:0">Fim</label><input id="cv-fim" type="date"></div>
     </div>
     <label class="cv-l">Pessoas</label>
-    <div class="cv-row"><input id="cv-pess" placeholder="Nome e Enter" autocomplete="off" style="flex:2"><button class="btn sec" id="cv-pessadd" style="flex:0 0 auto;padding:0 16px">Add</button></div>
+    <div class="cv-addrow"><input id="cv-pess" placeholder="Nome da pessoa" autocomplete="off"><button class="btn sec" id="cv-pessadd">Adicionar</button></div>
     <div id="cv-psel" class="cv-chips"></div>
     <label class="cv-l">Moeda da viagem</label>
     <select id="cv-moeda"><option value="EUR">Euro (€)</option><option value="USD">Dólar (US$)</option><option value="BRL">Real (R$)</option></select>
     <div id="cv-err" class="cv-err"></div>
-    <button class="btn" id="cv-criar">Criar viagem</button>
-    <button class="btn gh" id="cv-cancel">Cancelar</button>
+    <div class="cv-acts">
+      <button class="btn" id="cv-criar">Criar viagem</button>
+      <button class="btn gh" id="cv-cancel">Cancelar</button>
+    </div>
   </div></div>`;
   const close=()=>{$("#modal").innerHTML="";};
-  $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};
+  /* de propósito NÃO fecha ao tocar fora: evita perder o que já foi digitado */
   $("#cv-cancel").onclick=close;
+
+  const lista=$("#cv-cidlista"),busca=$("#cv-cidbusca");
   const renderCid=()=>{
-    $("#cv-cidsel").innerHTML=cidsel.map((c,i)=>`<span class="cv-chip">${c.flag||""} ${esc(c.n)}<button data-i="${i}" aria-label="remover">×</button></span>`).join("");
+    $("#cv-cidsel").innerHTML=cidsel.map((c,i)=>`<span class="cv-chip">${c.flag||"📍"} ${esc(c.n)}<button data-i="${i}" aria-label="remover">×</button></span>`).join("");
     $("#cv-cidsel").querySelectorAll("button").forEach(b=>b.onclick=()=>{cidsel.splice(+b.dataset.i,1);renderCid();});
   };
-  const lista=$("#cv-cidlista"),busca=$("#cv-cidbusca");
-  busca.oninput=()=>{
-    const nq=normNome(busca.value);
-    if(!nq){lista.style.display="none";return;}
-    const res=chaves.filter(k=>k.includes(nq)).slice(0,8);
-    if(!res.length){lista.style.display="none";return;}
-    lista.innerHTML=res.map(k=>{const e=CIDADES_DB.db[k];return `<div class="cv-dropit" data-k="${k}">${e.flag||""} ${esc(nomeBonito(k))} <span style="color:var(--dim);font-size:12px">${esc(e.pais||"")}</span></div>`;}).join("");
-    lista.style.display="block";
-    lista.querySelectorAll(".cv-dropit").forEach(it=>it.onclick=()=>{const k=it.dataset.k,e=CIDADES_DB.db[k];cidsel.push({n:nomeBonito(k),flag:e.flag,tz:e.tz,lat:e.lat,lng:e.lng});busca.value="";lista.style.display="none";renderCid();});
+  const localMatches=nq=>chaves.filter(k=>k.includes(nq)).slice(0,6).map(k=>{const e=CIDADES_DB.db[k];return {n:nomeBonito(k),flag:e.flag||"",tz:e.tz,lat:e.lat,lng:e.lng,pais:e.pais||""};});
+  const pintar=arr=>{
+    if(!arr.length){lista.innerHTML="";return;}
+    lista.innerHTML=arr.map((c,i)=>`<div class="cv-dropit" data-i="${i}">${c.flag||"📍"} ${esc(c.n)}<span style="color:var(--dim);font-size:12px;margin-left:auto;text-align:right">${esc(c.pais||"")}</span></div>`).join("");
+    lista.querySelectorAll(".cv-dropit").forEach(it=>it.onclick=()=>{const c=arr[+it.dataset.i];cidsel.push({n:c.n,flag:c.flag,tz:c.tz,lat:c.lat,lng:c.lng});busca.value="";lista.innerHTML="";renderCid();});
   };
+  let tGeo=null,seq=0;
+  busca.oninput=()=>{
+    const q=busca.value.trim(),nq=normNome(q);
+    if(!nq){lista.innerHTML="";return;}
+    pintar(localMatches(nq));                       // instantâneo e funciona offline
+    clearTimeout(tGeo);
+    tGeo=setTimeout(async()=>{
+      const meu=++seq;
+      try{
+        const r=await fetch("https://geocoding-api.open-meteo.com/v1/search?count=8&language=pt&format=json&name="+encodeURIComponent(q));
+        if(!r.ok)return; const j=await r.json();
+        if(meu!==seq||busca.value.trim()!==q)return; // resposta velha: ignora
+        const online=(j.results||[]).map(x=>({n:x.name,flag:flagPais(x.country_code),tz:x.timezone||"",lat:x.latitude,lng:x.longitude,pais:[x.admin1,x.country].filter(Boolean).join(", ")}));
+        const vistos=new Set(),merged=[];
+        localMatches(nq).concat(online).forEach(c=>{const key=normNome(c.n)+"|"+(c.pais||"");if(!vistos.has(key)){vistos.add(key);merged.push(c);}});
+        pintar(merged.slice(0,10));
+      }catch(e){/* offline ou sem resposta: segue só com os locais */}
+    },260);
+  };
+
   const renderPess=()=>{
     $("#cv-psel").innerHTML=psel.map((p,i)=>`<span class="cv-chip">${esc(p)}<button data-i="${i}" aria-label="remover">×</button></span>`).join("");
     $("#cv-psel").querySelectorAll("button").forEach(b=>b.onclick=()=>{psel.splice(+b.dataset.i,1);renderPess();});
   };
-  const addPess=()=>{const v=$("#cv-pess").value.trim();if(!v)return;if(!psel.includes(v))psel.push(v);$("#cv-pess").value="";renderPess();};
+  const addPess=()=>{const v=$("#cv-pess").value.trim();if(!v)return;if(!psel.includes(v))psel.push(v);$("#cv-pess").value="";renderPess();$("#cv-pess").focus();};
   $("#cv-pessadd").onclick=addPess;
   $("#cv-pess").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addPess();}});
   renderCid();renderPess();
+
   $("#cv-criar").onclick=async()=>{
     const nome=$("#cv-nome").value.trim(),tag=$("#cv-tag").value.trim();
     const ini=$("#cv-ini").value,fim=$("#cv-fim").value,moeda=$("#cv-moeda").value,err=$("#cv-err");
@@ -1788,6 +1821,7 @@ function abrirCriarViagem(){
     catch(e){console.warn("criarViagem:",e);btn.disabled=false;btn.textContent="Criar viagem";err.textContent="Não deu pra criar agora. Tente de novo.";}
   };
 }
+
 function enterApp(){
   $("#login").classList.add("hidden");$("#app").classList.remove("hidden");$("#nav").classList.remove("hidden");
   if(emViagem()&&!sessionStorage.getItem("tr27_via")){curTab="roteiro";try{sessionStorage.setItem("tr27_via","1");}catch(e){}}

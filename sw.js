@@ -5,7 +5,7 @@
    - NUNCA intercepta o tráfego do Firestore: ele tem o próprio mecanismo offline
    Ao publicar uma versão nova, troque o número em VERSAO abaixo.            */
 
-const VERSAO = "proto-v6";
+const VERSAO = "proto-v7";
 const CACHE_APP = "app-" + VERSAO;
 const CACHE_EXT = "ext-" + VERSAO;
 
@@ -16,10 +16,11 @@ const CASCO = ["./", "./index.html", "./config.js", "./manifest.json",
 /* domínios externos que valem a pena guardar (fontes e SDK do Firebase) */
 const EXTERNOS = ["fonts.googleapis.com", "fonts.gstatic.com", "www.gstatic.com"];
 
-/* nunca tocar nesses: o Firestore cuida do próprio offline */
+/* nunca tocar nesses: têm o próprio mecanismo / não devem ser cacheados */
 const NUNCA = ["firestore.googleapis.com", "firebaseinstallations.googleapis.com",
                "identitytoolkit.googleapis.com", "securetoken.googleapis.com",
                "firebaseappcheck.googleapis.com", "recaptcha.net", "www.google.com",
+               "geocoding-api.open-meteo.com", "api.open-meteo.com",
                "economia.awesomeapi.com.br", "api.exchangerate", "open.er-api.com"];
 
 self.addEventListener("install", e => {
