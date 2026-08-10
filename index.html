@@ -1145,6 +1145,9 @@ async function carregarFX(force){
     if(!force&&c&&c.EUR>0&&Date.now()-c.at<6*3600*1000){FXLIVE=c;renderAll();return;}
   }catch(e){}
   const fontes=[
+    async()=>{const r=await fetch("https://open.er-api.com/v6/latest/BRL");
+      const j=await r.json();
+      if(j&&j.result==="success"&&j.rates&&j.rates.EUR>0){const o={src:"er-api"};for(const k in j.rates){const val=j.rates[k];if(val>0)o[k]=1/val;}o.BRL=1;return o;}throw 0;},
     async()=>{const r=await fetch("https://economia.awesomeapi.com.br/json/last/EUR-BRL,USD-BRL");
       const j=await r.json();
       const e=parseFloat(j.EURBRL&&j.EURBRL.bid),u=parseFloat(j.USDBRL&&j.USDBRL.bid);
@@ -1169,6 +1172,16 @@ function fmtCur(brl,cur,dec){
   return new Intl.NumberFormat("pt-BR",{style:"currency",currency:c,minimumFractionDigits:d,maximumFractionDigits:d}).format(v);
 }
 const moedaDe=p=>(DATA.moedaPadrao||{})[p]||"BRL";
+/* ---- moeda por viagem (principal + moedas exibidas) — pivô interno segue BRL ---- */
+function moedaPrincipal(){return (STATE.config&&STATE.config.moeda)||"BRL";}
+function moedasVista(){
+  const v=STATE.config&&STATE.config.moedasVista, base=moedaPrincipal();
+  let arr=(Array.isArray(v)&&v.length)?v.slice():["BRL","USD","EUR"];
+  if(!arr.includes(base))arr=[base].concat(arr);
+  return arr.filter((m,i)=>arr.indexOf(m)===i);
+}
+function simboloMoeda(m){try{return new Intl.NumberFormat("pt-BR",{style:"currency",currency:m}).formatToParts(0).find(p=>p.type==="currency").value;}catch(e){return m;}}
+function ajustarMoeda(){if(!moedasVista().includes(STATE.cur))STATE.cur=moedaPrincipal();}
 const MOEDA_VIAGEM=()=>STATE.config.moedaViagem||"EUR";
 const toMO=(v,m)=>conv(toBRL(v,m),MOEDA_VIAGEM());
 function fmt(brl,opts){
@@ -1483,7 +1496,7 @@ function listen(){
   const opts={includeMetadataChanges:true};
   const doc1=(id,key,fb)=>UNSUBS.push(FB.onSnapshot(caminho(id),opts,d=>{
     STATE[key]=d.exists()?Object.assign({},fb,d.data()):JSON.parse(JSON.stringify(fb));
-    if(id==="config"){atualizarResumo(VIAGEM.id);sincronizarPessoas();}
+    if(id==="config"){atualizarResumo(VIAGEM.id);sincronizarPessoas();ajustarMoeda();}
     marcarPend("v:"+id,d.metadata);renderAll();}));
   doc1("config","config",SEED.config);
   doc1("roteiro","roteiro",SEED.roteiro);
@@ -1596,7 +1609,7 @@ function abrirPerfil(){
   $("#pf-fechar").onclick=close;
   $("#pf-sair").onclick=()=>{close();localStorage.removeItem(LS.me);STATE.me=null;showLogin();};
   const _bv=$("#pf-viagens");if(_bv)_bv.onclick=()=>{close();showViagens();};
-  $("#pf-moeda").onclick=()=>{const o=["BRL","USD","EUR"];STATE.cur=o[(o.indexOf(STATE.cur)+1)%3];localStorage.setItem(LS.cur,STATE.cur);close();renderAll();};
+  $("#pf-moeda").onclick=()=>{const o=moedasVista();STATE.cur=o[(o.indexOf(STATE.cur)+1)%3];localStorage.setItem(LS.cur,STATE.cur);close();renderAll();};
   $("#pf-meta").onclick=()=>{close();show("cofre");renderCofre();setTimeout(()=>{const m=$("#metaedit");if(m)m.click();},80);};
   $("#pf-ajuda").onclick=()=>{close();mostrarIntro(true);};
 }
@@ -1731,7 +1744,8 @@ async function criarViagem(d){
   const datas=distribuirDatas(d.inicio,d.fim,cds.length);
   cds.forEach((c,i)=>{c.de=datas[i].de;c.ate=datas[i].ate;});
   const hoje=new Date(),mesAtual=hoje.getFullYear()+"-"+String(hoje.getMonth()+1).padStart(2,"0");
-  const config={nome:d.nome,tagline:d.tagline||"Viagem",inicio:d.inicio,fim:d.fim,moeda:"BRL",moedaViagem:d.moeda||"EUR",inicioPoupanca:mesAtual,fx:{EUR:6.20,USD:5.45},cidades:cds,pessoas:d.pessoas.slice(),codigo:code,nota:""};
+  const base=d.moeda||"BRL";const vista=(d.moedasVista&&d.moedasVista.length)?d.moedasVista.slice():[base];
+  const config={nome:d.nome,tagline:d.tagline||"Viagem",inicio:d.inicio,fim:d.fim,moeda:base,moedaViagem:base,moedasVista:vista,inicioPoupanca:mesAtual,fx:{EUR:6.20,USD:5.45},cidades:cds,pessoas:d.pessoas.slice(),codigo:code,nota:""};
   const ts=FB.serverTimestamp?FB.serverTimestamp():Date.now();
   const P=(...seg)=>FB.doc(db,"viagens",code,...seg);
   const b=FB.writeBatch(db);
@@ -1748,6 +1762,7 @@ async function criarViagem(d){
   await b.commit();
   return code;
 }
+const MOEDAS_DB=[["BRL","Real brasileiro"],["USD","Dólar americano"],["EUR","Euro"],["GBP","Libra esterlina"],["JPY","Iene japonês"],["CHF","Franco suíço"],["CAD","Dólar canadense"],["AUD","Dólar australiano"],["CNY","Yuan chinês"],["ARS","Peso argentino"],["CLP","Peso chileno"],["UYU","Peso uruguaio"],["MXN","Peso mexicano"],["COP","Peso colombiano"],["PEN","Sol peruano"],["PYG","Guarani paraguaio"],["BOB","Boliviano"],["PLN","Zloti polonês"],["CZK","Coroa tcheca"],["DKK","Coroa dinamarquesa"],["SEK","Coroa sueca"],["NOK","Coroa norueguesa"],["HUF","Florim húngaro"],["RON","Leu romeno"],["TRY","Lira turca"],["RUB","Rublo russo"],["INR","Rupia indiana"],["ZAR","Rand sul-africano"],["AED","Dirham dos Emirados"],["SAR","Rial saudita"],["ILS","Novo shekel israelense"],["EGP","Libra egípcia"],["MAD","Dirham marroquino"],["THB","Baht tailandês"],["SGD","Dólar de Singapura"],["HKD","Dólar de Hong Kong"],["KRW","Won sul-coreano"],["NZD","Dólar neozelandês"],["IDR","Rupia indonésia"],["MYR","Ringgit malaio"],["PHP","Peso filipino"],["VND","Dongue vietnamita"],["ISK","Coroa islandesa"]];
 function abrirCriarViagem(){
   if(MOCK){toast("Sem conexão — não dá pra criar viagem agora.");return;}
   const cidsel=[],psel=STATE.me?[STATE.me]:[];
@@ -1776,8 +1791,14 @@ function abrirCriarViagem(){
     <label class="cv-l">Pessoas</label>
     <div class="cv-addrow"><input id="cv-pess" placeholder="Nome da pessoa" autocomplete="off"><button class="btn sec" id="cv-pessadd">Adicionar</button></div>
     <div id="cv-psel" class="cv-chips"></div>
-    <label class="cv-l">Moeda da viagem</label>
-    <div class="seg cv-seg" id="cv-moeda"><div data-v="EUR" class="on">Euro €</div><div data-v="USD">Dólar US$</div><div data-v="BRL">Real R$</div></div>
+    <label class="cv-l">Sua moeda principal</label>
+    <input id="cv-mp" placeholder="Buscar moeda (ex.: Real, Dólar, EUR)…" autocomplete="off">
+    <div id="cv-mp-res" class="cv-results"></div>
+    <div id="cv-mp-sel" class="cv-chips"></div>
+    <label class="cv-l">Quais moedas quer ver na viagem? (opcional)</label>
+    <input id="cv-mv" placeholder="Buscar outra moeda…" autocomplete="off">
+    <div id="cv-mv-res" class="cv-results"></div>
+    <div id="cv-mv-sel" class="cv-chips"></div>
     <div id="cv-err" class="cv-err"></div>
     <div class="cv-acts">
       <button class="btn" id="cv-criar">Criar viagem</button>
@@ -1862,9 +1883,17 @@ function abrirCriarViagem(){
   $("#cv-pess").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addPess();}});
   renderCid();renderPess();
 
-  /* ---- moeda: um toque ---- */
-  let moedaSel="EUR";
-  $("#cv-moeda").querySelectorAll("div").forEach(d=>d.onclick=()=>{$("#cv-moeda").querySelectorAll("div").forEach(x=>x.classList.remove("on"));d.classList.add("on");moedaSel=d.dataset.v;});
+  /* ---- moeda principal + moedas a exibir (busca em MOEDAS_DB, tudo local) ---- */
+  let moedaPrin="BRL"; const moedasV=[];
+  const nomeMoeda=c=>{const f=MOEDAS_DB.find(x=>x[0]===c);return f?f[1]:c;};
+  const buscarMoeda=q=>{const nq=normNome(q),lq=q.toLowerCase();return MOEDAS_DB.filter(([c,n])=>c.toLowerCase().includes(lq)||normNome(n).includes(nq)).slice(0,8);};
+  const mpIn=$("#cv-mp"),mpRes=$("#cv-mp-res"),mpSel=$("#cv-mp-sel");
+  const mvIn=$("#cv-mv"),mvRes=$("#cv-mv-res"),mvSel=$("#cv-mv-sel");
+  const pintarMP=()=>{mpSel.innerHTML=`<span class="cv-chip">${moedaPrin} · ${esc(nomeMoeda(moedaPrin))}</span>`;};
+  const pintarMV=()=>{const vis=moedasV.filter(m=>m!==moedaPrin);mvSel.innerHTML=vis.map(m=>`<span class="cv-chip">${m} · ${esc(nomeMoeda(m))}<button data-c="${m}" aria-label="remover">×</button></span>`).join("");mvSel.querySelectorAll("button").forEach(b=>b.onclick=()=>{const i=moedasV.indexOf(b.dataset.c);if(i>-1)moedasV.splice(i,1);pintarMV();});};
+  mpIn.oninput=()=>{const q=mpIn.value.trim();if(!q){mpRes.innerHTML="";return;}mpRes.innerHTML=buscarMoeda(q).map(([c,n])=>`<div class="cv-dropit" data-c="${c}">${c} · ${esc(n)}</div>`).join("");mpRes.querySelectorAll(".cv-dropit").forEach(it=>it.onclick=()=>{moedaPrin=it.dataset.c;mpIn.value="";mpRes.innerHTML="";pintarMP();pintarMV();});};
+  mvIn.oninput=()=>{const q=mvIn.value.trim();if(!q){mvRes.innerHTML="";return;}mvRes.innerHTML=buscarMoeda(q).map(([c,n])=>`<div class="cv-dropit" data-c="${c}">${c} · ${esc(n)}</div>`).join("");mvRes.querySelectorAll(".cv-dropit").forEach(it=>it.onclick=()=>{const c=it.dataset.c;if(c!==moedaPrin&&!moedasV.includes(c))moedasV.push(c);mvIn.value="";mvRes.innerHTML="";pintarMV();});};
+  pintarMP();pintarMV();
 
   /* ---- criar ---- */
   $("#cv-criar").onclick=async()=>{
@@ -1874,7 +1903,7 @@ function abrirCriarViagem(){
     if(!de||!ate){err.textContent="Toque no início e no fim no calendário.";return;}
     if(!psel.length){err.textContent="Adicione ao menos uma pessoa.";return;}
     const btn=$("#cv-criar");btn.disabled=true;btn.textContent="Criando…";
-    try{const code=await criarViagem({nome,tagline:tag,cidades:cidsel.slice(),inicio:de,fim:ate,pessoas:psel.slice(),moeda:moedaSel});close();if(code)abrirViagem(code);}
+    try{const code=await criarViagem({nome,tagline:tag,cidades:cidsel.slice(),inicio:de,fim:ate,pessoas:psel.slice(),moeda:moedaPrin,moedasVista:[moedaPrin].concat(moedasV.filter(m=>m!==moedaPrin))});close();if(code)abrirViagem(code);}
     catch(e){console.warn("criarViagem:",e);btn.disabled=false;btn.textContent="Criar viagem";err.textContent="Não deu pra criar agora. Tente de novo.";}
   };
 }
@@ -1887,7 +1916,8 @@ function enterApp(){
   $("#mename").textContent=STATE.me;
   const h=new Date().getHours(),sd=h<12?"Bom dia":h<18?"Boa tarde":"Boa noite";
   const tl=$("#tagline");if(tl&&STATE.me)tl.textContent=sd+", "+STATE.me;
-  if(!STATE.cur){STATE.cur=moedaDe(STATE.me);localStorage.setItem(LS.cur,STATE.cur);}
+  if(!STATE.cur)STATE.cur=moedaDe(STATE.me);
+  ajustarMoeda();localStorage.setItem(LS.cur,STATE.cur);
   renderAll();
   // onboarding só na primeiríssima vez neste aparelho (não atrapalha o carregamento)
   setTimeout(()=>{try{if(localStorage.getItem(LS.intro)!=="1")mostrarIntro(false);}catch(e){}},700);
@@ -2114,11 +2144,14 @@ function renderHeader(){
   const fx=c.fx||{};
   const viva=!!FXLIVE;
   const hora=viva?new Date(FXLIVE.at).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):"";
+  ajustarMoeda();
+  const _prin=moedaPrincipal(), _setM=moedasVista(), _alvos=_setM.filter(m=>m!==_prin);
+  const _taxas=_alvos.length?_alvos.map(m=>`1 ${simboloMoeda(m)} = ${fmtIn(rate(m)/rate(_prin),_prin)}`).join(" · "):`tudo em ${simboloMoeda(_prin)}`;
   $("#fxline").innerHTML=
-    `<span style="color:var(--dim)">€1 = ${fmtIn(rate("EUR"),"BRL")} · €1 = ${fmtIn(rate("EUR")/rate("USD"),"USD")}`+
+    `<span style="color:var(--dim)">${_taxas}`+
     (viva?` <span style="color:var(--ok)">• ${esc(FXLIVE.src)} ${esc(hora)}</span>`:` <span style="color:var(--warn)">• taxa fixa</span>`)+`</span>`+
     `<span style="margin-left:auto;display:flex;gap:4px;align-items:center">`+
-      ["BRL","USD","EUR"].map(m=>`<span class="pill ${STATE.cur===m?"ok":""}" data-cur="${m}" style="cursor:pointer">${m}</span>`).join("")+
+      _setM.map(m=>`<span class="pill ${STATE.cur===m?"ok":""}" data-cur="${m}" style="cursor:pointer">${m}</span>`).join("")+
       `<button id="fxconv" class="fxconvbtn" type="button" title="Simular conversão" aria-label="Simular conversão"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10h14l-3-3M17 14H3l3 3"/></svg></button>`+
     `</span>`;
   const cbtn=$("#fxconv");
@@ -2132,8 +2165,8 @@ function renderHeader(){
 
 /* ---- calculadora de câmbio ----------------------------- */
 function abrirCambio(){
-  const moedas=["EUR","BRL","USD"];
-  let de="EUR", val="100";
+  const moedas=moedasVista();
+  let de=moedas[0]||"BRL", val="100";
   function linhas(){
     const emBRL=toBRL(parseMoney(val)||0,de);
     return moedas.filter(m=>m!==de).map(m=>`<div class="li" style="margin-bottom:7px">
@@ -2845,7 +2878,7 @@ function renderCofre(){_sujo.delete("cofre");
     <div class="row">
       <div class="grow">
         <div class="lbl">Já guardei</div>
-        <div class="big money count" data-count="${disp(sav).toFixed(0)}" data-pre="${STATE.cur==="BRL"?"R$ ":(STATE.cur==="USD"?"US$ ":"€ ")}" data-final="${fmt(sav)}">${fmt(sav)}</div>
+        <div class="big money count" data-count="${disp(sav).toFixed(0)}" data-pre="${simboloMoeda(STATE.cur)+' '}" data-final="${fmt(sav)}">${fmt(sav)}</div>
         <div class="of">de ${fmt(meta)}${STATE.cur!=="EUR"?` · <b style="color:var(--mun)">≈ ${fmtCur(sav,"EUR")}</b>`:""}</div>
         <div class="of" style="margin-top:2px"><span class="lnk" id="metaedit">${metaAuto(me)?"meta automática":"editar meta"}</span>${metaAuto(me)?infoBtn("Sua meta automática é a soma da sua parte nos custos compartilhados da viagem mais os seus gastos pessoais planejados. Toque em \u201cmeta automática\u201d para definir um valor manual."):""}</div>
       </div>
