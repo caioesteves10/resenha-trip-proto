@@ -509,6 +509,18 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 .pbtn.on{background:var(--navy);border-color:var(--navy);color:#fff}
 .pininp{display:flex;justify-content:center;margin:0 0 14px}
 .pininp input{max-width:250px;height:54px;text-align:center;font-size:19px;letter-spacing:.14em;font-weight:700}
+.auth-tabs{display:flex;gap:6px;background:var(--panel2);border:1px solid var(--line2);border-radius:13px;padding:4px;margin:6px 0 14px}
+.auth-tab{flex:1;background:none;border:none;border-radius:10px;padding:10px;font-size:14px;font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit}
+.auth-tab.on{background:#fff;color:var(--navy);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.auth-form{display:flex;flex-direction:column;gap:10px}
+.au-inp{width:100%;height:50px;border:1px solid var(--line2);border-radius:12px;background:var(--panel);padding:0 14px;font-size:15px;font-family:inherit;color:var(--navy)}
+.au-inp:focus{outline:none;border-color:var(--navy)}
+.au-link{background:none;border:none;color:var(--muted);font-size:13px;text-decoration:underline;cursor:pointer;font-family:inherit;padding:2px;align-self:center}
+.au-ou{display:flex;align-items:center;gap:10px;color:var(--dim);font-size:12px;margin:4px 0}
+.au-ou::before,.au-ou::after{content:"";flex:1;height:1px;background:var(--line2)}
+.au-social{width:100%}
+.auth-splash{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.auth-splash .disp{font-size:40px;text-align:center}
 
 .toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translateX(-50%);
  background:var(--navy);color:#fff;font-weight:800;padding:11px 18px;border-radius:12px;font-size:13.5px;
@@ -730,15 +742,7 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 <body>
 
 <!-- LOGIN -->
-<div id="login" class="login hidden">
-  <div class="kicker" style="text-align:center">Paris · Munique · Berlim · out 2027</div>
-  <div class="disp">Resenha<br>Trip</div>
-  <div class="ll">Escolha seu nome e digite sua senha</div>
-  <div id="pgrid" class="pgrid"></div>
-  <div class="pininp"><input id="pin" type="password" autocomplete="current-password" placeholder="senha" aria-label="Senha"></div>
-  <button id="enter" class="btn">Entrar</button>
-  <div id="lerr" class="err"></div>
-</div>
+<div id="login" class="login hidden"></div>
 
 <!-- HOME DE VIAGENS (Fase 3) -->
 <div id="viagens" class="hidden">
@@ -809,6 +813,9 @@ let firebaseConfig={apiKey:"",authDomain:"",projectId:""};
 let APPCHECK_KEY="";
 let PIN_HASH={};
 let ADMIN_HASH="";
+let ADMIN_EMAILS=["caioesteves10@gmail.com"];
+let AUTH_APPLE=false;
+let DEV=false;
 let CFG_OK=false;
 let APPCHECK_ST="desligado";
 
@@ -954,6 +961,7 @@ const checarAdmin=v=>conferir(ADMIN_HASH,v,ADMIN_PIN);
 
 /* ---- 3. ESTADO ----------------------------------------- */
 let db=null, FB=null, MOCK=false, PERSIST_OK=false, UID=null;
+let AUTHM=null, auth=null, IS_ADMIN=false;
 /* ---- contexto da viagem ativa (Fase 0) -----------------
    Todo acesso a dados passa por estes helpers, que apontam para
    viagens/{VIAGEM.id}/dados/*  e  viagens/{VIAGEM.id}/viajantes/*.
@@ -1311,6 +1319,27 @@ const sameDay=(base)=>String(base).slice(0,10)===hojeViagem();
    É o "perfil durável" deste aparelho: o uid anônimo persiste entre
    aberturas, então este doc amarra a pessoa às suas viagens
    (usado a partir da Fase 2 para listar "as minhas viagens"). */
+async function onAuth(user){
+  if(!user){
+    UID=null;STATE.uid=null;IS_ADMIN=false;
+    if(!DEV)showLogin();
+    _bootResolve&&_bootResolve();
+    return;
+  }
+  const social=(user.providerData||[]).some(p=>/google|apple/i.test((p&&p.providerId)||""));
+  if(!user.emailVerified && !social){
+    mostrarVerificacao(user);
+    _bootResolve&&_bootResolve();
+    return;
+  }
+  UID=user.uid;STATE.uid=UID;
+  IS_ADMIN=ADMIN_EMAILS.map(x=>String(x).toLowerCase()).includes(String(user.email||"").toLowerCase());
+  STATE.me=user.displayName||(user.email?user.email.split("@")[0]:"Você");
+  try{localStorage.setItem(LS.me,STATE.me);}catch(e){}
+  try{await garantirPerfil();}catch(e){}
+  _bootResolve&&_bootResolve();
+  showViagens();
+}
 async function garantirPerfil(){
   if(MOCK||!db||!UID)return;
   try{
@@ -1318,6 +1347,7 @@ async function garantirPerfil(){
     const ts=(FB.serverTimestamp?FB.serverTimestamp():Date.now());
     const dados={ultimoAcesso:ts};
     if(STATE.me)dados.nome=STATE.me;
+    try{if(auth&&auth.currentUser){dados.email=auth.currentUser.email||"";dados.emailVerificado=!!auth.currentUser.emailVerified;}}catch(e){}
     if(FB.getDoc){try{const s=await FB.getDoc(ref);if(!s.exists())dados.criadoEm=ts;}catch(e){}}
     await FB.setDoc(ref,dados,{merge:true});
   }catch(e){console.warn("perfil:",e&&e.code);}
@@ -1365,7 +1395,7 @@ async function initFB(){
     try{
       A=await import(`https://www.gstatic.com/firebasejs/${SVER}/firebase-app.js`);
       F=await import(`https://www.gstatic.com/firebasejs/${SVER}/firebase-firestore.js`);
-      if(USE_ANON_AUTH)U=await import(`https://www.gstatic.com/firebasejs/${SVER}/firebase-auth.js`);
+      U=await import(`https://www.gstatic.com/firebasejs/${SVER}/firebase-auth.js`);
     }catch(e){e.code="SDK_LOAD_FAIL";throw e;}
     FB=F;const app=A.initializeApp(firebaseConfig);
     if(APPCHECK_KEY){
@@ -1379,20 +1409,7 @@ async function initFB(){
         console.warn("App Check:",err);
       }
     }else{APPCHECK_ST="desligado (APPCHECK_KEY vazio no config.js)";}
-    if(USE_ANON_AUTH){
-      const auth=U.getAuth(app);
-      // espera o SDK restaurar a sessão guardada no aparelho
-      await new Promise(res=>{const un=U.onAuthStateChanged(auth,()=>{un();res();});});
-      if(!auth.currentUser){
-        try{await U.signInAnonymously(auth);}
-        catch(e){
-          // sem rede: segue com o cache local do Firestore em vez de cair no modo local
-          if(navigator.onLine){e.code=e.code||"AUTH_FAIL";throw e;}
-          console.warn("Offline no login anônimo — seguindo com o cache local.");
-        }
-      }
-      UID=auth.currentUser?auth.currentUser.uid:null;STATE.uid=UID;
-    }
+    AUTHM=U;  // login real é decidido por onAuth() depois que o db sobe
     /* Persistência offline: leituras e ESCRITAS continuam funcionando sem rede.
        O que for lançado offline fica numa fila local e sobe sozinho ao reconectar. */
     try{
@@ -1414,13 +1431,11 @@ async function initFB(){
       PERSIST_OK=false;
     }
     if(!db)db=F.getFirestore(app);
-    await garantirPerfil();
-    await ensureSeed();
-    listen();
-    _bootResolve&&_bootResolve();
+    auth=AUTHM.getAuth(app);
+    AUTHM.onAuthStateChanged(auth,onAuth);
   }catch(e){
     console.warn("Firestore indisponível — modo local:",e);
-    MOCK=true;loadLocal();_bootResolve&&_bootResolve();
+    MOCK=true;loadLocal();STATE.me=STATE.me||"Você";_bootResolve&&_bootResolve();showViagens();
     const ob=$("#offbar");
     if(ob){ob.classList.remove("hidden");
       const cod=String((e&&e.code)||(e&&e.name)||"?");
@@ -1576,24 +1591,123 @@ function registrarCategoria(c){
 const checklistMaster=()=>{const m=STATE.config.checklistMaster;return (Array.isArray(m)&&m.length)?m:SEED.checklistModelo;};
 
 /* ---- 6. LOGIN ------------------------------------------ */
-let pick=null;
-function showLogin(){
-  $("#app").classList.add("hidden");$("#nav").classList.add("hidden");$("#login").classList.remove("hidden");
-  $("#pgrid").innerHTML=DATA.people.map(n=>`<button class="pbtn" data-n="${esc(n)}">${esc(n)}</button>`).join("");
-  $("#pgrid").querySelectorAll(".pbtn").forEach(b=>b.onclick=()=>{
-    pick=b.dataset.n;$("#pgrid").querySelectorAll(".pbtn").forEach(x=>x.classList.toggle("on",x===b));});
-  $("#pin").value="";$("#lerr").textContent="";
+let _authMode="entrar";
+function loginSplash(){
+  $("#login").innerHTML=`<div class="auth-splash"><div class="disp">Resenha<br>Trip</div><div class="ll">carregando…</div></div>`;
+  $("#app").classList.add("hidden");$("#nav").classList.add("hidden");$("#viagens").classList.add("hidden");
+  $("#login").classList.remove("hidden");
 }
-$("#enter").onclick=async()=>{
-  const pin=$("#pin").value;
-  if(!pick){$("#lerr").textContent="Escolha seu nome.";return;}
-  const b=$("#enter");b.disabled=true;b.textContent="Conferindo…";
-  const ok=await checarPessoa(pick,pin);
-  b.disabled=false;b.textContent="Entrar";
-  if(!ok){$("#lerr").textContent="Senha incorreta.";$("#pin").value="";return;}
-  STATE.me=pick;localStorage.setItem(LS.me,pick);garantirPerfil();enterApp();
-};
-$("#pin").addEventListener("keydown",e=>{if(e.key==="Enter")$("#enter").click();});
+function showLogin(){
+  $("#app").classList.add("hidden");$("#nav").classList.add("hidden");$("#viagens").classList.add("hidden");
+  $("#login").classList.remove("hidden");
+  renderLogin();
+}
+function renderLogin(){
+  const criar=_authMode==="criar";
+  $("#login").innerHTML=`
+    <div class="kicker" style="text-align:center">Planejador de viagens em grupo</div>
+    <div class="disp">Resenha<br>Trip</div>
+    <div class="auth-tabs">
+      <button class="auth-tab ${!criar?'on':''}" data-m="entrar">Entrar</button>
+      <button class="auth-tab ${criar?'on':''}" data-m="criar">Criar conta</button>
+    </div>
+    <div class="auth-form">
+      ${criar?`<input id="au-nome" class="au-inp" type="text" autocomplete="name" placeholder="Seu nome">`:""}
+      <input id="au-email" class="au-inp" type="email" autocomplete="email" inputmode="email" placeholder="E-mail">
+      <input id="au-senha" class="au-inp" type="password" autocomplete="${criar?'new-password':'current-password'}" placeholder="Senha">
+      ${criar?`<input id="au-senha2" class="au-inp" type="password" autocomplete="new-password" placeholder="Confirmar senha">`:""}
+      <button id="au-go" class="btn">${criar?"Criar conta":"Entrar"}</button>
+      ${!criar?`<button id="au-esqueci" class="au-link">Esqueci minha senha</button>`:""}
+      <div class="au-ou"><span>ou</span></div>
+      <button id="au-google" class="btn sec au-social">Entrar com Google</button>
+      ${AUTH_APPLE?`<button id="au-apple" class="btn sec au-social">Entrar com Apple</button>`:""}
+      <div id="au-err" class="err"></div>
+    </div>`;
+  $("#login").querySelectorAll(".auth-tab").forEach(t=>t.onclick=()=>{_authMode=t.dataset.m;renderLogin();});
+  const go=$("#au-go");if(go)go.onclick=criar?fazerCadastro:fazerLogin;
+  const gg=$("#au-google");if(gg)gg.onclick=entrarGoogle;
+  const ap=$("#au-apple");if(ap)ap.onclick=entrarApple;
+  const eq=$("#au-esqueci");if(eq)eq.onclick=resetSenha;
+  const s=$("#au-senha");if(s)s.addEventListener("keydown",e=>{if(e.key==="Enter"&&go)go.click();});
+  const s2=$("#au-senha2");if(s2)s2.addEventListener("keydown",e=>{if(e.key==="Enter"&&go)go.click();});
+}
+function auErr(m){const e=$("#au-err");if(e)e.textContent=m||"";}
+function auMsg(cod){
+  cod=String(cod||"");
+  if(/email-already-in-use/.test(cod))return "Esse e-mail já tem conta. Tente entrar.";
+  if(/invalid-email/.test(cod))return "E-mail inválido.";
+  if(/weak-password/.test(cod))return "Senha fraca — use 6+ caracteres.";
+  if(/wrong-password|invalid-credential|invalid-login/.test(cod))return "E-mail ou senha incorretos.";
+  if(/user-not-found/.test(cod))return "Não achei uma conta com esse e-mail.";
+  if(/too-many-requests/.test(cod))return "Muitas tentativas. Espere um pouco.";
+  if(/popup-closed|cancelled-popup|popup-blocked/.test(cod))return "Login cancelado ou bloqueado.";
+  if(/operation-not-allowed/.test(cod))return "Esse método de login não está ligado no Firebase.";
+  if(/network/.test(cod))return "Sem conexão. Tente de novo.";
+  return "Não consegui: "+cod;
+}
+async function fazerLogin(){
+  const email=($("#au-email").value||"").trim(), senha=$("#au-senha").value||"";
+  if(!email||!senha){auErr("Preencha e-mail e senha.");return;}
+  if(!auth){auErr("Conexão indisponível.");return;}
+  const b=$("#au-go");b.disabled=true;b.textContent="Entrando…";
+  try{await AUTHM.signInWithEmailAndPassword(auth,email,senha);}
+  catch(e){auErr(auMsg(e&&e.code));b.disabled=false;b.textContent="Entrar";}
+}
+async function fazerCadastro(){
+  const nome=($("#au-nome").value||"").trim();
+  const email=($("#au-email").value||"").trim();
+  const senha=$("#au-senha").value||"", senha2=$("#au-senha2").value||"";
+  if(!nome){auErr("Como você quer ser chamado?");return;}
+  if(!email){auErr("Digite seu e-mail.");return;}
+  if(senha.length<6){auErr("A senha precisa de 6+ caracteres.");return;}
+  if(senha!==senha2){auErr("As senhas não batem.");return;}
+  if(!auth){auErr("Conexão indisponível.");return;}
+  const b=$("#au-go");b.disabled=true;b.textContent="Criando…";
+  try{
+    const cr=await AUTHM.createUserWithEmailAndPassword(auth,email,senha);
+    try{await AUTHM.updateProfile(cr.user,{displayName:nome});}catch(e){}
+    STATE.me=nome;try{localStorage.setItem(LS.me,nome);}catch(e){}
+    try{await AUTHM.sendEmailVerification(cr.user);}catch(e){}
+  }catch(e){auErr(auMsg(e&&e.code));b.disabled=false;b.textContent="Criar conta";}
+}
+async function entrarGoogle(){
+  if(!auth){auErr("Conexão indisponível.");return;}
+  try{const p=new AUTHM.GoogleAuthProvider();await AUTHM.signInWithPopup(auth,p);}
+  catch(e){auErr(auMsg(e&&e.code));}
+}
+async function entrarApple(){
+  if(!auth){auErr("Conexão indisponível.");return;}
+  try{const p=new AUTHM.OAuthProvider("apple.com");await AUTHM.signInWithPopup(auth,p);}
+  catch(e){auErr(auMsg(e&&e.code));}
+}
+async function resetSenha(){
+  const email=($("#au-email").value||"").trim();
+  if(!email){auErr("Digite seu e-mail primeiro, aí eu envio o link.");return;}
+  if(!auth){auErr("Conexão indisponível.");return;}
+  try{await AUTHM.sendPasswordResetEmail(auth,email);auErr("");toast("Enviei um link de redefinição ✓");}
+  catch(e){auErr(auMsg(e&&e.code));}
+}
+function mostrarVerificacao(user){
+  $("#app").classList.add("hidden");$("#nav").classList.add("hidden");$("#viagens").classList.add("hidden");
+  $("#login").classList.remove("hidden");
+  $("#login").innerHTML=`
+    <div class="disp">Confirme<br>seu e-mail</div>
+    <div class="ll">Enviei um link pra <b>${esc(user.email||"")}</b>. Abra o e-mail, clique no link e volte aqui.</div>
+    <div class="auth-form">
+      <button id="vf-ok" class="btn">Já confirmei</button>
+      <button id="vf-reenviar" class="btn sec">Reenviar e-mail</button>
+      <button id="vf-sair" class="btn gh">Usar outra conta</button>
+      <div id="au-err" class="err"></div>
+    </div>`;
+  $("#vf-ok").onclick=async()=>{
+    const b=$("#vf-ok");b.disabled=true;b.textContent="Conferindo…";
+    try{await user.reload();}catch(e){}
+    if(auth&&auth.currentUser&&auth.currentUser.emailVerified){onAuth(auth.currentUser);}
+    else{b.disabled=false;b.textContent="Já confirmei";auErr("Ainda não confirmou. Cheque sua caixa (e o spam).");}
+  };
+  $("#vf-reenviar").onclick=async()=>{try{await AUTHM.sendEmailVerification(user);toast("Reenviei o e-mail ✓");}catch(e){auErr(auMsg(e&&e.code));}};
+  $("#vf-sair").onclick=async()=>{try{if(auth)await auth.signOut();}catch(e){}_authMode="entrar";};
+}
 $("#logout").onclick=(e)=>{e.stopPropagation();abrirPerfil();};
 function abrirPerfil(){
   $("#modal").innerHTML=`<div class="modal"><div class="box">
@@ -1609,7 +1723,7 @@ function abrirPerfil(){
   const close=()=>{$("#modal").innerHTML="";};
   $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};
   $("#pf-fechar").onclick=close;
-  $("#pf-sair").onclick=()=>{close();localStorage.removeItem(LS.me);STATE.me=null;showLogin();};
+  $("#pf-sair").onclick=async()=>{close();try{if(auth&&auth.currentUser)await auth.signOut();}catch(e){}localStorage.removeItem(LS.me);STATE.me=null;if(!auth||!auth.currentUser)showLogin();};
   const _bv=$("#pf-viagens");if(_bv)_bv.onclick=()=>{close();showViagens();};
   const _bc=$("#pf-codigo");if(_bc)_bc.onclick=async()=>{try{await navigator.clipboard.writeText(STATE.config.codigo);toast("Código copiado ✓");}catch(e){toast(STATE.config.codigo);}};
   $("#pf-moeda").onclick=()=>{const o=moedasVista();STATE.cur=o[(o.indexOf(STATE.cur)+1)%3];localStorage.setItem(LS.cur,STATE.cur);close();renderAll();};
@@ -4456,10 +4570,17 @@ try{
   if(C.APPCHECK_KEY)APPCHECK_KEY=C.APPCHECK_KEY;
   if(C.PIN_HASH)PIN_HASH=C.PIN_HASH;
   if(C.ADMIN_HASH)ADMIN_HASH=C.ADMIN_HASH;
+  if(C.ADMIN_EMAILS&&C.ADMIN_EMAILS.length)ADMIN_EMAILS=C.ADMIN_EMAILS;
+  if(typeof C.AUTH_APPLE!=="undefined")AUTH_APPLE=!!C.AUTH_APPLE;
 }catch(e){console.warn("config.js nao encontrado ou com erro:",e);}
 
-if(STATE.me&&DATA.people.indexOf(STATE.me)>-1)showViagens();else showLogin();
-initFB();
+try{const _q=new URLSearchParams(location.search);
+  if(_q.get("dev")==="1")localStorage.setItem("tr27_dev","1");
+  if(_q.get("dev")==="0")localStorage.removeItem("tr27_dev");
+  DEV=localStorage.getItem("tr27_dev")==="1";
+}catch(e){}
+if(DEV){MOCK=true;STATE.me=STATE.me||"Dev";loadLocal();_bootResolve&&_bootResolve();showViagens();}
+else{loginSplash();initFB();}
 carregarFX();
 let ULT_MES=monthKey(new Date());
 setInterval(()=>{const k=monthKey(new Date());if(k!==ULT_MES){ULT_MES=k;renderAll();}},60000);
