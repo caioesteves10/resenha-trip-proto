@@ -708,6 +708,20 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 .cv-dropit:hover,.cv-dropit:active{background:var(--panel2)}
 .cv-acts{display:flex;flex-direction:column;gap:8px;margin-top:16px}
 .cv-acts .btn{width:100%}
+.cv-seg{margin-bottom:0;overflow:auto}
+.cal{border:1px solid var(--line2);border-radius:12px;padding:10px;background:var(--panel);margin-top:4px}
+.cal-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.cal-h b{font-size:14px;font-weight:800;color:var(--text)}
+.cal-nav{background:var(--panel2);border:1px solid var(--line2);border-radius:9px;width:38px;height:34px;font-size:18px;color:var(--navy);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.cal-wd{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:2px}
+.cal-wd span{text-align:center;font-size:11px;font-weight:700;color:var(--dim)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-d{height:38px;border:none;background:none;border-radius:9px;font-size:14px;color:var(--text);cursor:pointer;font-family:inherit;padding:0}
+.cal-d:hover{background:var(--panel2)}
+.cal-d.mut{visibility:hidden;pointer-events:none}
+.cal-d.in{background:rgba(232,114,46,.14)}
+.cal-d.on{background:var(--orange);color:#fff;font-weight:800}
+.cal-sum{text-align:center;font-size:13px;color:var(--muted);margin-top:8px;min-height:1.1em;font-weight:600}
 .cv-err{color:var(--danger);font-size:13px;margin:10px 0 4px;min-height:1em}
 </style>
 </head>
@@ -1739,6 +1753,9 @@ function abrirCriarViagem(){
   const cidsel=[],psel=STATE.me?[STATE.me]:[];
   const chaves=Object.keys(CIDADES_DB.db),nomeBonito=k=>k.charAt(0).toUpperCase()+k.slice(1);
   const flagPais=cc=>{if(!cc||cc.length!==2)return "";const A=0x1F1E6;return String.fromCodePoint(A+cc.toUpperCase().charCodeAt(0)-65)+String.fromCodePoint(A+cc.toUpperCase().charCodeAt(1)-65);};
+  const MESN=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+  const isoD=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  const fmtDia=iso=>{const p=iso.split("-").map(Number);return p[2]+" "+MESES[p[1]-1];};
   $("#modal").innerHTML=`<div class="modal"><div class="box" id="cv-form">
     <h3>Nova viagem</h3>
     <label class="cv-l">Nome da viagem</label>
@@ -1749,15 +1766,18 @@ function abrirCriarViagem(){
     <input id="cv-cidbusca" placeholder="Digite uma cidade e escolha…" autocomplete="off">
     <div id="cv-cidlista" class="cv-results"></div>
     <div id="cv-cidsel" class="cv-chips"></div>
-    <div class="cv-row" style="margin-top:12px">
-      <div class="cv-col"><label class="cv-l" style="margin-top:0">Início</label><input id="cv-ini" type="date"></div>
-      <div class="cv-col"><label class="cv-l" style="margin-top:0">Fim</label><input id="cv-fim" type="date"></div>
+    <label class="cv-l">Datas da viagem</label>
+    <div class="cal" id="cv-cal">
+      <div class="cal-h"><button type="button" class="cal-nav cal-prev" aria-label="mês anterior">‹</button><b></b><button type="button" class="cal-nav cal-next" aria-label="próximo mês">›</button></div>
+      <div class="cal-wd"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
+      <div class="cal-grid"></div>
+      <div class="cal-sum"></div>
     </div>
     <label class="cv-l">Pessoas</label>
     <div class="cv-addrow"><input id="cv-pess" placeholder="Nome da pessoa" autocomplete="off"><button class="btn sec" id="cv-pessadd">Adicionar</button></div>
     <div id="cv-psel" class="cv-chips"></div>
     <label class="cv-l">Moeda da viagem</label>
-    <select id="cv-moeda"><option value="EUR">Euro (€)</option><option value="USD">Dólar (US$)</option><option value="BRL">Real (R$)</option></select>
+    <div class="seg cv-seg" id="cv-moeda"><div data-v="EUR" class="on">Euro €</div><div data-v="USD">Dólar US$</div><div data-v="BRL">Real R$</div></div>
     <div id="cv-err" class="cv-err"></div>
     <div class="cv-acts">
       <button class="btn" id="cv-criar">Criar viagem</button>
@@ -1768,6 +1788,7 @@ function abrirCriarViagem(){
   /* de propósito NÃO fecha ao tocar fora: evita perder o que já foi digitado */
   $("#cv-cancel").onclick=close;
 
+  /* ---- cidades (Open-Meteo + lista local como fallback instantâneo) ---- */
   const lista=$("#cv-cidlista"),busca=$("#cv-cidbusca");
   const renderCid=()=>{
     $("#cv-cidsel").innerHTML=cidsel.map((c,i)=>`<span class="cv-chip">${c.flag||"📍"} ${esc(c.n)}<button data-i="${i}" aria-label="remover">×</button></span>`).join("");
@@ -1777,28 +1798,61 @@ function abrirCriarViagem(){
   const pintar=arr=>{
     if(!arr.length){lista.innerHTML="";return;}
     lista.innerHTML=arr.map((c,i)=>`<div class="cv-dropit" data-i="${i}">${c.flag||"📍"} ${esc(c.n)}<span style="color:var(--dim);font-size:12px;margin-left:auto;text-align:right">${esc(c.pais||"")}</span></div>`).join("");
-    lista.querySelectorAll(".cv-dropit").forEach(it=>it.onclick=()=>{const c=arr[+it.dataset.i];cidsel.push({n:c.n,flag:c.flag,tz:c.tz,lat:c.lat,lng:c.lng});busca.value="";lista.innerHTML="";renderCid();});
+    lista.querySelectorAll(".cv-dropit").forEach(it=>it.onclick=()=>{const c=arr[+it.dataset.i];cidsel.push({n:c.n,flag:c.flag,tz:c.tz,lat:c.lat,lng:c.lng});busca.value="";lista.innerHTML="";renderCid();busca.focus();});
   };
   let tGeo=null,seq=0;
   busca.oninput=()=>{
     const q=busca.value.trim(),nq=normNome(q);
     if(!nq){lista.innerHTML="";return;}
-    pintar(localMatches(nq));                       // instantâneo e funciona offline
+    pintar(localMatches(nq));
     clearTimeout(tGeo);
     tGeo=setTimeout(async()=>{
       const meu=++seq;
       try{
         const r=await fetch("https://geocoding-api.open-meteo.com/v1/search?count=8&language=pt&format=json&name="+encodeURIComponent(q));
-        if(!r.ok)return; const j=await r.json();
-        if(meu!==seq||busca.value.trim()!==q)return; // resposta velha: ignora
-        const online=(j.results||[]).map(x=>({n:x.name,flag:flagPais(x.country_code),tz:x.timezone||"",lat:x.latitude,lng:x.longitude,pais:[x.admin1,x.country].filter(Boolean).join(", ")}));
+        if(!r.ok)return; const jj=await r.json();
+        if(meu!==seq||busca.value.trim()!==q)return;
+        const online=(jj.results||[]).map(x=>({n:x.name,flag:flagPais(x.country_code),tz:x.timezone||"",lat:x.latitude,lng:x.longitude,pais:[x.admin1,x.country].filter(Boolean).join(", ")}));
         const vistos=new Set(),merged=[];
         localMatches(nq).concat(online).forEach(c=>{const key=normNome(c.n)+"|"+(c.pais||"");if(!vistos.has(key)){vistos.add(key);merged.push(c);}});
         pintar(merged.slice(0,10));
-      }catch(e){/* offline ou sem resposta: segue só com os locais */}
+      }catch(e){/* offline: fica só com os locais */}
     },260);
   };
+  busca.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();const f=lista.querySelector(".cv-dropit");if(f)f.click();}});
 
+  /* ---- calendário de intervalo: toca início, toca fim (sem confirmar) ---- */
+  let de=null,ate=null,vm=new Date();vm=new Date(vm.getFullYear(),vm.getMonth(),1);
+  const cal=$("#cv-cal");
+  const renderCal=()=>{
+    const y=vm.getFullYear(),m=vm.getMonth(),off=new Date(y,m,1).getDay(),dim=new Date(y,m+1,0).getDate();
+    let cells="";
+    for(let i=0;i<off;i++)cells+='<button type="button" class="cal-d mut"></button>';
+    for(let d=1;d<=dim;d++){
+      const iso=isoD(new Date(y,m,d));let cls="cal-d";
+      if(iso===de||iso===ate)cls+=" on";
+      else if(de&&ate&&iso>de&&iso<ate)cls+=" in";
+      cells+=`<button type="button" class="${cls}" data-iso="${iso}">${d}</button>`;
+    }
+    cal.querySelector(".cal-grid").innerHTML=cells;
+    cal.querySelector(".cal-h b").textContent=MESN[m]+" "+y;
+    cal.querySelectorAll(".cal-d[data-iso]").forEach(b=>b.onclick=()=>{
+      const iso=b.dataset.iso;
+      if(!de||(de&&ate)){de=iso;ate=null;}
+      else if(iso<de){de=iso;}
+      else{ate=iso;}
+      renderCal();
+    });
+    const s=cal.querySelector(".cal-sum");
+    if(de&&ate)s.textContent=fmtDia(de)+"  →  "+fmtDia(ate);
+    else if(de)s.textContent="Início em "+fmtDia(de)+" · agora toque no fim";
+    else s.textContent="Toque no dia de início";
+  };
+  cal.querySelector(".cal-prev").onclick=()=>{vm=new Date(vm.getFullYear(),vm.getMonth()-1,1);renderCal();};
+  cal.querySelector(".cal-next").onclick=()=>{vm=new Date(vm.getFullYear(),vm.getMonth()+1,1);renderCal();};
+  renderCal();
+
+  /* ---- pessoas ---- */
   const renderPess=()=>{
     $("#cv-psel").innerHTML=psel.map((p,i)=>`<span class="cv-chip">${esc(p)}<button data-i="${i}" aria-label="remover">×</button></span>`).join("");
     $("#cv-psel").querySelectorAll("button").forEach(b=>b.onclick=()=>{psel.splice(+b.dataset.i,1);renderPess();});
@@ -1808,16 +1862,19 @@ function abrirCriarViagem(){
   $("#cv-pess").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addPess();}});
   renderCid();renderPess();
 
+  /* ---- moeda: um toque ---- */
+  let moedaSel="EUR";
+  $("#cv-moeda").querySelectorAll("div").forEach(d=>d.onclick=()=>{$("#cv-moeda").querySelectorAll("div").forEach(x=>x.classList.remove("on"));d.classList.add("on");moedaSel=d.dataset.v;});
+
+  /* ---- criar ---- */
   $("#cv-criar").onclick=async()=>{
-    const nome=$("#cv-nome").value.trim(),tag=$("#cv-tag").value.trim();
-    const ini=$("#cv-ini").value,fim=$("#cv-fim").value,moeda=$("#cv-moeda").value,err=$("#cv-err");
+    const nome=$("#cv-nome").value.trim(),tag=$("#cv-tag").value.trim(),err=$("#cv-err");
     if(!nome){err.textContent="Dê um nome à viagem.";return;}
     if(!cidsel.length){err.textContent="Escolha ao menos uma cidade.";return;}
-    if(!ini||!fim){err.textContent="Preencha início e fim.";return;}
-    if(fim<ini){err.textContent="O fim não pode ser antes do início.";return;}
+    if(!de||!ate){err.textContent="Toque no início e no fim no calendário.";return;}
     if(!psel.length){err.textContent="Adicione ao menos uma pessoa.";return;}
     const btn=$("#cv-criar");btn.disabled=true;btn.textContent="Criando…";
-    try{const code=await criarViagem({nome,tagline:tag,cidades:cidsel.slice(),inicio:ini,fim,pessoas:psel.slice(),moeda});close();if(code)abrirViagem(code);}
+    try{const code=await criarViagem({nome,tagline:tag,cidades:cidsel.slice(),inicio:de,fim:ate,pessoas:psel.slice(),moeda:moedaSel});close();if(code)abrirViagem(code);}
     catch(e){console.warn("criarViagem:",e);btn.disabled=false;btn.textContent="Criar viagem";err.textContent="Não deu pra criar agora. Tente de novo.";}
   };
 }
