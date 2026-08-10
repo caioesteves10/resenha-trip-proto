@@ -1708,6 +1708,13 @@ function mostrarVerificacao(user){
   $("#vf-reenviar").onclick=async()=>{try{await AUTHM.sendEmailVerification(user);toast("Reenviei o e-mail ✓");}catch(e){auErr(auMsg(e&&e.code));}};
   $("#vf-sair").onclick=async()=>{try{if(auth)await auth.signOut();}catch(e){}_authMode="entrar";};
 }
+async function sairDaConta(){
+  try{if(auth&&auth.currentUser)await auth.signOut();}catch(e){}
+  try{localStorage.removeItem(LS.me);}catch(e){}
+  STATE.me=null;
+  if(!auth||!auth.currentUser)showLogin();
+}
+{const _vt=$("#vg-trocar");if(_vt)_vt.onclick=sairDaConta;}
 $("#logout").onclick=(e)=>{e.stopPropagation();abrirPerfil();};
 function abrirPerfil(){
   $("#modal").innerHTML=`<div class="modal"><div class="box">
@@ -1723,7 +1730,7 @@ function abrirPerfil(){
   const close=()=>{$("#modal").innerHTML="";};
   $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};
   $("#pf-fechar").onclick=close;
-  $("#pf-sair").onclick=async()=>{close();try{if(auth&&auth.currentUser)await auth.signOut();}catch(e){}localStorage.removeItem(LS.me);STATE.me=null;if(!auth||!auth.currentUser)showLogin();};
+  $("#pf-sair").onclick=()=>{close();sairDaConta();};
   const _bv=$("#pf-viagens");if(_bv)_bv.onclick=()=>{close();showViagens();};
   const _bc=$("#pf-codigo");if(_bc)_bc.onclick=async()=>{try{await navigator.clipboard.writeText(STATE.config.codigo);toast("Código copiado ✓");}catch(e){toast(STATE.config.codigo);}};
   $("#pf-moeda").onclick=()=>{const o=moedasVista();STATE.cur=o[(o.indexOf(STATE.cur)+1)%3];localStorage.setItem(LS.cur,STATE.cur);close();renderAll();};
