@@ -725,8 +725,11 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
 .pasta-wrap.concluida{opacity:.85}
 .pasta-wrap.concluida .pasta-aba{background:#3f7d54}
 .pill-concl{display:inline-flex;align-items:center;gap:3px;background:#3f7d54;color:#fff;font-weight:800;font-size:10.5px;border-radius:7px;padding:2px 7px;margin-left:6px;vertical-align:middle}
-.pasta-trash{position:absolute;top:40px;right:0;bottom:0;width:88px;background:#d64541;color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;border-radius:0 14px 14px 0;cursor:pointer;z-index:0;opacity:0;transition:opacity .12s}
-.pasta-wrap.revelando .pasta-trash{opacity:1}
+.pasta-acoes{position:absolute;top:40px;right:0;bottom:0;display:flex;opacity:0;transition:opacity .12s;z-index:0}
+.pasta-wrap.revelando .pasta-acoes{opacity:1}
+.pa-btn{width:70px;border:none;color:#fff;font-size:21px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:inherit}
+.pa-ok{background:#3f7d54}
+.pa-del{background:#d64541;border-radius:0 14px 14px 0}
 .pasta-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
 .pasta-nome{padding-right:2px}
 .pasta-dots{flex:none;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:0 6px;border-radius:8px;margin-top:-2px}
@@ -2009,7 +2012,7 @@ function _cardViagem(v,arq){
   const n=(v.membros&&v.membros.length)||1;
   const quem=(n===1?"1 pessoa":n+" pessoas");
   return `<div class="pasta-wrap${arq?' concluida':''}">
-    <div class="pasta-trash" data-id="${esc(v.id)}" role="button" aria-label="Apagar">🗑️</div>
+    <div class="pasta-acoes"><button class="pa-btn pa-ok" data-arq="${esc(v.id)}" aria-label="${arq?'Reativar':'Concluir'}">${arq?'↩︎':'✓'}</button><button class="pa-btn pa-del" data-id="${esc(v.id)}" aria-label="Apagar">🗑️</button></div>
     <button class="pasta" data-id="${esc(v.id)}">
       <span class="pasta-aba">${esc(aba)}</span>
       <span class="pasta-corpo">
@@ -2042,7 +2045,8 @@ function wireViagens(box,vs){
   const byId=id=>vs.find(v=>v.id===id);
   box.querySelectorAll(".pasta").forEach(el=>ligarSwipe(el));
   box.querySelectorAll(".pasta-dots").forEach(d=>d.onclick=e=>{e.stopPropagation();const v=byId(d.dataset.id);if(v)abrirMenuViagem(v,!!ARQUIVADAS[v.id]);});
-  box.querySelectorAll(".pasta-trash").forEach(t=>t.onclick=e=>{e.stopPropagation();const v=byId(t.dataset.id);if(!v)return;_souDono(v)?confirmarExcluir(v):confirmarSair(v);});
+  box.querySelectorAll(".pa-del").forEach(t=>t.onclick=e=>{e.stopPropagation();const v=byId(t.dataset.id);if(!v)return;_souDono(v)?confirmarExcluir(v):confirmarSair(v);});
+  box.querySelectorAll(".pa-ok").forEach(t=>t.onclick=e=>{e.stopPropagation();const id=t.dataset.arq;arquivarViagem(id,!ARQUIVADAS[id]);});
   const tog=$("#vg-hist-tog");if(tog)tog.onclick=()=>{const h=$("#vg-hist");if(h){h.hidden=!h.hidden;tog.classList.toggle("aberto",!h.hidden);}};
   const bn=$("#vg-nova");if(bn)bn.onclick=abrirCriarViagem;
   const bc=$("#vg-cod");if(bc)bc.onclick=abrirEntrarCodigo;
@@ -2052,8 +2056,8 @@ function ligarSwipe(el){
   let x0=0,dx=0,drag=false,open=false;
   const set=v=>{el.style.transform=v?`translateX(${v}px)`:"";};
   el.addEventListener("pointerdown",e=>{if(e.target.closest(".pasta-dots"))return;x0=e.clientX;dx=0;drag=true;el.style.transition="none";});
-  el.addEventListener("pointermove",e=>{if(!drag)return;dx=e.clientX-x0+(open?-88:0);if(dx>0)dx=0;if(dx<-96)dx=-96;set(dx);if(el.parentNode)el.parentNode.classList.toggle("revelando",dx<-4);});
-  const fim=()=>{if(!drag)return;drag=false;el.style.transition="";open=dx<-44;set(open?-88:0);if(el.parentNode)el.parentNode.classList.toggle("revelando",open);};
+  el.addEventListener("pointermove",e=>{if(!drag)return;dx=e.clientX-x0+(open?-140:0);if(dx>0)dx=0;if(dx<-152)dx=-152;set(dx);if(el.parentNode)el.parentNode.classList.toggle("revelando",dx<-4);});
+  const fim=()=>{if(!drag)return;drag=false;el.style.transition="";open=dx<-70;set(open?-140:0);if(el.parentNode)el.parentNode.classList.toggle("revelando",open);};
   el.addEventListener("pointerup",fim);el.addEventListener("pointercancel",fim);
   el.onclick=e=>{
     if(e.target.closest(".pasta-dots"))return;
@@ -2901,7 +2905,8 @@ function ensurePessoas(){
   PEOPLE.forEach(p=>{if(!STATE.pessoas[p])STATE.pessoas[p]={meta:0,depositos:[],compras:[],checklist:[],pessoais:[],realizados:[],mala:[]};});
 }
 function sincronizarPessoas(){
-  const cfg=(STATE.config&&Array.isArray(STATE.config.pessoas)&&STATE.config.pessoas.length)?STATE.config.pessoas:DATA.people;
+  const c=STATE.config&&STATE.config.pessoas;
+  const cfg=(Array.isArray(c)&&c.length)?c:(VIAGEM.id==="principal"?DATA.people:[]);
   PEOPLE.length=0; cfg.forEach(p=>PEOPLE.push(p));
   recalcCores(); ensurePessoas();
 }
@@ -2922,7 +2927,6 @@ function garantirVinculoPessoa(){
   perguntarQuemEhVoce();
 }
 function perguntarQuemEhVoce(){
-  if(!PEOPLE.length){toast("Abra uma viagem primeiro.");return;}
   _vinculoPend=true;
   const atualB=MEU_VINCULO[VIAGEM.id];
   const lista=PEOPLE.map(p=>`<button class="btn sec qv-item ${p===atualB?'on':''}" data-n="${esc(p)}">${esc(p)}${p===atualB?' ✓':''}</button>`).join("");
