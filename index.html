@@ -534,6 +534,14 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 .adm-row .s{color:var(--muted);font-size:12px}
 .adm-cod{display:flex;align-items:center;gap:8px;white-space:nowrap}
 .adm-cod code{background:var(--panel2);border:1px solid var(--line2);border-radius:6px;padding:2px 6px;font-weight:700;color:var(--navy)}
+.mo-sub{color:var(--muted);font-size:12.5px;margin:2px 0 10px;line-height:1.4}
+.mo-lb{display:block;font-size:12px;font-weight:700;color:var(--navy);margin:10px 0 6px}
+.mo-tag{display:inline-block;font-size:11px;font-weight:700;color:var(--orange);border:1px solid var(--orange);border-radius:7px;padding:2px 8px;margin-bottom:4px}
+.mo-tag.off{color:var(--muted);border-color:var(--line2)}
+.mo-chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:6px}
+.mo-chip{background:var(--panel);border:1px solid var(--line2);color:var(--navy);border-radius:999px;padding:7px 12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.mo-chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7a90' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center}
 
 .toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translateX(-50%);
  background:var(--navy);color:#fff;font-weight:800;padding:11px 18px;border-radius:12px;font-size:13.5px;
@@ -975,6 +983,7 @@ const checarAdmin=v=>conferir(ADMIN_HASH,v,ADMIN_PIN);
 /* ---- 3. ESTADO ----------------------------------------- */
 let db=null, FB=null, MOCK=false, PERSIST_OK=false, UID=null;
 let AUTHM=null, auth=null, IS_ADMIN=false;
+let MINHAS_MOEDAS={};
 /* ---- contexto da viagem ativa (Fase 0) -----------------
    Todo acesso a dados passa por estes helpers, que apontam para
    viagens/{VIAGEM.id}/dados/*  e  viagens/{VIAGEM.id}/viajantes/*.
@@ -983,7 +992,7 @@ const VIAGEM={id:"principal"};
 const caminho       =nome=>FB.doc(db,"viagens",VIAGEM.id,"dados",nome);
 const caminhoPessoas=()  =>FB.collection(db,"viagens",VIAGEM.id,"viajantes");
 const caminhoPessoa =nome=>FB.doc(db,"viagens",VIAGEM.id,"viajantes",nome);
-const LS={me:"tr27_user",admin:"tr27_admin",tab:"tr27_tab",mock:"tr27_mock",cur:"tr27_cur",csub:"tr27_csub",intro:"tr27_intro",viamode:"tr27_viamode"};
+const LS={me:"tr27_user",admin:"tr27_admin",tab:"tr27_tab",mock:"tr27_mock",cur:"tr27_cur",csub:"tr27_csub",intro:"tr27_intro",viamode:"tr27_viamode",lastVia:"tr27_lastvia"};
 const STATE={
   config:JSON.parse(JSON.stringify(SEED.config)),
   roteiro:JSON.parse(JSON.stringify(SEED.roteiro)),
@@ -1196,15 +1205,86 @@ function fmtCur(brl,cur,dec){
 }
 const moedaDe=p=>(DATA.moedaPadrao||{})[p]||"BRL";
 /* ---- moeda por viagem (principal + moedas exibidas) — pivô interno segue BRL ---- */
-function moedaPrincipal(){return (STATE.config&&STATE.config.moeda)||"BRL";}
+function moedaPrincipal(){
+  const p=STATE.prefMoeda;
+  if(p&&p.principal)return p.principal;
+  return (STATE.config&&STATE.config.moeda)||"BRL";
+}
 function moedasVista(){
-  const v=STATE.config&&STATE.config.moedasVista, base=moedaPrincipal();
-  let arr=(Array.isArray(v)&&v.length)?v.slice():["BRL","USD","EUR"];
+  const base=moedaPrincipal(), p=STATE.prefMoeda;
+  let arr=(p&&Array.isArray(p.ver)&&p.ver.length)?p.ver.slice()
+    :((STATE.config&&Array.isArray(STATE.config.moedasVista)&&STATE.config.moedasVista.length)?STATE.config.moedasVista.slice():["BRL","USD","EUR"]);
   if(!arr.includes(base))arr=[base].concat(arr);
   return arr.filter((m,i)=>arr.indexOf(m)===i);
 }
 function simboloMoeda(m){try{return new Intl.NumberFormat("pt-BR",{style:"currency",currency:m}).formatToParts(0).find(p=>p.type==="currency").value;}catch(e){return m;}}
 function ajustarMoeda(){if(!moedasVista().includes(STATE.cur))STATE.cur=moedaPrincipal();}
+function _chipsMoeda(sel,cand){return cand.map(c=>`<button type="button" class="mo-chip ${sel.includes(c)?'on':''}" data-c="${c}">${simboloMoeda(c)} ${c}</button>`).join("");}
+function _optsMoeda(prin){return MOEDAS_DB.map(([c,n])=>`<option value="${c}" ${c===prin?'selected':''}>${c} — ${esc(n)}</option>`).join("");}
+function _candMoeda(prin,dest,vista){let c=["BRL","USD","EUR","GBP"].concat([prin,dest]).concat(vista||[]).filter(Boolean);return c.filter((m,i)=>c.indexOf(m)===i);}
+async function salvarMinhasMoedas(prin,ver){
+  if(!ver.includes(prin))ver=[prin].concat(ver);
+  const p={principal:prin,ver:ver.slice()};
+  MINHAS_MOEDAS[VIAGEM.id]=p;STATE.prefMoeda=p;
+  ajustarMoeda();try{localStorage.setItem(LS.cur,STATE.cur);}catch(e){}renderAll();
+  if(!MOCK&&db&&UID){try{await FB.setDoc(FB.doc(db,"usuarios",UID),{moedas:MINHAS_MOEDAS},{merge:true});}catch(e){console.warn("moedas:",e&&e.code);}}
+}
+async function limparMinhasMoedas(){
+  MINHAS_MOEDAS[VIAGEM.id]=null;STATE.prefMoeda=null;
+  ajustarMoeda();try{localStorage.setItem(LS.cur,STATE.cur);}catch(e){}renderAll();
+  if(!MOCK&&db&&UID){try{await FB.setDoc(FB.doc(db,"usuarios",UID),{moedas:MINHAS_MOEDAS},{merge:true});}catch(e){}}
+}
+function abrirMinhasMoedas(){
+  let prin=moedaPrincipal();let sel=moedasVista().slice();
+  const dest=(STATE.config&&STATE.config.moedaViagem)||"";
+  const tag=STATE.prefMoeda?'<div class="mo-tag">visão personalizada ativa</div>':'<div class="mo-tag off">usando o padrão da viagem</div>';
+  $("#modal").innerHTML=`<div class="modal"><div class="box">
+    <h3>Minhas moedas</h3>
+    <p class="mo-sub">Muda só a SUA visão nesta viagem — cada pessoa escolhe a dela.</p>
+    ${tag}
+    <label class="mo-lb">Minha moeda principal</label>
+    <select id="mo-prin" class="au-inp">${_optsMoeda(prin)}</select>
+    <label class="mo-lb">Moedas que eu quero ver</label>
+    <div id="mo-chips" class="mo-chips">${_chipsMoeda(sel,_candMoeda(prin,dest,sel))}</div>
+    <button class="btn" id="mo-salvar">Salvar minha visão</button>
+    <button class="btn gh" id="mo-padrao">Usar o padrão da viagem</button>
+    <button class="btn gh" id="mo-fechar">Fechar</button>
+  </div></div>`;
+  const close=()=>{$("#modal").innerHTML="";};
+  $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};
+  $("#mo-fechar").onclick=close;
+  function wire(){$("#mo-chips").querySelectorAll(".mo-chip").forEach(b=>b.onclick=()=>{const c=b.dataset.c;if(sel.includes(c)){if(sel.length>1)sel=sel.filter(x=>x!==c);}else sel.push(c);b.classList.toggle("on",sel.includes(c));});}
+  $("#mo-prin").onchange=e=>{prin=e.target.value;if(!sel.includes(prin))sel.push(prin);$("#mo-chips").innerHTML=_chipsMoeda(sel,_candMoeda(prin,dest,sel));wire();};
+  wire();
+  $("#mo-salvar").onclick=()=>{salvarMinhasMoedas(prin,sel);close();toast("Sua visão de moedas foi salva ✓");};
+  $("#mo-padrao").onclick=()=>{limparMinhasMoedas();close();toast("Voltou pro padrão da viagem");};
+}
+function abrirConfigViagem(){
+  const c=STATE.config||{};
+  let prin=c.moeda||"BRL";
+  let sel=(Array.isArray(c.moedasVista)&&c.moedasVista.length)?c.moedasVista.slice():["BRL","USD","EUR"];
+  let dest=c.moedaViagem||prin;
+  $("#modal").innerHTML=`<div class="modal"><div class="box">
+    <h3>Configuração da viagem</h3>
+    <p class="mo-sub">Padrão sugerido pra quem ainda não personalizou. Cada pessoa pode mudar a própria visão em "Minhas moedas".</p>
+    <label class="mo-lb">Moeda de destino (modo viagem)</label>
+    <select id="cv-dest" class="au-inp">${_optsMoeda(dest)}</select>
+    <label class="mo-lb">Moeda principal sugerida</label>
+    <select id="cv-prin" class="au-inp">${_optsMoeda(prin)}</select>
+    <label class="mo-lb">Moedas sugeridas</label>
+    <div id="cv-chips" class="mo-chips">${_chipsMoeda(sel,_candMoeda(prin,dest,sel))}</div>
+    <button class="btn" id="cv-salvar">Salvar padrão da viagem</button>
+    <button class="btn gh" id="cv-fechar">Fechar</button>
+  </div></div>`;
+  const close=()=>{$("#modal").innerHTML="";};
+  $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};
+  $("#cv-fechar").onclick=close;
+  function wire(){$("#cv-chips").querySelectorAll(".mo-chip").forEach(b=>b.onclick=()=>{const cc=b.dataset.c;if(sel.includes(cc)){if(sel.length>1)sel=sel.filter(x=>x!==cc);}else sel.push(cc);b.classList.toggle("on",sel.includes(cc));});}
+  $("#cv-dest").onchange=e=>{dest=e.target.value;};
+  $("#cv-prin").onchange=e=>{prin=e.target.value;if(!sel.includes(prin))sel.push(prin);$("#cv-chips").innerHTML=_chipsMoeda(sel,_candMoeda(prin,dest,sel));wire();};
+  wire();
+  $("#cv-salvar").onclick=()=>{if(!sel.includes(prin))sel=[prin].concat(sel);saveDoc("config",{moeda:prin,moedasVista:sel,moedaViagem:dest});close();toast("Padrão da viagem atualizado ✓");};
+}
 const MOEDA_VIAGEM=()=>STATE.config.moedaViagem||"EUR";
 const toMO=(v,m)=>conv(toBRL(v,m),MOEDA_VIAGEM());
 function fmt(brl,opts){
@@ -1332,6 +1412,14 @@ const sameDay=(base)=>String(base).slice(0,10)===hojeViagem();
    É o "perfil durável" deste aparelho: o uid anônimo persiste entre
    aberturas, então este doc amarra a pessoa às suas viagens
    (usado a partir da Fase 2 para listar "as minhas viagens"). */
+async function bootTela(){
+  if(MOCK){showViagens();return;}
+  let last="";try{last=localStorage.getItem(LS.lastVia)||"";}catch(e){}
+  if(last){
+    try{const vs=await listarMinhasViagens();if(vs.some(v=>v.id===last)){await abrirViagem(last);return;}}catch(e){}
+  }
+  showViagens();
+}
 async function onAuth(user){
   if(!user){
     UID=null;STATE.uid=null;IS_ADMIN=false;
@@ -1351,7 +1439,7 @@ async function onAuth(user){
   try{localStorage.setItem(LS.me,STATE.me);}catch(e){}
   try{await garantirPerfil();}catch(e){}
   _bootResolve&&_bootResolve();
-  showViagens();
+  bootTela();
 }
 async function garantirPerfil(){
   if(MOCK||!db||!UID)return;
@@ -1361,7 +1449,7 @@ async function garantirPerfil(){
     const dados={ultimoAcesso:ts};
     if(STATE.me)dados.nome=STATE.me;
     try{if(auth&&auth.currentUser){dados.email=auth.currentUser.email||"";dados.emailVerificado=!!auth.currentUser.emailVerified;}}catch(e){}
-    if(FB.getDoc){try{const s=await FB.getDoc(ref);if(!s.exists())dados.criadoEm=ts;}catch(e){}}
+    if(FB.getDoc){try{const s=await FB.getDoc(ref);if(!s.exists())dados.criadoEm=ts;else{const dd=s.data();if(dd&&dd.moedas)MINHAS_MOEDAS=dd.moedas;}}catch(e){}}
     await FB.setDoc(ref,dados,{merge:true});
   }catch(e){console.warn("perfil:",e&&e.code);}
 }
@@ -1515,6 +1603,7 @@ async function trocarViagem(id){
   if(MOCK)return;
   pararListeners();
   VIAGEM.id=id;_resumoAnt="";
+  STATE.prefMoeda=(MINHAS_MOEDAS&&MINHAS_MOEDAS[id])||null;
   ["config","roteiro","custos","racha","reservas","tarefas","essenciais"].forEach(k=>{STATE[k]=JSON.parse(JSON.stringify(SEED[k]));});
   STATE.pessoas={};
   PEOPLE.forEach(p=>STATE.pessoas[p]={meta:0,depositos:[],compras:[],checklist:[],pessoais:[],realizados:[],mala:[]});
@@ -1734,7 +1823,8 @@ function abrirPerfil(){
   $("#modal").innerHTML=`<div class="modal"><div class="box">
     <h3>${esc(STATE.me||"")}</h3>
     <button class="btn sec pf" id="pf-meta">🎯 Minha meta de poupança</button>
-    <button class="btn sec pf" id="pf-moeda">💱 Moeda: ${STATE.cur}</button>
+    <button class="btn sec pf" id="pf-moeda">💱 Minhas moedas</button>
+    <button class="btn sec pf" id="pf-configvia">🌎 Configuração da viagem</button>
     <button class="btn sec pf" id="pf-ajuda">❓ Como usar o app</button>
     ${!MOCK?'<button class="btn sec pf" id="pf-viagens">🧳 Trocar de viagem</button>':""}
     ${(STATE.config&&STATE.config.codigo)?`<button class="btn sec pf" id="pf-codigo">🔑 Código da viagem: ${esc(STATE.config.codigo)}</button>`:""}
@@ -1747,7 +1837,8 @@ function abrirPerfil(){
   $("#pf-sair").onclick=()=>{close();sairDaConta();};
   const _bv=$("#pf-viagens");if(_bv)_bv.onclick=()=>{close();showViagens();};
   const _bc=$("#pf-codigo");if(_bc)_bc.onclick=async()=>{try{await navigator.clipboard.writeText(STATE.config.codigo);toast("Código copiado ✓");}catch(e){toast(STATE.config.codigo);}};
-  $("#pf-moeda").onclick=()=>{const o=moedasVista();STATE.cur=o[(o.indexOf(STATE.cur)+1)%3];localStorage.setItem(LS.cur,STATE.cur);close();renderAll();};
+  $("#pf-moeda").onclick=()=>{close();abrirMinhasMoedas();};
+  {const _cv=$("#pf-configvia");if(_cv)_cv.onclick=()=>{close();abrirConfigViagem();};}
   $("#pf-meta").onclick=()=>{close();show("cofre");renderCofre();setTimeout(()=>{const m=$("#metaedit");if(m)m.click();},80);};
   $("#pf-ajuda").onclick=()=>{close();mostrarIntro(true);};
 }
@@ -1906,6 +1997,7 @@ function renderViagens(vs){
 }
 async function abrirViagem(id){
   $("#viagens").classList.add("hidden");
+  try{if(id)localStorage.setItem(LS.lastVia,id);}catch(e){}
   if(id&&id!==VIAGEM.id){_primeiraCarga=true;await trocarViagem(id);}
   enterApp();
 }
@@ -2162,6 +2254,7 @@ function enterApp(){
   $("#mename").textContent=STATE.me;
   const h=new Date().getHours(),sd=h<12?"Bom dia":h<18?"Boa tarde":"Boa noite";
   const tl=$("#tagline");if(tl&&STATE.me)tl.textContent=sd+", "+STATE.me;
+  STATE.prefMoeda=(MINHAS_MOEDAS&&MINHAS_MOEDAS[VIAGEM.id])||null;
   if(!STATE.cur)STATE.cur=moedaDe(STATE.me);
   ajustarMoeda();localStorage.setItem(LS.cur,STATE.cur);
   renderAll();
