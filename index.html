@@ -1656,6 +1656,7 @@ async function trocarViagem(id){
   if(MOCK)return;
   pararListeners();
   VIAGEM.id=id;_resumoAnt="";
+  PEOPLE.length=0;
   STATE.prefMoeda=(MINHAS_MOEDAS&&MINHAS_MOEDAS[id])||null;
   ["config","roteiro","custos","racha","reservas","tarefas","essenciais"].forEach(k=>{STATE[k]=JSON.parse(JSON.stringify(SEED[k]));});
   STATE.pessoas={};
@@ -2419,7 +2420,6 @@ function enterApp(){
   const h=new Date().getHours(),sd=h<12?"Bom dia":h<18?"Boa tarde":"Boa noite";
   const tl=$("#tagline");if(tl&&STATE.me)tl.textContent=sd+", "+STATE.me;
   STATE.prefMoeda=(MINHAS_MOEDAS&&MINHAS_MOEDAS[VIAGEM.id])||null;
-  garantirVinculoPessoa();
   if(!STATE.cur)STATE.cur=moedaDe(STATE.me);
   ajustarMoeda();localStorage.setItem(LS.cur,STATE.cur);
   renderAll();
