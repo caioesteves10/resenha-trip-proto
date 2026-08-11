@@ -541,6 +541,13 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 .mo-chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:6px}
 .mo-chip{background:var(--panel);border:1px solid var(--line2);color:var(--navy);border-radius:999px;padding:7px 12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
 .mo-chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.qv-item{width:100%}
+.qv-item.on{border-color:var(--navy);color:var(--navy);font-weight:800}
+.cv-lista,.pt-lista{display:flex;flex-direction:column;gap:8px;margin:4px 0 10px}
+.cv-inv,.pt-row{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line2);border-radius:11px;padding:10px 12px;font-size:14px}
+.cv-inv .s,.pt-row .s{color:var(--muted);font-size:12px}
+.pt-eu{font-size:10px;font-weight:800;color:var(--orange);border:1px solid var(--orange);border-radius:6px;padding:1px 6px}
+.pt-lb{font-size:12px;font-weight:800;color:var(--navy);margin:8px 0 6px}
 select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7a90' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center}
 
 .toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translateX(-50%);
@@ -1002,6 +1009,8 @@ let db=null, FB=null, MOCK=false, PERSIST_OK=false, UID=null;
 let AUTHM=null, auth=null, IS_ADMIN=false;
 let MINHAS_MOEDAS={};
 let ARQUIVADAS={};
+let MEU_VINCULO={};
+let _vinculoPend=false;
 /* ---- contexto da viagem ativa (Fase 0) -----------------
    Todo acesso a dados passa por estes helpers, que apontam para
    viagens/{VIAGEM.id}/dados/*  e  viagens/{VIAGEM.id}/viajantes/*.
@@ -1454,10 +1463,12 @@ async function onAuth(user){
   UID=user.uid;STATE.uid=UID;
   IS_ADMIN=ADMIN_EMAILS.map(x=>String(x).toLowerCase()).includes(String(user.email||"").toLowerCase());
   STATE.me=user.displayName||(user.email?user.email.split("@")[0]:"Você");
+  STATE.conta=STATE.me;
   try{localStorage.setItem(LS.me,STATE.me);}catch(e){}
   try{await garantirPerfil();}catch(e){}
   _bootResolve&&_bootResolve();
   bootTela();
+  checarConvites();
 }
 async function garantirPerfil(){
   if(MOCK||!db||!UID)return;
@@ -1467,7 +1478,7 @@ async function garantirPerfil(){
     const dados={ultimoAcesso:ts};
     if(STATE.me)dados.nome=STATE.me;
     try{if(auth&&auth.currentUser){dados.email=auth.currentUser.email||"";dados.emailVerificado=!!auth.currentUser.emailVerified;}}catch(e){}
-    if(FB.getDoc){try{const s=await FB.getDoc(ref);if(!s.exists())dados.criadoEm=ts;else{const dd=s.data();if(dd){if(dd.moedas)MINHAS_MOEDAS=dd.moedas;if(dd.arquivadas)ARQUIVADAS=dd.arquivadas;}}}catch(e){}}
+    if(FB.getDoc){try{const s=await FB.getDoc(ref);if(!s.exists())dados.criadoEm=ts;else{const dd=s.data();if(dd){if(dd.moedas)MINHAS_MOEDAS=dd.moedas;if(dd.arquivadas)ARQUIVADAS=dd.arquivadas;if(dd.euSou)MEU_VINCULO=dd.euSou;}}}catch(e){}}
     await FB.setDoc(ref,dados,{merge:true});
   }catch(e){console.warn("perfil:",e&&e.code);}
 }
@@ -1632,7 +1643,7 @@ function listen(){
   const opts={includeMetadataChanges:true};
   const doc1=(id,key,fb)=>UNSUBS.push(FB.onSnapshot(caminho(id),opts,d=>{
     STATE[key]=d.exists()?Object.assign({},fb,d.data()):JSON.parse(JSON.stringify(fb));
-    if(id==="config"){atualizarResumo(VIAGEM.id);sincronizarPessoas();ajustarMoeda();}
+    if(id==="config"){atualizarResumo(VIAGEM.id);sincronizarPessoas();ajustarMoeda();garantirVinculoPessoa();}
     marcarPend("v:"+id,d.metadata);renderAll();}));
   doc1("config","config",SEED.config);
   doc1("roteiro","roteiro",SEED.roteiro);
@@ -1843,6 +1854,8 @@ function abrirPerfil(){
     <button class="btn sec pf" id="pf-meta">🎯 Minha meta de poupança</button>
     <button class="btn sec pf" id="pf-moeda">💱 Minhas moedas</button>
     <button class="btn sec pf" id="pf-configvia">🌎 Configuração da viagem</button>
+    ${!MOCK?`<button class="btn sec pf" id="pf-euSou">👤 Sou ${esc(STATE.me)} nesta viagem</button>`:""}
+    ${!MOCK?'<button class="btn sec pf" id="pf-participantes">👥 Participantes</button>':""}
     <button class="btn sec pf" id="pf-ajuda">❓ Como usar o app</button>
     ${!MOCK?'<button class="btn sec pf" id="pf-viagens">🧳 Trocar de viagem</button>':""}
     ${(STATE.config&&STATE.config.codigo)?`<button class="btn sec pf" id="pf-codigo">🔑 Código da viagem: ${esc(STATE.config.codigo)}</button>`:""}
@@ -1857,6 +1870,8 @@ function abrirPerfil(){
   const _bc=$("#pf-codigo");if(_bc)_bc.onclick=async()=>{try{await navigator.clipboard.writeText(STATE.config.codigo);toast("Código copiado ✓");}catch(e){toast(STATE.config.codigo);}};
   $("#pf-moeda").onclick=()=>{close();abrirMinhasMoedas();};
   {const _cv=$("#pf-configvia");if(_cv)_cv.onclick=()=>{close();abrirConfigViagem();};}
+  {const _es=$("#pf-euSou");if(_es)_es.onclick=()=>{close();perguntarQuemEhVoce();};}
+  {const _pp=$("#pf-participantes");if(_pp)_pp.onclick=()=>{close();abrirParticipantes();};}
   $("#pf-meta").onclick=()=>{close();show("cofre");renderCofre();setTimeout(()=>{const m=$("#metaedit");if(m)m.click();},80);};
   $("#pf-ajuda").onclick=()=>{close();mostrarIntro(true);};
 }
@@ -1928,7 +1943,7 @@ function showViagens(){
   $("#nav").classList.add("hidden");
   const fb=$("#fab");if(fb)fb.classList.add("hidden");
   $("#viagens").classList.remove("hidden");
-  $("#vg-nome").textContent=STATE.me||"";
+  $("#vg-nome").textContent=STATE.conta||STATE.me||"";
   $("#vg-lista").innerHTML='<div class="vg-sk"></div><div class="vg-sk"></div>';
   try{window.scrollTo(0,0);}catch(e){}
   carregarMinhasViagens();
@@ -2361,10 +2376,12 @@ function enterApp(){
   if(emViagem()&&!sessionStorage.getItem("tr27_via")){curTab="roteiro";try{sessionStorage.setItem("tr27_via","1");}catch(e){}}
   // mostra esqueleto enquanto o banco não respondeu (só quando online e sem dados ainda)
   if(_primeiraCarga&&!MOCK){$$(".panel-v").forEach(p=>p.innerHTML=skeleton());applyTab();}
+  if(!MOCK&&MEU_VINCULO&&MEU_VINCULO[VIAGEM.id])STATE.me=MEU_VINCULO[VIAGEM.id];
   $("#mename").textContent=STATE.me;
   const h=new Date().getHours(),sd=h<12?"Bom dia":h<18?"Boa tarde":"Boa noite";
   const tl=$("#tagline");if(tl&&STATE.me)tl.textContent=sd+", "+STATE.me;
   STATE.prefMoeda=(MINHAS_MOEDAS&&MINHAS_MOEDAS[VIAGEM.id])||null;
+  garantirVinculoPessoa();
   if(!STATE.cur)STATE.cur=moedaDe(STATE.me);
   ajustarMoeda();localStorage.setItem(LS.cur,STATE.cur);
   renderAll();
@@ -2887,6 +2904,109 @@ function sincronizarPessoas(){
   const cfg=(STATE.config&&Array.isArray(STATE.config.pessoas)&&STATE.config.pessoas.length)?STATE.config.pessoas:DATA.people;
   PEOPLE.length=0; cfg.forEach(p=>PEOPLE.push(p));
   recalcCores(); ensurePessoas();
+}
+function nomeConta(){return STATE.conta||STATE.me||"Você";}
+async function salvarVinculo(nome){
+  MEU_VINCULO[VIAGEM.id]=nome; STATE.me=nome; renderAll();
+  if(!MOCK&&db&&UID){try{await FB.setDoc(FB.doc(db,"usuarios",UID),{euSou:MEU_VINCULO},{merge:true});}catch(e){}}
+}
+function garantirVinculoPessoa(){
+  if(MOCK||!UID)return;
+  if(!PEOPLE.length)return;
+  const tid=VIAGEM.id, quem=MEU_VINCULO[tid];
+  if(quem&&PEOPLE.includes(quem)){ if(STATE.me!==quem){STATE.me=quem;renderAll();} return; }
+  const conta=nomeConta();
+  const match=PEOPLE.find(p=>normNome(p)===normNome(conta));
+  if(match){ salvarVinculo(match); return; }
+  if(_vinculoPend)return;
+  perguntarQuemEhVoce();
+}
+function perguntarQuemEhVoce(){
+  if(!PEOPLE.length){toast("Abra uma viagem primeiro.");return;}
+  _vinculoPend=true;
+  const atualB=MEU_VINCULO[VIAGEM.id];
+  const lista=PEOPLE.map(p=>`<button class="btn sec qv-item ${p===atualB?'on':''}" data-n="${esc(p)}">${esc(p)}${p===atualB?' ✓':''}</button>`).join("");
+  $("#modal").innerHTML=`<div class="modal"><div class="box">
+    <h3>Quem é você nesta viagem?</h3>
+    <p class="mo-sub">Liga sua conta ao participante certo no cofre, na rachadinha e no checklist.</p>
+    <div class="auth-form">${lista}
+      <div class="au-ou"><span>ou</span></div>
+      <button class="btn" id="qv-novo">Me adicionar como “${esc(nomeConta())}”</button>
+    </div>
+  </div></div>`;
+  const close=()=>{_vinculoPend=false;$("#modal").innerHTML="";};
+  $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};
+  $("#modal").querySelectorAll(".qv-item").forEach(b=>b.onclick=()=>{salvarVinculo(b.dataset.n);close();toast("Pronto, você é "+b.dataset.n+" aqui ✓");});
+  $("#qv-novo").onclick=async()=>{
+    const nome=nomeConta();
+    const atual=(STATE.config&&Array.isArray(STATE.config.pessoas)&&STATE.config.pessoas.length)?STATE.config.pessoas.slice():PEOPLE.slice();
+    if(!atual.some(p=>normNome(p)===normNome(nome))){atual.push(nome);saveDoc("config",{pessoas:atual});}
+    salvarVinculo(nome);close();
+  };
+}
+async function checarConvites(){
+  if(MOCK||!db||!UID||!auth||!auth.currentUser)return;
+  const email=String(auth.currentUser.email||"").toLowerCase();
+  if(!email||!FB.query||!FB.where||!FB.getDocs)return;
+  let invs=[];
+  try{const q=FB.query(FB.collection(db,"convites"),FB.where("email","==",email));const snap=await FB.getDocs(q);invs=snap.docs.map(d=>Object.assign({_id:d.id},d.data()));}catch(e){return;}
+  if(invs.length)mostrarConvites(invs);
+}
+function mostrarConvites(invs){
+  const linhas=invs.map((inv,i)=>`<div class="cv-inv"><div><b>${esc(inv.viagemNome||"Viagem")}</b>${inv.nome?`<br><span class="s">como ${esc(inv.nome)}</span>`:""}</div><button class="btn" data-i="${i}" style="width:auto;padding:8px 16px">Aceitar</button></div>`).join("");
+  $("#modal").innerHTML=`<div class="modal"><div class="box">
+    <h3>Você tem ${invs.length===1?"um convite":invs.length+" convites"} 🎉</h3>
+    <div class="cv-lista">${linhas}</div>
+    <button class="btn gh" id="cv-depois">Depois</button>
+  </div></div>`;
+  const close=()=>{$("#modal").innerHTML="";};
+  $("#cv-depois").onclick=close;
+  $("#modal").querySelectorAll("[data-i]").forEach(b=>b.onclick=async()=>{b.disabled=true;await aceitarConvite(invs[+b.dataset.i]);close();recarregarHome();});
+}
+async function aceitarConvite(inv){
+  if(MOCK||!db||!UID)return;
+  try{
+    await FB.setDoc(FB.doc(db,"viagens",inv.viagemId),{membros:FB.arrayUnion(UID),atualizadoEm:(FB.serverTimestamp?FB.serverTimestamp():Date.now())},{merge:true});
+    if(inv.nome){MEU_VINCULO[inv.viagemId]=inv.nome;try{await FB.setDoc(FB.doc(db,"usuarios",UID),{euSou:MEU_VINCULO},{merge:true});}catch(e){}}
+    if(inv._id){try{await FB.deleteDoc(FB.doc(db,"convites",inv._id));}catch(e){}}
+    toast("Você entrou na viagem ✓");
+  }catch(e){toast("Não consegui aceitar: "+((e&&e.code)||""));}
+}
+async function abrirParticipantes(){
+  const pes=(STATE.config&&Array.isArray(STATE.config.pessoas)&&STATE.config.pessoas.length)?STATE.config.pessoas.slice():PEOPLE.slice();
+  let pend=[];
+  if(!MOCK&&db&&FB.query&&FB.where&&FB.getDocs){
+    try{const q=FB.query(FB.collection(db,"convites"),FB.where("viagemId","==",VIAGEM.id));const snap=await FB.getDocs(q);pend=snap.docs.map(d=>Object.assign({_id:d.id},d.data()));}catch(e){}
+  }
+  const linhaP=pes.map(p=>`<div class="pt-row"><span>${esc(p)}</span>${MEU_VINCULO[VIAGEM.id]===p?'<span class="pt-eu">você</span>':''}</div>`).join("")||'<div class="empty">Ninguém ainda.</div>';
+  const linhaC=pend.length?('<div class="pt-lb">Convites pendentes</div>'+pend.map(c=>`<div class="pt-row"><span>${esc(c.nome||c.email)}<br><span class="s">${esc(c.email)}</span></span><button class="resv-copy" data-cancel="${esc(c._id)}">cancelar</button></div>`).join("")):'';
+  $("#modal").innerHTML=`<div class="modal"><div class="box">
+    <h3>Participantes</h3>
+    <div class="pt-lb">Nesta viagem</div>
+    <div class="pt-lista">${linhaP}</div>
+    ${linhaC}
+    <div class="pt-lb">Adicionar / convidar</div>
+    <input id="pt-nome" class="au-inp" placeholder="Nome">
+    <input id="pt-email" class="au-inp" type="email" inputmode="email" placeholder="E-mail (opcional, pra convidar)" style="margin-top:8px">
+    <button class="btn" id="pt-add" style="margin-top:10px">Adicionar</button>
+    <button class="btn gh" id="pt-fechar">Fechar</button>
+  </div></div>`;
+  const close=()=>{$("#modal").innerHTML="";};
+  $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};
+  $("#pt-fechar").onclick=close;
+  $("#modal").querySelectorAll("[data-cancel]").forEach(b=>b.onclick=async()=>{try{await FB.deleteDoc(FB.doc(db,"convites",b.dataset.cancel));toast("Convite cancelado");}catch(e){}abrirParticipantes();});
+  $("#pt-add").onclick=async()=>{
+    const nome=($("#pt-nome").value||"").trim();
+    const email=String($("#pt-email").value||"").trim().toLowerCase();
+    if(!nome){toast("Digite um nome.");return;}
+    const atual=pes.slice();
+    if(!atual.some(p=>normNome(p)===normNome(nome))){atual.push(nome);saveDoc("config",{pessoas:atual});}
+    if(email&&!MOCK&&db){
+      try{await FB.setDoc(FB.doc(db,"convites",VIAGEM.id+"_"+normNome(email).replace(/[^a-z0-9]/g,"")),{email:email,viagemId:VIAGEM.id,viagemNome:(STATE.config&&STATE.config.nome)||"Viagem",nome:nome,por:UID,criadoEm:(FB.serverTimestamp?FB.serverTimestamp():Date.now())},{merge:true});toast("Adicionado e convite criado ✓");}
+      catch(e){toast("Adicionado. Convite falhou: "+((e&&e.code)||""));}
+    }else{toast("Participante adicionado ✓");}
+    abrirParticipantes();
+  };
 }
 recalcCores();
 function grupoLinha(){
