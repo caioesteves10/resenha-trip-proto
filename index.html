@@ -715,9 +715,9 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
 .pasta-pe .chev{color:var(--orange);font-weight:800;font-size:16px;line-height:1}
 .pasta{transition:transform .18s ease}
 .pasta-wrap{position:relative;overflow:hidden;border-radius:14px}
-.pasta-wrap.concluida .pasta-corpo{background:#eef7ef;border-color:#bfe0c4}
+.pasta-wrap.concluida{opacity:.85}
 .pasta-wrap.concluida .pasta-aba{background:#3f7d54}
-.pasta-wrap.concluida .pasta-rota{color:#3f7d54}
+.pill-concl{display:inline-flex;align-items:center;gap:3px;background:#3f7d54;color:#fff;font-weight:800;font-size:10.5px;border-radius:7px;padding:2px 7px;margin-left:6px;vertical-align:middle}
 .pasta-trash{position:absolute;top:40px;right:0;bottom:0;width:88px;background:#d64541;color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;border-radius:0 14px 14px 0;cursor:pointer;z-index:0;opacity:0;transition:opacity .12s}
 .pasta-wrap.revelando .pasta-trash{opacity:1}
 .pasta-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
@@ -1992,7 +1992,7 @@ function _cardViagem(v,arq){
   const rota=(v.cidades||[]).join(" › ")||"—";
   const aba=v.tagline||"viagem";
   const n=(v.membros&&v.membros.length)||1;
-  const quem=(n===1?"1 pessoa":n+" pessoas")+(arq?" · concluída":"");
+  const quem=(n===1?"1 pessoa":n+" pessoas");
   return `<div class="pasta-wrap${arq?' concluida':''}">
     <div class="pasta-trash" data-id="${esc(v.id)}" role="button" aria-label="Apagar">🗑️</div>
     <button class="pasta" data-id="${esc(v.id)}">
@@ -2001,7 +2001,7 @@ function _cardViagem(v,arq){
         <span class="pasta-topo"><span class="pasta-nome">${esc(v.nome||"Viagem")}</span><span class="pasta-dots" data-id="${esc(v.id)}" role="button" aria-label="Opções">⋯</span></span>
         <span class="pasta-rota">${esc(rota)}</span>
         <span class="pasta-datas">${esc(fmtPeriodo(v.inicio,v.fim))}</span>
-        <span class="pasta-pe"><span>${esc(quem)}</span><span class="chev">›</span></span>
+        <span class="pasta-pe"><span>${esc(quem)}${arq?' <span class="pill-concl">✓ concluída</span>':''}</span><span class="chev">›</span></span>
       </span>
     </button>
   </div>`;
