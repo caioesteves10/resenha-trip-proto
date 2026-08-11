@@ -713,6 +713,23 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
 .pasta-datas{display:block;color:var(--muted);font-size:12.5px}
 .pasta-pe{display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:1px solid var(--line);color:var(--dim);font-size:12px;font-weight:600}
 .pasta-pe .chev{color:var(--orange);font-weight:800;font-size:16px;line-height:1}
+.pasta{transition:transform .18s ease}
+.pasta-wrap{position:relative;overflow:hidden;border-radius:14px}
+.pasta-wrap.concluida .pasta-corpo{background:#eef7ef;border-color:#bfe0c4}
+.pasta-wrap.concluida .pasta-aba{background:#3f7d54}
+.pasta-wrap.concluida .pasta-rota{color:#3f7d54}
+.pasta-trash{position:absolute;top:40px;right:0;bottom:0;width:88px;background:#d64541;color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;border-radius:0 14px 14px 0;cursor:pointer;z-index:0;opacity:0;transition:opacity .12s}
+.pasta-wrap.revelando .pasta-trash{opacity:1}
+.pasta-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.pasta-nome{padding-right:2px}
+.pasta-dots{flex:none;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:0 6px;border-radius:8px;margin-top:-2px}
+.pasta-dots:hover{color:var(--navy)}
+.vg-hist-tog{width:100%;background:none;border:none;border-top:1px dashed var(--line2);margin-top:12px;padding:14px 4px 4px;color:var(--muted);font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px}
+.vg-hist-tog .chev2{transition:transform .15s;display:inline-block}
+.vg-hist-tog.aberto .chev2{transform:rotate(180deg)}
+.vg-hist{display:flex;flex-direction:column;gap:18px;margin-top:6px}
+.btn.perigo{background:#d64541;color:#fff}
+.btn.perigo:hover{background:#c23b37}
 .vg-sk{height:110px;border-radius:0 14px 14px 14px;background:var(--panel2);border:1px solid var(--line);margin-top:20px;opacity:.6}
 @media(min-width:900px){
   #viagens{max-width:920px}
@@ -984,6 +1001,7 @@ const checarAdmin=v=>conferir(ADMIN_HASH,v,ADMIN_PIN);
 let db=null, FB=null, MOCK=false, PERSIST_OK=false, UID=null;
 let AUTHM=null, auth=null, IS_ADMIN=false;
 let MINHAS_MOEDAS={};
+let ARQUIVADAS={};
 /* ---- contexto da viagem ativa (Fase 0) -----------------
    Todo acesso a dados passa por estes helpers, que apontam para
    viagens/{VIAGEM.id}/dados/*  e  viagens/{VIAGEM.id}/viajantes/*.
@@ -1449,7 +1467,7 @@ async function garantirPerfil(){
     const dados={ultimoAcesso:ts};
     if(STATE.me)dados.nome=STATE.me;
     try{if(auth&&auth.currentUser){dados.email=auth.currentUser.email||"";dados.emailVerificado=!!auth.currentUser.emailVerified;}}catch(e){}
-    if(FB.getDoc){try{const s=await FB.getDoc(ref);if(!s.exists())dados.criadoEm=ts;else{const dd=s.data();if(dd&&dd.moedas)MINHAS_MOEDAS=dd.moedas;}}catch(e){}}
+    if(FB.getDoc){try{const s=await FB.getDoc(ref);if(!s.exists())dados.criadoEm=ts;else{const dd=s.data();if(dd){if(dd.moedas)MINHAS_MOEDAS=dd.moedas;if(dd.arquivadas)ARQUIVADAS=dd.arquivadas;}}}catch(e){}}
     await FB.setDoc(ref,dados,{merge:true});
   }catch(e){console.warn("perfil:",e&&e.code);}
 }
@@ -1919,7 +1937,7 @@ async function carregarMinhasViagens(){
   await PRONTO;
   if(MOCK){abrirViagem(VIAGEM.id);return;}
   let vs=await listarMinhasViagens();
-  vs.sort((a,b)=>tsNum(b.atualizadoEm)-tsNum(a.atualizadoEm));
+  vs.sort(ordViagens);
   renderViagens(vs);
 }
 async function abrirTrocadorViagem(){
@@ -1968,32 +1986,124 @@ async function verTodasViagensAdmin(){
   $("#modal").querySelectorAll("[data-cod]").forEach(b=>b.onclick=async()=>{try{await navigator.clipboard.writeText(b.dataset.cod);toast("Código copiado ✓");}catch(e){toast(b.dataset.cod);}});
   $("#modal").querySelectorAll("[data-abrir]").forEach(b=>b.onclick=()=>{close();abrirViagem(b.dataset.abrir);});
 }
+function ordViagens(a,b){return String(b.inicio||"").localeCompare(String(a.inicio||""));}
+function _souDono(v){return (v&&v.dono&&v.dono===UID)||IS_ADMIN;}
+function _cardViagem(v,arq){
+  const rota=(v.cidades||[]).join(" › ")||"—";
+  const aba=v.tagline||"viagem";
+  const n=(v.membros&&v.membros.length)||1;
+  const quem=(n===1?"1 pessoa":n+" pessoas")+(arq?" · concluída":"");
+  return `<div class="pasta-wrap${arq?' concluida':''}">
+    <div class="pasta-trash" data-id="${esc(v.id)}" role="button" aria-label="Apagar">🗑️</div>
+    <button class="pasta" data-id="${esc(v.id)}">
+      <span class="pasta-aba">${esc(aba)}</span>
+      <span class="pasta-corpo">
+        <span class="pasta-topo"><span class="pasta-nome">${esc(v.nome||"Viagem")}</span><span class="pasta-dots" data-id="${esc(v.id)}" role="button" aria-label="Opções">⋯</span></span>
+        <span class="pasta-rota">${esc(rota)}</span>
+        <span class="pasta-datas">${esc(fmtPeriodo(v.inicio,v.fim))}</span>
+        <span class="pasta-pe"><span>${esc(quem)}</span><span class="chev">›</span></span>
+      </span>
+    </button>
+  </div>`;
+}
 function renderViagens(vs){
   const box=$("#vg-lista");if(!box)return;
   const nova='<button class="pasta-nova" id="vg-nova">+ Nova viagem</button><button class="pasta-nova pasta-cod" id="vg-cod">🔑 Entrar por código</button>';
   const admBtn=IS_ADMIN?'<button class="au-link" id="vg-admin" style="margin:12px auto 0;display:block">👑 Ver todas as viagens (admin)</button>':'';
-  if(!vs||!vs.length){
-    box.innerHTML='<div class="empty" style="margin-bottom:14px">Você ainda não está em nenhuma viagem.</div>'+nova+admBtn;
-  }else{
-    box.innerHTML=vs.map(v=>{
-      const rota=(v.cidades||[]).join(" › ")||"—";
-      const aba=v.tagline||"viagem";
-      const n=(v.membros&&v.membros.length)||1;
-      const quem=n===1?"1 pessoa":n+" pessoas";
-      return `<button class="pasta" data-id="${esc(v.id)}">
-      <span class="pasta-aba">${esc(aba)}</span>
-      <span class="pasta-corpo">
-        <span class="pasta-nome">${esc(v.nome||"Viagem")}</span>
-        <span class="pasta-rota">${esc(rota)}</span>
-        <span class="pasta-datas">${esc(fmtPeriodo(v.inicio,v.fim))}</span>
-        <span class="pasta-pe"><span>${esc(quem)}</span><span class="chev">›</span></span>
-      </span></button>`;
-    }).join("")+nova+admBtn;
-    box.querySelectorAll(".pasta").forEach(b=>b.onclick=()=>abrirViagem(b.dataset.id));
+  vs=(vs||[]).slice().sort(ordViagens);
+  const ativas=vs.filter(v=>!ARQUIVADAS[v.id]);
+  const arq=vs.filter(v=>!!ARQUIVADAS[v.id]);
+  let html="";
+  html+= ativas.length ? ativas.map(v=>_cardViagem(v,false)).join("")
+                       : '<div class="empty" style="margin-bottom:14px">Você ainda não está em nenhuma viagem ativa.</div>';
+  html+=nova+admBtn;
+  if(arq.length){
+    html+=`<button class="vg-hist-tog" id="vg-hist-tog">✅ Concluídas (${arq.length}) <span class="chev2">▾</span></button><div class="vg-hist" id="vg-hist" hidden>${arq.map(v=>_cardViagem(v,true)).join("")}</div>`;
   }
+  box.innerHTML=html;
+  wireViagens(box,vs);
+}
+function wireViagens(box,vs){
+  const byId=id=>vs.find(v=>v.id===id);
+  box.querySelectorAll(".pasta").forEach(el=>ligarSwipe(el));
+  box.querySelectorAll(".pasta-dots").forEach(d=>d.onclick=e=>{e.stopPropagation();const v=byId(d.dataset.id);if(v)abrirMenuViagem(v,!!ARQUIVADAS[v.id]);});
+  box.querySelectorAll(".pasta-trash").forEach(t=>t.onclick=e=>{e.stopPropagation();const v=byId(t.dataset.id);if(!v)return;_souDono(v)?confirmarExcluir(v):confirmarSair(v);});
+  const tog=$("#vg-hist-tog");if(tog)tog.onclick=()=>{const h=$("#vg-hist");if(h){h.hidden=!h.hidden;tog.classList.toggle("aberto",!h.hidden);}};
   const bn=$("#vg-nova");if(bn)bn.onclick=abrirCriarViagem;
   const bc=$("#vg-cod");if(bc)bc.onclick=abrirEntrarCodigo;
   const ba=$("#vg-admin");if(ba)ba.onclick=verTodasViagensAdmin;
+}
+function ligarSwipe(el){
+  let x0=0,dx=0,drag=false,open=false;
+  const set=v=>{el.style.transform=v?`translateX(${v}px)`:"";};
+  el.addEventListener("pointerdown",e=>{if(e.target.closest(".pasta-dots"))return;x0=e.clientX;dx=0;drag=true;el.style.transition="none";});
+  el.addEventListener("pointermove",e=>{if(!drag)return;dx=e.clientX-x0+(open?-88:0);if(dx>0)dx=0;if(dx<-96)dx=-96;set(dx);if(el.parentNode)el.parentNode.classList.toggle("revelando",dx<-4);});
+  const fim=()=>{if(!drag)return;drag=false;el.style.transition="";open=dx<-44;set(open?-88:0);if(el.parentNode)el.parentNode.classList.toggle("revelando",open);};
+  el.addEventListener("pointerup",fim);el.addEventListener("pointercancel",fim);
+  el.onclick=e=>{
+    if(e.target.closest(".pasta-dots"))return;
+    if(Math.abs(dx)>6){e.preventDefault();return;}
+    if(open){open=false;set(0);if(el.parentNode)el.parentNode.classList.remove("revelando");return;}
+    abrirViagem(el.dataset.id);
+  };
+}
+function confirmModal(titulo,textoHTML,rotulo,onOk,perigo){
+  $("#modal").innerHTML=`<div class="modal"><div class="box">
+    <h3>${esc(titulo)}</h3>
+    <p class="mo-sub">${textoHTML}</p>
+    <div class="auth-form">
+      <button class="btn ${perigo?'perigo':''}" id="cf-ok">${esc(rotulo)}</button>
+      <button class="btn gh" id="cf-nao">Cancelar</button>
+    </div>
+  </div></div>`;
+  const close=()=>{$("#modal").innerHTML="";};
+  $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};
+  $("#cf-nao").onclick=close;
+  $("#cf-ok").onclick=async()=>{const b=$("#cf-ok");b.disabled=true;b.textContent="…";try{await onOk();}catch(e){b.disabled=false;b.textContent=rotulo;}};
+}
+function abrirMenuViagem(v,arq){
+  const acao=arq?`<button class="btn sec" id="mv-reativar">↩️ Reativar</button>`
+                :`<button class="btn sec" id="mv-arquivar">✅ Marcar como concluída</button>`;
+  const perigo=_souDono(v)?`<button class="btn perigo" id="mv-excluir">🗑️ Excluir viagem</button>`
+                         :`<button class="btn perigo" id="mv-sair">🚪 Sair da viagem</button>`;
+  $("#modal").innerHTML=`<div class="modal"><div class="box">
+    <h3>${esc(v.nome||"Viagem")}</h3>
+    <p class="mo-sub">${esc((v.cidades||[]).join(" › ")||"—")}</p>
+    <div class="auth-form">${acao}${perigo}<button class="btn gh" id="mv-fechar">Fechar</button></div>
+  </div></div>`;
+  const close=()=>{$("#modal").innerHTML="";};
+  $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};
+  $("#mv-fechar").onclick=close;
+  const a=$("#mv-arquivar");if(a)a.onclick=()=>{arquivarViagem(v.id,true);};
+  const r=$("#mv-reativar");if(r)r.onclick=()=>{arquivarViagem(v.id,false);};
+  const ex=$("#mv-excluir");if(ex)ex.onclick=()=>confirmarExcluir(v);
+  const sa=$("#mv-sair");if(sa)sa.onclick=()=>confirmarSair(v);
+}
+async function arquivarViagem(id,arquivar){
+  ARQUIVADAS[id]=!!arquivar;
+  recarregarHome();
+  if(!MOCK&&db&&UID){try{await FB.setDoc(FB.doc(db,"usuarios",UID),{arquivadas:ARQUIVADAS},{merge:true});}catch(e){}}
+}
+function confirmarSair(v){
+  confirmModal("Sair da viagem?",
+    `Você deixa de ver e acessar <b>${esc(v.nome||"esta viagem")}</b>. Dá pra voltar depois com o código.`,
+    "Sair da viagem", async()=>{
+      if(!MOCK&&db&&UID){try{await FB.setDoc(FB.doc(db,"viagens",v.id),{membros:FB.arrayRemove(UID),atualizadoEm:(FB.serverTimestamp?FB.serverTimestamp():Date.now())},{merge:true});}catch(e){toast("Não consegui sair: "+((e&&e.code)||""));return;}}
+      ARQUIVADAS[v.id]=false;toast("Você saiu da viagem");recarregarHome();
+    });
+}
+function confirmarExcluir(v){
+  confirmModal("Excluir viagem?",
+    `<b>${esc(v.nome||"Esta viagem")}</b> vai ficar indisponível para <b>todos</b> os participantes. Não dá pra desfazer.`,
+    "Excluir para todos", async()=>{
+      if(!MOCK&&db){try{await FB.deleteDoc(FB.doc(db,"viagens",v.id));}catch(e){toast("Não consegui excluir: "+((e&&e.code)||""));return;}}
+      toast("Viagem excluída");recarregarHome();
+    }, true);
+}
+async function recarregarHome(){
+  $("#modal").innerHTML="";
+  if(MOCK){renderViagens([]);return;}
+  try{let vs=await listarMinhasViagens();renderViagens(vs);}catch(e){}
 }
 async function abrirViagem(id){
   $("#viagens").classList.add("hidden");
@@ -2028,7 +2138,7 @@ async function criarViagem(d){
   const ts=FB.serverTimestamp?FB.serverTimestamp():Date.now();
   const P=(...seg)=>FB.doc(db,"viagens",code,...seg);
   const b=FB.writeBatch(db);
-  b.set(FB.doc(db,"viagens",code),{nome:config.nome,tagline:config.tagline,cidades:cds.map(c=>c.n),inicio:d.inicio,fim:d.fim,membros:[UID],codigo:code,criadoEm:ts,atualizadoEm:ts});
+  b.set(FB.doc(db,"viagens",code),{nome:config.nome,tagline:config.tagline,cidades:cds.map(c=>c.n),inicio:d.inicio,fim:d.fim,membros:[UID],dono:UID,codigo:code,criadoEm:ts,atualizadoEm:ts});
   b.set(P("dados","config"),config);
   b.set(P("dados","roteiro"),{dias:[]});
   b.set(P("dados","custos"),{itens:[]});
