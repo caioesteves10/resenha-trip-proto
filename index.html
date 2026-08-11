@@ -548,6 +548,26 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 .cv-inv .s,.pt-row .s{color:var(--muted);font-size:12px}
 .pt-eu{font-size:10px;font-weight:800;color:var(--orange);border:1px solid var(--orange);border-radius:6px;padding:1px 6px}
 .pt-lb{font-size:12px;font-weight:800;color:var(--navy);margin:8px 0 6px}
+.pt-rm{background:none;border:none;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer;font-family:inherit;flex:none}
+.pt-rm:hover{color:#d64541}
+.drawer-ov{position:fixed;inset:0;background:rgba(10,18,34,.42);z-index:300;opacity:0;transition:opacity .18s}
+.drawer-ov.on{opacity:1}
+.drawer{position:absolute;top:0;right:0;bottom:0;width:86%;max-width:360px;background:var(--bg);box-shadow:-8px 0 30px rgba(0,0,0,.22);transform:translateX(100%);transition:transform .2s ease;overflow-y:auto;display:flex;flex-direction:column;padding-bottom:24px}
+.drawer-ov.on .drawer{transform:translateX(0)}
+.dw-head{position:relative;padding:calc(22px + env(safe-area-inset-top)) 20px 16px;background:var(--stripbg);color:var(--striptext)}
+.dw-nome{font-size:20px;font-weight:800;padding-right:38px}
+.dw-email{font-size:12.5px;opacity:.72;margin-top:2px;word-break:break-all;padding-right:38px}
+.dw-x{position:absolute;top:calc(18px + env(safe-area-inset-top));right:16px;background:rgba(255,255,255,.16);border:none;color:#fff;width:32px;height:32px;border-radius:9px;font-size:14px;cursor:pointer}
+.dw-sec{padding:6px 12px 2px}
+.dw-sec-tit{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);padding:12px 8px 8px}
+.dw-item{display:flex;align-items:center;gap:12px;width:100%;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:8px;cursor:pointer;font-family:inherit;font-size:15px;color:var(--text);text-align:left}
+.dw-item:active{transform:scale(.99)}
+.dw-emoji{font-size:18px;width:22px;text-align:center;flex:none}
+.dw-label{flex:1;font-weight:600}
+.dw-label b{font-weight:800;color:var(--navy)}
+.dw-val{color:var(--muted);font-weight:700;font-size:13px}
+.dw-chev{color:var(--dim);font-size:18px;font-weight:700}
+#pf-sair .dw-label{color:#d64541;font-weight:700}
 select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7a90' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center}
 
 .toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translateX(-50%);
@@ -1464,6 +1484,7 @@ async function onAuth(user){
     return;
   }
   UID=user.uid;STATE.uid=UID;
+  try{MEU_VINCULO=JSON.parse(localStorage.getItem("tr27_vinc_"+UID)||"{}")||{};}catch(e){MEU_VINCULO={};}
   IS_ADMIN=ADMIN_EMAILS.map(x=>String(x).toLowerCase()).includes(String(user.email||"").toLowerCase());
   STATE.me=user.displayName||(user.email?user.email.split("@")[0]:"Você");
   STATE.conta=STATE.me;
@@ -1852,31 +1873,44 @@ async function sairDaConta(){
 {const _tn=$("#tripname");if(_tn){_tn.classList.add("tapname");_tn.onclick=abrirTrocadorViagem;}}
 $("#logout").onclick=(e)=>{e.stopPropagation();abrirPerfil();};
 function abrirPerfil(){
-  $("#modal").innerHTML=`<div class="modal"><div class="box">
-    <h3>${esc(STATE.me||"")}</h3>
-    <button class="btn sec pf" id="pf-meta">🎯 Minha meta de poupança</button>
-    <button class="btn sec pf" id="pf-moeda">💱 Minhas moedas</button>
-    <button class="btn sec pf" id="pf-configvia">🌎 Configuração da viagem</button>
-    ${!MOCK?`<button class="btn sec pf" id="pf-euSou">👤 Sou ${esc(STATE.me)} nesta viagem</button>`:""}
-    ${!MOCK?'<button class="btn sec pf" id="pf-participantes">👥 Participantes</button>':""}
-    <button class="btn sec pf" id="pf-ajuda">❓ Como usar o app</button>
-    ${!MOCK?'<button class="btn sec pf" id="pf-viagens">🧳 Trocar de viagem</button>':""}
-    ${(STATE.config&&STATE.config.codigo)?`<button class="btn sec pf" id="pf-codigo">🔑 Código da viagem: ${esc(STATE.config.codigo)}</button>`:""}
-    <button class="btn gh pf" id="pf-sair" style="color:var(--danger)">Trocar de usuário</button>
-    <button class="btn gh pf" id="pf-fechar">Fechar</button>
-  </div></div>`;
-  const close=()=>{$("#modal").innerHTML="";};
-  $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};
-  $("#pf-fechar").onclick=close;
+  const emailConta=(auth&&auth.currentUser&&auth.currentUser.email)||"";
+  const cod=STATE.config&&STATE.config.codigo;
+  const it=(id,em,lab,val)=>`<button class="dw-item" id="${id}"><span class="dw-emoji">${em}</span><span class="dw-label">${lab}</span>${val?`<span class="dw-val">${val}</span>`:'<span class="dw-chev">›</span>'}</button>`;
+  $("#modal").innerHTML=`<div class="drawer-ov" id="dw-ov"><aside class="drawer" id="dw">
+    <div class="dw-head">
+      <div class="dw-nome">${esc(STATE.conta||STATE.me||"Você")}</div>
+      ${emailConta?`<div class="dw-email">${esc(emailConta)}</div>`:''}
+      <button class="dw-x" id="dw-x" aria-label="Fechar">✕</button>
+    </div>
+    <div class="dw-sec"><div class="dw-sec-tit">Esta viagem</div>
+      ${!MOCK?it("pf-euSou","👤",`Sou <b>${esc(STATE.me)}</b> aqui`):''}
+      ${!MOCK?it("pf-participantes","👥","Participantes"):''}
+      ${it("pf-moeda","💱","Minhas moedas")}
+      ${it("pf-configvia","🌎","Configuração da viagem")}
+      ${cod?it("pf-codigo","🔑","Código",esc(cod)):''}
+      ${!MOCK?it("pf-viagens","🧳","Trocar de viagem"):''}
+    </div>
+    <div class="dw-sec"><div class="dw-sec-tit">Você</div>
+      ${it("pf-meta","🎯","Minha meta de poupança")}
+      ${it("pf-ajuda","❓","Como usar o app")}
+    </div>
+    <div class="dw-sec"><div class="dw-sec-tit">Conta</div>
+      ${it("pf-sair","🚪","Trocar de usuário")}
+    </div>
+  </aside></div>`;
+  const close=()=>{const ov=$("#dw-ov");if(ov){ov.classList.remove("on");setTimeout(()=>{$("#modal").innerHTML="";},190);}else $("#modal").innerHTML="";};
+  requestAnimationFrame(()=>{const ov=$("#dw-ov");if(ov)ov.classList.add("on");});
+  $("#dw-ov").onclick=e=>{if(e.target===e.currentTarget)close();};
+  $("#dw-x").onclick=close;
   $("#pf-sair").onclick=()=>{close();sairDaConta();};
   const _bv=$("#pf-viagens");if(_bv)_bv.onclick=()=>{close();showViagens();};
   const _bc=$("#pf-codigo");if(_bc)_bc.onclick=async()=>{try{await navigator.clipboard.writeText(STATE.config.codigo);toast("Código copiado ✓");}catch(e){toast(STATE.config.codigo);}};
-  $("#pf-moeda").onclick=()=>{close();abrirMinhasMoedas();};
-  {const _cv=$("#pf-configvia");if(_cv)_cv.onclick=()=>{close();abrirConfigViagem();};}
-  {const _es=$("#pf-euSou");if(_es)_es.onclick=()=>{close();perguntarQuemEhVoce();};}
-  {const _pp=$("#pf-participantes");if(_pp)_pp.onclick=()=>{close();abrirParticipantes();};}
-  $("#pf-meta").onclick=()=>{close();show("cofre");renderCofre();setTimeout(()=>{const m=$("#metaedit");if(m)m.click();},80);};
-  $("#pf-ajuda").onclick=()=>{close();mostrarIntro(true);};
+  const _mo=$("#pf-moeda");if(_mo)_mo.onclick=()=>{close();abrirMinhasMoedas();};
+  const _cv=$("#pf-configvia");if(_cv)_cv.onclick=()=>{close();abrirConfigViagem();};
+  const _es=$("#pf-euSou");if(_es)_es.onclick=()=>{close();perguntarQuemEhVoce();};
+  const _pp=$("#pf-participantes");if(_pp)_pp.onclick=()=>{close();abrirParticipantes();};
+  const _me=$("#pf-meta");if(_me)_me.onclick=()=>{close();show("cofre");renderCofre();setTimeout(()=>{const m=$("#metaedit");if(m)m.click();},80);};
+  const _aj=$("#pf-ajuda");if(_aj)_aj.onclick=()=>{close();mostrarIntro(true);};
 }
 /* ---- Onboarding: boas-vindas + dicas de recursos escondidos --------
    Mostra uma vez por pessoa (guardado no aparelho). Reúne num só cartão
@@ -2913,6 +2947,7 @@ function sincronizarPessoas(){
 function nomeConta(){return STATE.conta||STATE.me||"Você";}
 async function salvarVinculo(nome){
   MEU_VINCULO[VIAGEM.id]=nome; STATE.me=nome; renderAll();
+  try{if(UID)localStorage.setItem("tr27_vinc_"+UID,JSON.stringify(MEU_VINCULO));}catch(e){}
   if(!MOCK&&db&&UID){try{await FB.setDoc(FB.doc(db,"usuarios",UID),{euSou:MEU_VINCULO},{merge:true});}catch(e){}}
 }
 function garantirVinculoPessoa(){
@@ -2939,7 +2974,6 @@ function perguntarQuemEhVoce(){
     </div>
   </div></div>`;
   const close=()=>{_vinculoPend=false;$("#modal").innerHTML="";};
-  $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};
   $("#modal").querySelectorAll(".qv-item").forEach(b=>b.onclick=()=>{salvarVinculo(b.dataset.n);close();toast("Pronto, você é "+b.dataset.n+" aqui ✓");});
   $("#qv-novo").onclick=async()=>{
     const nome=nomeConta();
@@ -2982,7 +3016,7 @@ async function abrirParticipantes(){
   if(!MOCK&&db&&FB.query&&FB.where&&FB.getDocs){
     try{const q=FB.query(FB.collection(db,"convites"),FB.where("viagemId","==",VIAGEM.id));const snap=await FB.getDocs(q);pend=snap.docs.map(d=>Object.assign({_id:d.id},d.data()));}catch(e){}
   }
-  const linhaP=pes.map(p=>`<div class="pt-row"><span>${esc(p)}</span>${MEU_VINCULO[VIAGEM.id]===p?'<span class="pt-eu">você</span>':''}</div>`).join("")||'<div class="empty">Ninguém ainda.</div>';
+  const linhaP=pes.map(p=>`<div class="pt-row"><span>${esc(p)}${MEU_VINCULO[VIAGEM.id]===p?' <span class="pt-eu">você</span>':''}</span><button class="pt-rm" data-rm="${esc(p)}">remover</button></div>`).join("")||'<div class="empty">Ninguém ainda.</div>';
   const linhaC=pend.length?('<div class="pt-lb">Convites pendentes</div>'+pend.map(c=>`<div class="pt-row"><span>${esc(c.nome||c.email)}<br><span class="s">${esc(c.email)}</span></span><button class="resv-copy" data-cancel="${esc(c._id)}">cancelar</button></div>`).join("")):'';
   $("#modal").innerHTML=`<div class="modal"><div class="box">
     <h3>Participantes</h3>
@@ -2999,6 +3033,7 @@ async function abrirParticipantes(){
   $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};
   $("#pt-fechar").onclick=close;
   $("#modal").querySelectorAll("[data-cancel]").forEach(b=>b.onclick=async()=>{try{await FB.deleteDoc(FB.doc(db,"convites",b.dataset.cancel));toast("Convite cancelado");}catch(e){}abrirParticipantes();});
+  $("#modal").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{const nome=b.dataset.rm;const atual=pes.filter(p=>p!==nome);saveDoc("config",{pessoas:atual});if(MEU_VINCULO[VIAGEM.id]===nome){delete MEU_VINCULO[VIAGEM.id];try{if(UID)localStorage.setItem("tr27_vinc_"+UID,JSON.stringify(MEU_VINCULO));}catch(e){}}toast("Removido");abrirParticipantes();});
   $("#pt-add").onclick=async()=>{
     const nome=($("#pt-nome").value||"").trim();
     const email=String($("#pt-email").value||"").trim().toLowerCase();
