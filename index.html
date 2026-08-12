@@ -551,6 +551,10 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 .cv-inv .s,.pt-row .s{color:var(--muted);font-size:12px}
 .pt-eu{font-size:10px;font-weight:800;color:var(--orange);border:1px solid var(--orange);border-radius:6px;padding:1px 6px}
 .pt-lb{font-size:12px;font-weight:800;color:var(--navy);margin:8px 0 6px}
+.vg-welcome{text-align:center;padding:22px 12px 10px}
+.vg-w-emoji{font-size:46px;margin-bottom:8px}
+.vg-w-tit{font-size:20px;font-weight:800;color:var(--navy);margin-bottom:8px}
+.vg-w-sub{font-size:14px;color:var(--muted);line-height:1.55;max-width:320px;margin:0 auto}
 .pt-rm{background:none;border:none;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer;font-family:inherit;flex:none}
 .pt-rm:hover{color:#d64541}
 .pt-acts{display:flex;gap:10px;flex:none}
@@ -1950,14 +1954,14 @@ function mostrarIntro(forcado){
     ["custos",`Toque no <b>⇄</b> ao lado das moedas (no card azul do topo) pra converter qualquer valor em real, euro ou dólar.`]
   ];
   $("#modal").innerHTML=`<div class="modal"><div class="box">
-    <div class="kicker" style="text-align:center;margin-bottom:2px">Paris · Munique · Berlim</div>
+    <div class="kicker" style="text-align:center;margin-bottom:2px">${esc((STATE.config&&STATE.config.nome)||"Resenha Trip")}</div>
     <h3 style="text-align:center;font-size:22px">Bem-vindo${STATE.me?", "+esc(STATE.me):""}! 👋</h3>
     <div class="note" style="text-align:center;margin:0 0 12px">Um tour rápido de 20 segundos pelos atalhos do app.</div>
     <div class="intro-list">
     ${dicas.map(d=>`<div class="intro-it"><span class="intro-ic">${svgIcon(d[0])}</span><span>${d[1]}</span></div>`).join("")}
     </div>
     <button class="btn" id="intro-ok" style="margin-top:14px">Começar a explorar</button>
-    <div class="note" style="text-align:center;margin-top:8px">Pode rever isso depois em <b>trocar › Como usar o app</b>.</div>
+    <div class="note" style="text-align:center;margin-top:8px">Pode rever isso depois no menu <b>☰ › Como usar o app</b>.</div>
   </div></div>`;
   const fechar=()=>{try{localStorage.setItem(LS.intro,"1");}catch(e){}$("#modal").innerHTML="";};
   $("#intro-ok").onclick=fechar;
@@ -2076,9 +2080,10 @@ function renderViagens(vs){
   vs=(vs||[]).slice().sort(ordViagens);
   const ativas=vs.filter(v=>!ARQUIVADAS[v.id]);
   const arq=vs.filter(v=>!!ARQUIVADAS[v.id]);
+  const _sub=document.querySelector(".vg-sub");if(_sub)_sub.textContent=ativas.length?"Toque numa viagem pra abrir.":"";
+  const boasVindas=`<div class="vg-welcome"><div class="vg-w-emoji">🧳</div><div class="vg-w-tit">${arq.length?"Nenhuma viagem ativa":"Bora planejar uma viagem?"}</div><div class="vg-w-sub">Roteiro, cofre, rachadinha e checklist — tudo em grupo, num lugar só. Crie uma viagem nova ou entre em uma com o código de quem te convidou.</div></div>`;
   let html="";
-  html+= ativas.length ? ativas.map(v=>_cardViagem(v,false)).join("")
-                       : '<div class="empty" style="margin-bottom:14px">Você ainda não está em nenhuma viagem ativa.</div>';
+  html+= ativas.length ? ativas.map(v=>_cardViagem(v,false)).join("") : boasVindas;
   html+=nova+admBtn;
   if(arq.length){
     html+=`<button class="vg-hist-tog" id="vg-hist-tog">✅ Concluídas (${arq.length}) <span class="chev2">▾</span></button><div class="vg-hist" id="vg-hist" hidden>${arq.map(v=>_cardViagem(v,true)).join("")}</div>`;
