@@ -597,6 +597,11 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
 .toast .undo:active{transform:scale(.94)}
 
 .modal{position:fixed;inset:0;z-index:80;background:rgba(18,29,50,.5);display:flex;align-items:flex-end;justify-content:center}
+.modal .box{position:relative}
+.mx{position:absolute;top:14px;right:14px;background:var(--panel2);border:none;color:var(--muted);width:30px;height:30px;border-radius:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;z-index:3}
+.mx:hover{color:var(--text)}
+.mx svg{width:16px;height:16px}
+.modal .box>h3{padding-right:30px}
 .modal .box{background:var(--bg);border:1px solid var(--line2);border-top-left-radius:20px;border-top-right-radius:20px;
  width:100%;max-width:520px;padding:16px 16px calc(20px + env(safe-area-inset-bottom));max-height:88vh;overflow-y:auto}
 .modal .box h3{font-family:'Bricolage Grotesque',Inter,sans-serif;font-size:19px;margin-bottom:12px}
@@ -5149,6 +5154,22 @@ try{const _q=new URLSearchParams(location.search);
 }catch(e){}
 if(DEV){MOCK=true;STATE.me=STATE.me||"Dev";loadLocal();_bootResolve&&_bootResolve();showViagens();}
 else{loginSplash();initFB();}
+(function(){try{
+  const host=document.getElementById("modal");
+  if(!host||!window.MutationObserver)return;
+  const XSVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  new MutationObserver(()=>{
+    const ov=host.querySelector(".modal"); if(!ov)return;
+    const box=ov.querySelector(".box"); if(!box)return;
+    if(!ov.onclick){ov.addEventListener("click",e=>{if(e.target===ov)host.innerHTML="";});}
+    if(box.querySelector("h3") && !box.querySelector(".mx")){
+      const x=document.createElement("button");
+      x.className="mx";x.type="button";x.setAttribute("aria-label","Fechar");x.innerHTML=XSVG;
+      x.addEventListener("click",()=>{host.innerHTML="";});
+      box.appendChild(x);
+    }
+  }).observe(host,{childList:true});
+}catch(e){}})();
 carregarFX();
 let ULT_MES=monthKey(new Date());
 setInterval(()=>{const k=monthKey(new Date());if(k!==ULT_MES){ULT_MES=k;renderAll();}},60000);
