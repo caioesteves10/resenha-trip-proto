@@ -544,6 +544,7 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 .mo-chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:6px}
 .mo-chip{background:var(--panel);border:1px solid var(--line2);color:var(--navy);border-radius:999px;padding:7px 12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
 .mo-chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.box.perfil-form{max-height:86vh;overflow-y:auto}
 .qv-item{width:100%}
 .qv-item.on{border-color:var(--navy);color:var(--navy);font-weight:800}
 .cv-lista,.pt-lista{display:flex;flex-direction:column;gap:8px;margin:4px 0 10px}
@@ -1043,6 +1044,7 @@ let AUTHM=null, auth=null, IS_ADMIN=false;
 let MINHAS_MOEDAS={};
 let ARQUIVADAS={};
 let MEU_VINCULO={};
+let PERFIL={};
 let _vinculoPend=false;
 /* ---- contexto da viagem ativa (Fase 0) -----------------
    Todo acesso a dados passa por estes helpers, que apontam para
@@ -1514,7 +1516,7 @@ async function garantirPerfil(){
     const dados={ultimoAcesso:ts};
     if(STATE.me)dados.nome=STATE.me;
     try{if(auth&&auth.currentUser){dados.email=auth.currentUser.email||"";dados.emailVerificado=!!auth.currentUser.emailVerified;}}catch(e){}
-    if(FB.getDoc){try{const s=await FB.getDoc(ref);if(!s.exists())dados.criadoEm=ts;else{const dd=s.data();if(dd){if(dd.moedas)MINHAS_MOEDAS=dd.moedas;if(dd.arquivadas)ARQUIVADAS=dd.arquivadas;if(dd.euSou)MEU_VINCULO=dd.euSou;}}}catch(e){}}
+    if(FB.getDoc){try{const s=await FB.getDoc(ref);if(!s.exists())dados.criadoEm=ts;else{const dd=s.data();if(dd){PERFIL=dd;if(dd.moedas)MINHAS_MOEDAS=dd.moedas;if(dd.arquivadas)ARQUIVADAS=dd.arquivadas;if(dd.euSou)MEU_VINCULO=dd.euSou;}}}catch(e){}}
     await FB.setDoc(ref,dados,{merge:true});
   }catch(e){console.warn("perfil:",e&&e.code);}
 }
@@ -1904,6 +1906,7 @@ function abrirPerfil(){
       ${!MOCK?it("pf-viagens","🧳","Trocar de viagem"):''}
     </div>
     <div class="dw-sec"><div class="dw-sec-tit">Você</div>
+      ${it("pf-perfil","🪪","Meu perfil")}
       ${it("pf-meta","🎯","Minha meta de poupança")}
       ${it("pf-ajuda","❓","Como usar o app")}
     </div>
@@ -1923,6 +1926,7 @@ function abrirPerfil(){
   const _cv=$("#pf-configvia");if(_cv)_cv.onclick=()=>ir(abrirConfigViagem);
   const _es=$("#pf-euSou");if(_es)_es.onclick=()=>ir(perguntarQuemEhVoce);
   const _pp=$("#pf-participantes");if(_pp)_pp.onclick=()=>ir(abrirParticipantes);
+  const _pu=$("#pf-perfil");if(_pu)_pu.onclick=()=>ir(abrirPerfilUsuario);
   const _me=$("#pf-meta");if(_me)_me.onclick=()=>ir(()=>{show("cofre");renderCofre();setTimeout(()=>{const m=$("#metaedit");if(m)m.click();},80);});
   const _aj=$("#pf-ajuda");if(_aj)_aj.onclick=()=>ir(()=>mostrarIntro(true));
 }
@@ -2343,7 +2347,7 @@ function abrirCriarViagem(){
   renderCid();renderPess();
 
   /* ---- moeda principal + moedas a exibir (busca em MOEDAS_DB, tudo local) ---- */
-  let moedaPrin="BRL"; const moedasV=[];
+  let moedaPrin=(PERFIL&&PERFIL.moedaBase)||"BRL"; const moedasV=[];
   const nomeMoeda=c=>{const f=MOEDAS_DB.find(x=>x[0]===c);return f?f[1]:c;};
   const buscarMoeda=q=>{const nq=normNome(q),lq=q.toLowerCase();return MOEDAS_DB.filter(([c,n])=>c.toLowerCase().includes(lq)||normNome(n).includes(nq)).slice(0,8);};
   const mpIn=$("#cv-mp"),mpRes=$("#cv-mp-res"),mpSel=$("#cv-mp-sel");
@@ -3034,6 +3038,50 @@ async function aceitarConvite(inv){
     if(inv._id){try{await FB.deleteDoc(FB.doc(db,"convites",inv._id));}catch(e){}}
     toast("Você entrou na viagem ✓");
   }catch(e){toast("Não consegui aceitar: "+((e&&e.code)||""));}
+}
+async function abrirPerfilUsuario(){
+  let p=PERFIL||{};
+  if(!MOCK&&db&&UID){try{const s=await FB.getDoc(FB.doc(db,"usuarios",UID));if(s.exists()){PERFIL=s.data()||{};p=PERFIL;}}catch(e){}}
+  const mb=p.moedaBase||"BRL";
+  $("#modal").innerHTML=`<div class="modal"><div class="box perfil-form">
+    <h3>Meu perfil</h3>
+    <p class="mo-sub">Guardado só na sua conta (privado). Agiliza a criação de viagens e deixa suas infos à mão.</p>
+    <label class="mo-lb">Moeda base (padrão ao criar viagem)</label>
+    <select id="pu-moeda" class="au-inp">${_optsMoeda(mb)}</select>
+    <label class="mo-lb">Nacionalidade / país</label>
+    <input id="pu-nac" class="au-inp" value="${esc(p.nacionalidade||"")}" placeholder="Ex.: Brasil" autocomplete="off">
+    <label class="mo-lb">Passaporte — número</label>
+    <input id="pu-passn" class="au-inp" value="${esc(p.passaporteNum||"")}" placeholder="Número" autocomplete="off">
+    <label class="mo-lb">Passaporte — validade</label>
+    <input id="pu-passv" class="au-inp" type="date" value="${esc(p.passaporteValidade||"")}">
+    <label class="mo-lb">Contato de emergência</label>
+    <input id="pu-emn" class="au-inp" value="${esc(p.emergNome||"")}" placeholder="Nome" autocomplete="off">
+    <input id="pu-emt" class="au-inp" value="${esc(p.emergTel||"")}" placeholder="Telefone" inputmode="tel" autocomplete="off" style="margin-top:8px">
+    <label class="mo-lb">Restrições alimentares / alergias</label>
+    <input id="pu-rest" class="au-inp" value="${esc(p.restricoes||"")}" placeholder="Ex.: vegetariano, sem glúten" autocomplete="off">
+    <label class="mo-lb">Tamanhos (roupa / sapato)</label>
+    <input id="pu-tam" class="au-inp" value="${esc(p.tamanhos||"")}" placeholder="Ex.: M / 42" autocomplete="off">
+    <button class="btn" id="pu-save" style="margin-top:14px">Salvar</button>
+    <button class="btn gh" id="pu-cancel">Fechar</button>
+  </div></div>`;
+  const close=()=>{$("#modal").innerHTML="";};
+  $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};
+  $("#pu-cancel").onclick=close;
+  $("#pu-save").onclick=async()=>{
+    const dados={
+      moedaBase:$("#pu-moeda").value,
+      nacionalidade:($("#pu-nac").value||"").trim(),
+      passaporteNum:($("#pu-passn").value||"").trim(),
+      passaporteValidade:$("#pu-passv").value||"",
+      emergNome:($("#pu-emn").value||"").trim(),
+      emergTel:($("#pu-emt").value||"").trim(),
+      restricoes:($("#pu-rest").value||"").trim(),
+      tamanhos:($("#pu-tam").value||"").trim()
+    };
+    PERFIL=Object.assign({},PERFIL,dados);
+    close();toast("Perfil salvo ✓");
+    if(!MOCK&&db&&UID){try{await FB.setDoc(FB.doc(db,"usuarios",UID),dados,{merge:true});}catch(e){toast("Não consegui salvar agora.");}}
+  };
 }
 async function criarConvite(viagemId,viagemNome,nome,email){
   if(MOCK||!db||!email)return false;
