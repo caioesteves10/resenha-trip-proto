@@ -3456,7 +3456,7 @@ function renderInicio(){_sujo.delete("inicio");
   let roteiroCard;
   if(prox.length){const p0=prox[0],cid=cityOf(p0.dia.cidade);
     roteiroCard=`<div class="ini-card" data-goto="roteiro" role="button" tabindex="0">
-      <div class="ini-h"><span class="ini-ic">${svgIcon("roteiro")}</span><span class="ini-t">${emV?"Próximo passeio":"Começa a viagem"}</span><span class="ini-go">ver roteiro ›</span></div>
+      <div class="ini-h"><span class="ini-ic">${svgIcon("roteiro")}</span><span class="ini-t">${emV?(sameDay(p0.base)?"Hoje":"Próximo passeio"):"Começa a viagem"}</span><span class="ini-go">ver roteiro ›</span></div>
       <div class="ini-big">${esc(p0.a.titulo)}</div>
       <div class="ini-sub">${p0.a.hora&&p0.a.hora!=="—"?esc(p0.a.hora)+" · ":""}${esc(cid.n)}${sameDay(p0.base)?"":" · "+fmtDate(p0.base).slice(0,3)}</div>
       ${p0.a.local?`<div style="margin-top:7px">${mapBtn(p0.a.local,p0.dia.cidade)}</div>`:""}
@@ -3540,10 +3540,7 @@ function renderInicio(){_sujo.delete("inicio");
     <div class="ini-hero-big"><span class="ini-hero-n">${statusBig}</span> <span class="ini-hero-u">${statusLbl}</span></div>
     <div class="ini-hero-sub">${statusSub}</div>
   </div>
-  ${gastoCard}
-  ${roteiroCard}
-  ${cofreCard}
-  ${rachaCard}
+  ${emV?`${roteiroCard}${gastoCard}${rachaCard}${cofreCard}`:`${cofreCard}${roteiroCard}${rachaCard}`}
   <div class="note" style="text-align:center;margin-top:4px">Toque em qualquer cartão para abrir a aba completa.</div>`;
 
   // navegação: cada cartão abre a aba correspondente (menos ao tocar no (i) ou na verba)
