@@ -572,7 +572,14 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 .dw-sec-tit{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);padding:15px 20px 3px}
 .dw-item{display:flex;align-items:center;gap:12px;width:100%;background:none;border:none;border-bottom:1px solid var(--line);padding:12px 20px;cursor:pointer;font-family:inherit;font-size:14px;color:var(--text);text-align:left}
 .dw-item:active{background:var(--panel2)}
-.dw-emoji{font-size:15px;width:18px;text-align:center;flex:none;opacity:.8}
+.dw-emoji{font-size:15px;width:18px;text-align:center;flex:none;opacity:.85}
+.ico{width:1.05em;height:1.05em;vertical-align:-2px;display:inline-block;flex:none}
+.dw-emoji svg{width:18px;height:18px;color:var(--navy)}
+#pf-sair .dw-emoji svg{color:#d64541}
+.vg-w-emoji svg{width:46px;height:46px;color:var(--navy)}
+.pa-btn svg{width:22px;height:22px;color:#fff}
+.pasta-nova svg{color:var(--navy);vertical-align:-3px;margin-right:4px}
+.vg-hist-tog svg{color:var(--muted);vertical-align:-3px;margin-right:2px}
 .dw-label{flex:1;font-weight:400}
 .dw-label b{font-weight:600;color:var(--navy)}
 .dw-val{color:var(--muted);font-weight:400;font-size:12px}
@@ -1890,7 +1897,7 @@ $("#menubtn").onclick=(e)=>{e.stopPropagation();abrirPerfil();};
 function abrirPerfil(){
   const emailConta=(auth&&auth.currentUser&&auth.currentUser.email)||"";
   const cod=STATE.config&&STATE.config.codigo;
-  const it=(id,em,lab,val)=>`<button class="dw-item" id="${id}"><span class="dw-emoji">${em}</span><span class="dw-label">${lab}</span>${val?`<span class="dw-val">${val}</span>`:'<span class="dw-chev">›</span>'}</button>`;
+  const it=(id,em,lab,val)=>`<button class="dw-item" id="${id}"><span class="dw-emoji">${ICO(em)}</span><span class="dw-label">${lab}</span>${val?`<span class="dw-val">${val}</span>`:'<span class="dw-chev">›</span>'}</button>`;
   $("#modal").innerHTML=`<div class="drawer-ov" id="dw-ov"><aside class="drawer" id="dw">
     <div class="dw-head">
       <div class="dw-nome">${esc(STATE.conta||STATE.me||"Você")}</div>
@@ -1898,20 +1905,20 @@ function abrirPerfil(){
       <button class="dw-x" id="dw-x" aria-label="Fechar">✕</button>
     </div>
     <div class="dw-sec"><div class="dw-sec-tit">Esta viagem</div>
-      ${!MOCK?it("pf-euSou","👤",`Sou <b>${esc(STATE.me)}</b> aqui`):''}
-      ${!MOCK?it("pf-participantes","👥","Participantes"):''}
-      ${it("pf-moeda","💱","Minhas moedas")}
-      ${it("pf-configvia","🌎","Configuração da viagem")}
-      ${cod?it("pf-codigo","🔑","Código",esc(cod)):''}
-      ${!MOCK?it("pf-viagens","🧳","Trocar de viagem"):''}
+      ${!MOCK?it("pf-euSou","eu",`Sou <b>${esc(STATE.me)}</b> aqui`):''}
+      ${!MOCK?it("pf-participantes","participantes","Participantes"):''}
+      ${it("pf-moeda","moeda","Minhas moedas")}
+      ${it("pf-configvia","ajustes","Configuração da viagem")}
+      ${cod?it("pf-codigo","codigo","Código",esc(cod)):''}
+      ${!MOCK?it("pf-viagens","viagem","Trocar de viagem"):''}
     </div>
     <div class="dw-sec"><div class="dw-sec-tit">Você</div>
-      ${it("pf-perfil","🪪","Meu perfil")}
-      ${it("pf-meta","🎯","Minha meta de poupança")}
-      ${it("pf-ajuda","❓","Como usar o app")}
+      ${it("pf-perfil","perfil","Meu perfil")}
+      ${it("pf-meta","meta","Minha meta de poupança")}
+      ${it("pf-ajuda","ajuda","Como usar o app")}
     </div>
     <div class="dw-sec"><div class="dw-sec-tit">Conta</div>
-      ${it("pf-sair","🚪","Trocar de usuário")}
+      ${it("pf-sair","sair","Trocar de usuário")}
     </div>
   </aside></div>`;
   const close=()=>{const ov=$("#dw-ov");if(ov){ov.classList.remove("on");setTimeout(()=>{$("#modal").innerHTML="";},190);}else $("#modal").innerHTML="";};
@@ -2059,13 +2066,30 @@ async function verTodasViagensAdmin(){
 }
 function ordViagens(a,b){return String(b.inicio||"").localeCompare(String(a.inicio||""));}
 function _souDono(v){return (v&&v.dono&&v.dono===UID)||IS_ADMIN;}
+const ICONS={
+  viagem:'<rect x="4" y="8" width="16" height="12" rx="2"/><path d="M9 8V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M4 14h16"/>',
+  participantes:'<circle cx="9" cy="8" r="3"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 6.5a3 3 0 0 1 0 5.8M20.5 20a5.5 5.5 0 0 0-4-5.3"/>',
+  moeda:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7v10M9.5 9.2c0-1 1.1-1.7 2.5-1.7s2.5.7 2.5 1.7-1.1 1.6-2.5 1.6-2.5.7-2.5 1.7 1.1 1.7 2.5 1.7 2.5-.7 2.5-1.7"/>',
+  ajustes:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>',
+  codigo:'<circle cx="8" cy="12" r="3.2"/><path d="M11 12h9M17 12v3M20 12v3"/>',
+  perfil:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="11" r="2"/><path d="M5.5 16a3 3 0 0 1 6 0M14 10h4M14 14h3"/>',
+  meta:'<path d="M12 2 15 8.5 22 9.5 17 14.5 18.5 21.5 12 18 5.5 21.5 7 14.5 2 9.5 9 8.5z"/>',
+  ajuda:'<circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.6 2.6 0 0 1 5 .8c0 1.7-2.5 2-2.5 3.8M12 17.3h.01"/>',
+  sair:'<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M9 16l-4-4 4-4M5 12h11"/>',
+  concluido:'<path d="M20 6 9 17l-5-5"/>',
+  reativar:'<path d="M3 12a9 9 0 1 1 3 6.7L3 16"/><path d="M3 21v-5h5"/>',
+  adicionar:'<path d="M12 5v14M5 12h14"/>',
+  remover:'<path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"/>',
+  eu:'<circle cx="12" cy="8" r="4"/><path d="M5 20a7 7 0 0 1 14 0"/>'
+};
+function ICO(n,cls){const p=ICONS[n];if(!p)return"";return `<svg class="ico${cls?' '+cls:''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;}
 function _cardViagem(v,arq){
   const rota=(v.cidades||[]).join(" › ")||"—";
   const aba=v.tagline||"viagem";
   const n=(v.membros&&v.membros.length)||1;
   const quem=(n===1?"1 pessoa":n+" pessoas");
   return `<div class="pasta-wrap${arq?' concluida':''}">
-    <div class="pasta-acoes"><button class="pa-btn pa-ok" data-arq="${esc(v.id)}" aria-label="${arq?'Reativar':'Concluir'}">${arq?'↩︎':'✓'}</button><button class="pa-btn pa-del" data-id="${esc(v.id)}" aria-label="Apagar">🗑️</button></div>
+    <div class="pasta-acoes"><button class="pa-btn pa-ok" data-arq="${esc(v.id)}" aria-label="${arq?'Reativar':'Concluir'}">${arq?ICO("reativar"):ICO("concluido")}</button><button class="pa-btn pa-del" data-id="${esc(v.id)}" aria-label="Apagar">${ICO("remover")}</button></div>
     <button class="pasta" data-id="${esc(v.id)}">
       <span class="pasta-aba">${esc(aba)}</span>
       <span class="pasta-corpo">
@@ -2079,18 +2103,18 @@ function _cardViagem(v,arq){
 }
 function renderViagens(vs){
   const box=$("#vg-lista");if(!box)return;
-  const nova='<button class="pasta-nova" id="vg-nova">+ Nova viagem</button><button class="pasta-nova pasta-cod" id="vg-cod">🔑 Entrar por código</button>';
+  const nova='<button class="pasta-nova" id="vg-nova">'+ICO("adicionar")+' Nova viagem</button><button class="pasta-nova pasta-cod" id="vg-cod">'+ICO("codigo")+' Entrar por código</button>';
   const admBtn=IS_ADMIN?'<button class="au-link" id="vg-admin" style="margin:12px auto 0;display:block">👑 Ver todas as viagens (admin)</button>':'';
   vs=(vs||[]).slice().sort(ordViagens);
   const ativas=vs.filter(v=>!ARQUIVADAS[v.id]);
   const arq=vs.filter(v=>!!ARQUIVADAS[v.id]);
   const _sub=document.querySelector(".vg-sub");if(_sub)_sub.textContent=ativas.length?"Toque numa viagem pra abrir.":"";
-  const boasVindas=`<div class="vg-welcome"><div class="vg-w-emoji">🧳</div><div class="vg-w-tit">${arq.length?"Nenhuma viagem ativa":"Bora planejar uma viagem?"}</div><div class="vg-w-sub">Roteiro, cofre, rachadinha e checklist — tudo em grupo, num lugar só. Crie uma viagem nova ou entre em uma com o código de quem te convidou.</div></div>`;
+  const boasVindas=`<div class="vg-welcome"><div class="vg-w-emoji">${ICO("viagem")}</div><div class="vg-w-tit">${arq.length?"Nenhuma viagem ativa":"Bora planejar uma viagem?"}</div><div class="vg-w-sub">Roteiro, cofre, rachadinha e checklist — tudo em grupo, num lugar só. Crie uma viagem nova ou entre em uma com o código de quem te convidou.</div></div>`;
   let html="";
   html+= ativas.length ? ativas.map(v=>_cardViagem(v,false)).join("") : boasVindas;
   html+=nova+admBtn;
   if(arq.length){
-    html+=`<button class="vg-hist-tog" id="vg-hist-tog">✅ Concluídas (${arq.length}) <span class="chev2">▾</span></button><div class="vg-hist" id="vg-hist" hidden>${arq.map(v=>_cardViagem(v,true)).join("")}</div>`;
+    html+=`<button class="vg-hist-tog" id="vg-hist-tog">${ICO("concluido")} Concluídas (${arq.length}) <span class="chev2">▾</span></button><div class="vg-hist" id="vg-hist" hidden>${arq.map(v=>_cardViagem(v,true)).join("")}</div>`;
   }
   box.innerHTML=html;
   wireViagens(box,vs);
