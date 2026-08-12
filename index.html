@@ -2120,7 +2120,7 @@ function ligarSwipe(el){
     abrirViagem(el.dataset.id);
   };
 }
-function confirmModal(titulo,textoHTML,rotulo,onOk,perigo){
+function confirmModal(titulo,textoHTML,rotulo,onOk,perigo,onCancel){
   $("#modal").innerHTML=`<div class="modal"><div class="box">
     <h3>${esc(titulo)}</h3>
     <p class="mo-sub">${textoHTML}</p>
@@ -2129,9 +2129,9 @@ function confirmModal(titulo,textoHTML,rotulo,onOk,perigo){
       <button class="btn gh" id="cf-nao">Cancelar</button>
     </div>
   </div></div>`;
-  const close=()=>{$("#modal").innerHTML="";};
-  $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};
-  $("#cf-nao").onclick=close;
+  const cancelar=()=>{$("#modal").innerHTML="";if(onCancel)onCancel();};
+  $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)cancelar();};
+  $("#cf-nao").onclick=cancelar;
   $("#cf-ok").onclick=async()=>{const b=$("#cf-ok");b.disabled=true;b.textContent="…";try{await onOk();}catch(e){b.disabled=false;b.textContent=rotulo;}};
 }
 function abrirMenuViagem(v,arq){
@@ -3141,10 +3141,10 @@ async function abrirParticipantes(){
   $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};
   $("#pt-fechar").onclick=close;
   $("#modal").querySelectorAll("[data-ap]").forEach(b=>b.onclick=()=>_aprovarSolic(b.dataset.ap,b.dataset.nm));
-  $("#modal").querySelectorAll("[data-rj]").forEach(b=>b.onclick=()=>_recusarSolic(b.dataset.rj));
-  $("#modal").querySelectorAll("[data-mrm]").forEach(b=>b.onclick=()=>_removerMembro(b.dataset.mrm));
+  $("#modal").querySelectorAll("[data-rj]").forEach(b=>b.onclick=()=>{const uid=b.dataset.rj;confirmModal("Recusar solicitação?","A pessoa não entra na viagem. Ela pode pedir de novo.","Recusar",()=>_recusarSolic(uid),true,abrirParticipantes);});
+  $("#modal").querySelectorAll("[data-mrm]").forEach(b=>b.onclick=()=>{const uid=b.dataset.mrm;confirmModal("Remover acesso?","Essa pessoa perde o acesso à viagem. Ela pode pedir pra entrar de novo pelo código.","Remover acesso",()=>_removerMembro(uid),true,abrirParticipantes);});
   $("#modal").querySelectorAll("[data-cancel]").forEach(b=>b.onclick=async()=>{try{await FB.deleteDoc(FB.doc(db,"convites",b.dataset.cancel));toast("Convite cancelado");}catch(e){}abrirParticipantes();});
-  $("#modal").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{const nome=b.dataset.rm;const atual=pes.filter(p=>p!==nome);saveDoc("config",{pessoas:atual});if(MEU_VINCULO[VIAGEM.id]===nome){delete MEU_VINCULO[VIAGEM.id];try{if(UID)localStorage.setItem("tr27_vinc_"+UID,JSON.stringify(MEU_VINCULO));}catch(e){}}toast("Removido");abrirParticipantes();});
+  $("#modal").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{const nome=b.dataset.rm;confirmModal("Remover participante?",`<b>${esc(nome)}</b> sai da lista desta viagem.`,"Remover",()=>{const atual=pes.filter(p=>p!==nome);saveDoc("config",{pessoas:atual});if(MEU_VINCULO[VIAGEM.id]===nome){delete MEU_VINCULO[VIAGEM.id];try{if(UID)localStorage.setItem("tr27_vinc_"+UID,JSON.stringify(MEU_VINCULO));}catch(e){}}toast("Removido");abrirParticipantes();},true,abrirParticipantes);});
   $("#pt-add").onclick=async()=>{
     const nome=($("#pt-nome").value||"").trim();
     const email=String($("#pt-email").value||"").trim().toLowerCase();
