@@ -268,6 +268,10 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 .nav div.on .navdot{background:var(--orange);width:20px}
 
 .panel-v{display:none}
+.gd-day-k{font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);line-height:1}
+.gd-allow{display:flex;align-items:center;justify-content:space-between;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:10px 0 2px}
+.gd-allow span{font-size:12.5px;color:var(--muted)}
+.gd-allow b{font-size:17px;color:var(--navy);font-weight:700}
 .mtabs{display:flex;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:4px;margin:14px 0 4px}
 .mtabs.hidden{display:none}
 .mtabs button{flex:1;border:none;background:none;border-radius:9px;padding:9px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;font-family:inherit}
@@ -1299,7 +1303,9 @@ function moedasVista(){
 function simboloMoeda(m){try{return new Intl.NumberFormat("pt-BR",{style:"currency",currency:m}).formatToParts(0).find(p=>p.type==="currency").value;}catch(e){return m;}}
 function ajustarMoeda(){if(!moedasVista().includes(STATE.cur))STATE.cur=moedaPrincipal();}
 function _chipsMoeda(sel,cand){return cand.map(c=>`<button type="button" class="mo-chip ${sel.includes(c)?'on':''}" data-c="${c}">${simboloMoeda(c)} ${c}</button>`).join("");}
-function moedasForm(atual){const v=moedasVista().slice();if(atual&&!v.includes(atual))v.unshift(atual);return v;}
+function moedasEscolhidas(){const p=STATE.prefMoeda;if(p&&Array.isArray(p.ver)&&p.ver.length)return p.ver.slice();if(STATE.config&&Array.isArray(STATE.config.moedasVista)&&STATE.config.moedasVista.length)return STATE.config.moedasVista.slice();return moedasVista();}
+function moedaPadrao(pref){const v=moedasEscolhidas();if(pref&&v.includes(pref))return pref;if(PERFIL&&PERFIL.moedaBase&&v.includes(PERFIL.moedaBase))return PERFIL.moedaBase;const p=moedaPrincipal();return v.includes(p)?p:(v[0]||p);}
+function moedasForm(atual){const v=moedasEscolhidas().slice();if(atual&&!v.includes(atual))v.unshift(atual);return v;}
 function _optsMoeda(prin){return MOEDAS_DB.map(([c,n])=>`<option value="${c}" ${c===prin?'selected':''}>${c} — ${esc(n)}</option>`).join("");}
 function _candMoeda(prin,dest,vista){let c=["BRL","USD","EUR","GBP"].concat([prin,dest]).concat(vista||[]).filter(Boolean);return c.filter((m,i)=>c.indexOf(m)===i);}
 async function salvarMinhasMoedas(prin,ver){
@@ -3324,7 +3330,7 @@ function mesesStrip(map){
       <span class="mv money">${fmt(map[k])}</span></div>`).join("")+`</div>`;
 }
 function depositoModal(valor){
-  const me=STATE.me,mk=mesPadrao(),mo=moedaDe(me);
+  const me=STATE.me,mk=mesPadrao(),mo=moedaPadrao(moedaDe(me));
   openModal("Registrar depósito",[
     {id:"valor",label:"Valor",type:"money",value:valor?String(conv(valor,mo).toFixed(2)).replace(".",","):"",placeholder:"0,00"},
     {id:"moeda",label:"Moeda",type:"select",options:moedasForm(mo),value:mo},
@@ -3381,7 +3387,7 @@ function quickGasto(){
     {id:"desc",label:"O que foi",value:"",placeholder:"Ex.: almoço, táxi, ingresso"},
     {id:"cat",label:"Categoria",type:"cat",value:"Alimentação"},
     {id:"valor",label:"Valor pago",type:"money",value:"",placeholder:"0,00"},
-    {id:"moeda",label:"Moeda",type:"select",options:moedasForm(moedaDe(me)),value:moedaDe(me)},
+    {id:"moeda",label:"Moeda",type:"select",options:moedasForm(moedaDe(me)),value:moedaPadrao(moedaDe(me))},
     {id:"data",label:"Quando",type:"date",value:new Date().toISOString().slice(0,10)}
   ],v=>{
     if(!v.desc||v.valor<=0){toast("Preencha o que foi e o valor");return false;}
@@ -3527,8 +3533,9 @@ function renderInicio(){_sujo.delete("inicio");
       <div class="ini-row">
         <div class="grow"><div class="ini-big money">${fmt(G.gastoAteHoje)}</div>
           <div class="ini-sub">${G.temVerba?`de ${fmt(G.verba)} que você levou`:`de ${fmt(G.plano)} planejados`}</div></div>
-        <div class="gd-day"><div class="gd-day-n">${Math.max(0,G.diaAtual)}</div><div class="gd-day-l">de ${G.totDias}</div></div>
+        <div class="gd-day"><div class="gd-day-k">dia</div><div class="gd-day-n">${Math.max(0,G.diaAtual)}</div><div class="gd-day-l">de ${G.totDias}</div></div>
       </div>
+      ${(G.temVerba||G.plano>0)?`<div class="gd-allow"><span>Pode gastar por dia</span><b class="money">${fmt(G.temVerba?G.podeGastarDia:G.sobraPorDia)}</b></div><div class="ini-line-sm">${G.diasRestantes>0?`Média pelos <b>${G.diasRestantes}</b> ${G.diasRestantes===1?"dia que falta":"dias que faltam"}${G.temVerba?", com base no que você levou":", com base no seu orçamento"}.`:"Último dia da viagem — aproveite o que sobrou."}</div>`:""}
       <div class="rail ${G.temVerba?"ok":(tom==="ok"?"ok":"dgr")}" style="margin:9px 0 4px"><i style="width:${G.temVerba?(G.verba>0?clamp(G.gastoAteHoje/G.verba*100,0,100):0):pctBar}%"></i></div>
       ${G.porDiaArr.some(g=>g>0)?`<div class="gd-chart">${barras}</div>`:""}
       ${G.temReal||G.temVerba?verbaBloco:`<div class="ini-line-sm ini-${tom}">Lance seus gastos em Custos › Já gastei para acompanhar aqui.</div><button class="btn sec sm" data-verba="1" style="margin-top:9px;width:100%">Definir minha verba de viagem</button>`}
@@ -3732,7 +3739,7 @@ function renderCofre(){_sujo.delete("cofre");
     const dep=(meDoc().depositos||[]).find(x=>x.id===b.dataset.dedit);if(!dep)return;
     openModal("Editar depósito",[
       {id:"valor",label:"Valor",type:"money",value:String(dep.valor).replace(".",","),placeholder:"0,00"},
-      {id:"moeda",label:"Moeda",type:"select",options:moedasForm(dep.moeda||moedaPrincipal()),value:dep.moeda||moedaPrincipal()},
+      {id:"moeda",label:"Moeda",type:"select",options:moedasForm(dep.moeda||moedaPrincipal()),value:dep.moeda||moedaPadrao()},
       {id:"mes",label:"Referente a",type:"select",options:monthRange().map(k=>({v:k,l:monthLabel(k)})),value:dep.mes||mesPadrao()},
       {id:"nota",label:"Nota",value:dep.nota||"",placeholder:"opcional"}
     ],v=>{if(v.valor<=0){toast("Informe um valor");return false;}
@@ -3931,7 +3938,7 @@ function renderCustos(){_sujo.delete("custos");
     {id:"desc",label:"O que é",value:x?x.desc:"",placeholder:"Ex.: camisa do Bayern"},
     {id:"cat",label:"Categoria",type:"cat",value:x?x.cat:"Compras"},
     {id:"valor",label:"Valor",type:"money",value:x?String(x.valor).replace(".",","):"",placeholder:"0,00"},
-    {id:"moeda",label:"Moeda",type:"select",options:moedasForm(x&&x.moeda),value:x?x.moeda:moedaPrincipal()}
+    {id:"moeda",label:"Moeda",type:"select",options:moedasForm(x&&x.moeda),value:x?x.moeda:moedaPadrao()}
   ],v=>{
     if(!v.desc||v.valor<=0){toast("Preencha nome e valor");return false;}
     registrarCategoria(v.cat);
@@ -3952,7 +3959,7 @@ function renderCustos(){_sujo.delete("custos");
     {id:"desc",label:"O que foi pago",value:x?x.desc:"",placeholder:"Ex.: passagem aérea"},
     {id:"cat",label:"Categoria",type:"cat",value:x?x.cat:"Passagens"},
     {id:"valor",label:"Valor pago",type:"money",value:x?String(x.valor).replace(".",","):"",placeholder:"0,00"},
-    {id:"moeda",label:"Moeda",type:"select",options:moedasForm(x&&x.moeda),value:x?x.moeda:moedaDe(me)},
+    {id:"moeda",label:"Moeda",type:"select",options:moedasForm(x&&x.moeda),value:x?x.moeda:moedaPadrao(moedaDe(me))},
     {id:"data",label:"Quando",type:"date",value:x?x.data:new Date().toISOString().slice(0,10)}
   ],v=>{
     if(!v.desc||v.valor<=0){toast("Preencha nome e valor");return false;}
@@ -4149,7 +4156,7 @@ function renderRoteiro(){_sujo.delete("roteiro");
     {id:"local",label:"Local (abre no mapa)",type:"text",placeholder:"Ex.: Museu do Louvre"},
     {id:"nota",label:"Observação",type:"area",placeholder:"opcional"},
     {id:"valor",label:"Custo total (opcional)",type:"money",placeholder:"0,00"},
-    {id:"moeda",label:"Moeda",type:"select",options:moedasVista(),value:moedaPrincipal()},
+    {id:"moeda",label:"Moeda",type:"select",options:moedasVista(),value:moedaPadrao()},
     {id:"quem",label:"Quem vai (e divide o custo)",type:"chips",value:PEOPLE.slice()}
   ],v=>{
     if(!v.titulo){toast("Dê um nome à atividade");return false;}
@@ -4175,7 +4182,7 @@ function renderRoteiro(){_sujo.delete("roteiro");
       {id:"local",label:"Local (abre no mapa)",type:"text",placeholder:"Ex.: Museu do Louvre",value:at.local||""},
       {id:"nota",label:"Observação",type:"area",placeholder:"opcional",value:at.nota||""},
       {id:"valor",label:"Custo total (opcional)",type:"money",placeholder:"0,00",value:Number(at.valor)>0?at.valor:""},
-      {id:"moeda",label:"Moeda",type:"select",options:moedasForm(at.moeda||moedaPrincipal()),value:at.moeda||moedaPrincipal()},
+      {id:"moeda",label:"Moeda",type:"select",options:moedasForm(at.moeda||moedaPrincipal()),value:at.moeda||moedaPadrao()},
       {id:"quem",label:"Quem vai (e divide o custo)",type:"chips",value:quemAtual}
     ],v=>{
       if(!v.titulo){toast("Dê um nome à atividade");return false;}
@@ -4231,7 +4238,7 @@ function renderCompras(){_sujo.delete("compras");
   $("#cpadd").onclick=()=>openModal("Novo item",[
     {id:"item",label:"O que é",placeholder:"Ex.: perfume pra minha mãe"},
     {id:"valor",label:"Quanto deve custar",type:"money",placeholder:"0,00"},
-    {id:"moeda",label:"Moeda",type:"select",options:moedasVista(),value:moedaPrincipal()},
+    {id:"moeda",label:"Moeda",type:"select",options:moedasVista(),value:moedaPadrao()},
     {id:"onde",label:"Onde comprar",placeholder:"cidade ou loja (opcional)"}
   ],v=>{
     if(!v.item){toast("Escreva o item");return false;}
@@ -4250,7 +4257,7 @@ function renderCompras(){_sujo.delete("compras");
     openModal("Editar item",[
       {id:"item",label:"O que é",value:it.item,placeholder:"Ex.: perfume"},
       {id:"valor",label:"Quanto deve custar",type:"money",value:Number(it.valor)>0?String(it.valor).replace(".",","):"",placeholder:"0,00"},
-      {id:"moeda",label:"Moeda",type:"select",options:moedasForm(it.moeda||moedaPrincipal()),value:it.moeda||moedaPrincipal()},
+      {id:"moeda",label:"Moeda",type:"select",options:moedasForm(it.moeda||moedaPrincipal()),value:it.moeda||moedaPadrao()},
       {id:"onde",label:"Onde comprar",value:it.onde||"",placeholder:"opcional"}
     ],v=>{if(!v.item){toast("Escreva o item");return false;}
       savePessoa(me,{compras:(meDoc().compras||[]).map(x=>x.id===cid?Object.assign({},x,{item:v.item,valor:parseFloat(v.valor)||0,moeda:v.moeda,onde:v.onde}):x)});
@@ -4752,7 +4759,7 @@ function settle(bal){
 function despesaModal(d){
   const me=STATE.me, hoje=new Date().toISOString().slice(0,10);
   const isEdit=!!d;
-  const base={desc:d?d.desc:"",valor:d?d.valor:0,moeda:d?(d.moeda||moedaPrincipal()):moedaPrincipal(),
+  const base={desc:d?d.desc:"",valor:d?d.valor:0,moeda:d?(d.moeda||moedaPadrao()):moedaPadrao(),
     pagou:d?d.pagou:me,entre:(d&&Array.isArray(d.entre)&&d.entre.length)?d.entre.slice():PEOPLE.slice(),
     data:d?(d.data||hoje):hoje,
     modo:(d&&d.pct)?"pct":"igual",
@@ -5045,7 +5052,7 @@ function renderAdmin(){_sujo.delete("admin");
     {id:"desc",label:"Descrição",value:it?it.desc:"",placeholder:"Ex.: Hotel em Berlim"},
     {id:"cat",label:"Categoria",type:"select",options:cats,value:it?it.cat:"Hospedagem"},
     {id:"valor",label:"Valor total",type:"money",value:it?String(it.valor).replace(".",","):"",placeholder:"0,00"},
-    {id:"moeda",label:"Moeda",type:"select",options:moedasForm(it&&it.moeda),value:it?it.moeda:moedaPrincipal()},
+    {id:"moeda",label:"Moeda",type:"select",options:moedasForm(it&&it.moeda),value:it?it.moeda:moedaPadrao()},
     {id:"quem",label:"Dividir entre",type:"chips",value:it?itemPeople(it):PEOPLE.slice()},
     {id:"naMeta",label:"Entra na meta de poupança?",type:"select",
      options:[{v:"sim",l:"Sim — precisa estar guardado"},{v:"nao",l:"Não — vai parcelado no cartão"}],
