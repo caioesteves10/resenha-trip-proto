@@ -58,6 +58,9 @@ a{color:var(--mun)}
 /* ---------- cabeçalho / boarding strip ---------- */
 .topbar{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .topbar .kicker{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hamb{background:var(--panel);border:1px solid var(--line2);color:var(--muted);border-radius:11px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;padding:0}
+.hamb:active{background:var(--panel2)}
+.cv-pemail{width:100%;margin-top:8px;height:44px;border:1px solid var(--line2);border-radius:11px;background:var(--panel);padding:0 12px;font-size:14px;font-family:inherit;color:var(--text)}
 .iconbtn{background:var(--panel);border:1px solid var(--line2);color:var(--muted);border-radius:11px;
  width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer;flex:0 0 auto}
 .iconbtn:active{background:var(--panel2)}
@@ -827,8 +830,8 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
   <div class="wrap">
 
     <div class="topbar">
-      <span class="kicker" id="tagline">Viagem em família</span>
-      <span class="me-chip"><span id="mename">—</span><button id="logout">trocar</button></span>
+      <button class="hamb" id="menubtn" aria-label="Menu"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <span class="kicker" id="tagline">Bem-vindo</span><span id="mename" style="display:none"></span>
       <button class="viasw" id="viabtn" role="switch" aria-checked="false" title="Modo viagem"><span class="viasw-knob"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 3.2c.4-.9 1.6-.9 2 0l.3.8v5.3l7 4.1v1.9l-7-2.1v3.8l2 1.5v1.5l-3.3-1-3.3 1v-1.5l2-1.5v-3.8l-7 2.1v-1.9l7-4.1V4l.3-.8Z" fill="currentColor" stroke="none"/></svg></span></button>
     <button class="iconbtn" id="adminkey" title="Área do admin" aria-label="Área do admin"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="M19.4 13c.04-.33.06-.66.06-1s-.02-.67-.06-1l1.7-1.3a.5.5 0 0 0 .12-.64l-1.6-2.8a.5.5 0 0 0-.6-.22l-2 .8a7 7 0 0 0-1.7-1l-.3-2.1a.5.5 0 0 0-.5-.44h-3.2a.5.5 0 0 0-.5.44l-.3 2.1a7 7 0 0 0-1.7 1l-2-.8a.5.5 0 0 0-.6.22l-1.6 2.8a.5.5 0 0 0 .12.64L4.6 11c-.04.33-.06.66-.06 1s.02.67.06 1l-1.7 1.3a.5.5 0 0 0-.12.64l1.6 2.8a.5.5 0 0 0 .6.22l2-.8a7 7 0 0 0 1.7 1l.3 2.1a.5.5 0 0 0 .5.44h3.2a.5.5 0 0 0 .5-.44l.3-2.1a7 7 0 0 0 1.7-1l2 .8a.5.5 0 0 0 .6-.22l1.6-2.8a.5.5 0 0 0-.12-.64L19.4 13Z"/></svg></button>
     </div>
@@ -1872,7 +1875,7 @@ async function sairDaConta(){
 }
 {const _vt=$("#vg-trocar");if(_vt)_vt.onclick=sairDaConta;}
 {const _tn=$("#tripname");if(_tn){_tn.classList.add("tapname");_tn.onclick=abrirTrocadorViagem;}}
-$("#logout").onclick=(e)=>{e.stopPropagation();abrirPerfil();};
+$("#menubtn").onclick=(e)=>{e.stopPropagation();abrirPerfil();};
 function abrirPerfil(){
   const emailConta=(auth&&auth.currentUser&&auth.currentUser.email)||"";
   const cod=STATE.config&&STATE.config.codigo;
@@ -1903,15 +1906,16 @@ function abrirPerfil(){
   requestAnimationFrame(()=>{const ov=$("#dw-ov");if(ov)ov.classList.add("on");});
   $("#dw-ov").onclick=e=>{if(e.target===e.currentTarget)close();};
   $("#dw-x").onclick=close;
-  $("#pf-sair").onclick=()=>{close();sairDaConta();};
-  const _bv=$("#pf-viagens");if(_bv)_bv.onclick=()=>{close();showViagens();};
+  const ir=(fn)=>{$("#modal").innerHTML="";fn();};
+  $("#pf-sair").onclick=()=>ir(sairDaConta);
+  const _bv=$("#pf-viagens");if(_bv)_bv.onclick=()=>ir(showViagens);
   const _bc=$("#pf-codigo");if(_bc)_bc.onclick=async()=>{try{await navigator.clipboard.writeText(STATE.config.codigo);toast("Código copiado ✓");}catch(e){toast(STATE.config.codigo);}};
-  const _mo=$("#pf-moeda");if(_mo)_mo.onclick=()=>{close();abrirMinhasMoedas();};
-  const _cv=$("#pf-configvia");if(_cv)_cv.onclick=()=>{close();abrirConfigViagem();};
-  const _es=$("#pf-euSou");if(_es)_es.onclick=()=>{close();perguntarQuemEhVoce();};
-  const _pp=$("#pf-participantes");if(_pp)_pp.onclick=()=>{close();abrirParticipantes();};
-  const _me=$("#pf-meta");if(_me)_me.onclick=()=>{close();show("cofre");renderCofre();setTimeout(()=>{const m=$("#metaedit");if(m)m.click();},80);};
-  const _aj=$("#pf-ajuda");if(_aj)_aj.onclick=()=>{close();mostrarIntro(true);};
+  const _mo=$("#pf-moeda");if(_mo)_mo.onclick=()=>ir(abrirMinhasMoedas);
+  const _cv=$("#pf-configvia");if(_cv)_cv.onclick=()=>ir(abrirConfigViagem);
+  const _es=$("#pf-euSou");if(_es)_es.onclick=()=>ir(perguntarQuemEhVoce);
+  const _pp=$("#pf-participantes");if(_pp)_pp.onclick=()=>ir(abrirParticipantes);
+  const _me=$("#pf-meta");if(_me)_me.onclick=()=>ir(()=>{show("cofre");renderCofre();setTimeout(()=>{const m=$("#metaedit");if(m)m.click();},80);});
+  const _aj=$("#pf-ajuda");if(_aj)_aj.onclick=()=>ir(()=>mostrarIntro(true));
 }
 /* ---- Onboarding: boas-vindas + dicas de recursos escondidos --------
    Mostra uma vez por pessoa (guardado no aparelho). Reúne num só cartão
@@ -2208,7 +2212,7 @@ async function criarViagem(d){
 const MOEDAS_DB=[["BRL","Real brasileiro"],["USD","Dólar americano"],["EUR","Euro"],["GBP","Libra esterlina"],["JPY","Iene japonês"],["CHF","Franco suíço"],["CAD","Dólar canadense"],["AUD","Dólar australiano"],["CNY","Yuan chinês"],["ARS","Peso argentino"],["CLP","Peso chileno"],["UYU","Peso uruguaio"],["MXN","Peso mexicano"],["COP","Peso colombiano"],["PEN","Sol peruano"],["PYG","Guarani paraguaio"],["BOB","Boliviano"],["PLN","Zloti polonês"],["CZK","Coroa tcheca"],["DKK","Coroa dinamarquesa"],["SEK","Coroa sueca"],["NOK","Coroa norueguesa"],["HUF","Florim húngaro"],["RON","Leu romeno"],["TRY","Lira turca"],["RUB","Rublo russo"],["INR","Rupia indiana"],["ZAR","Rand sul-africano"],["AED","Dirham dos Emirados"],["SAR","Rial saudita"],["ILS","Novo shekel israelense"],["EGP","Libra egípcia"],["MAD","Dirham marroquino"],["THB","Baht tailandês"],["SGD","Dólar de Singapura"],["HKD","Dólar de Hong Kong"],["KRW","Won sul-coreano"],["NZD","Dólar neozelandês"],["IDR","Rupia indonésia"],["MYR","Ringgit malaio"],["PHP","Peso filipino"],["VND","Dongue vietnamita"],["ISK","Coroa islandesa"]];
 function abrirCriarViagem(){
   if(MOCK){toast("Sem conexão — não dá pra criar viagem agora.");return;}
-  const cidsel=[],psel=STATE.me?[STATE.me]:[];
+  const cidsel=[],psel=STATE.me?[STATE.me]:[],pselEmail={};
   const chaves=Object.keys(CIDADES_DB.db),nomeBonito=k=>k.charAt(0).toUpperCase()+k.slice(1);
   const flagPais=cc=>{if(!cc||cc.length!==2)return "";const A=0x1F1E6;return String.fromCodePoint(A+cc.toUpperCase().charCodeAt(0)-65)+String.fromCodePoint(A+cc.toUpperCase().charCodeAt(1)-65);};
   const MESN=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -2233,6 +2237,7 @@ function abrirCriarViagem(){
     </div>
     <label class="cv-l">Pessoas</label>
     <div class="cv-addrow"><input id="cv-pess" placeholder="Nome da pessoa" autocomplete="off"><button class="btn sec" id="cv-pessadd">Adicionar</button></div>
+    <input id="cv-pemail" class="cv-pemail" type="email" inputmode="email" placeholder="E-mail (opcional, pra convidar)" autocomplete="off">
     <div id="cv-psel" class="cv-chips"></div>
     <label class="cv-l">Sua moeda principal</label>
     <input id="cv-mp" placeholder="Buscar moeda (ex.: Real, Dólar, EUR)…" autocomplete="off">
@@ -2318,10 +2323,10 @@ function abrirCriarViagem(){
 
   /* ---- pessoas ---- */
   const renderPess=()=>{
-    $("#cv-psel").innerHTML=psel.map((p,i)=>`<span class="cv-chip">${esc(p)}<button data-i="${i}" aria-label="remover">×</button></span>`).join("");
+    $("#cv-psel").innerHTML=psel.map((p,i)=>`<span class="cv-chip">${esc(p)}${pselEmail[p]?' ✉':''}<button data-i="${i}" aria-label="remover">×</button></span>`).join("");
     $("#cv-psel").querySelectorAll("button").forEach(b=>b.onclick=()=>{psel.splice(+b.dataset.i,1);renderPess();});
   };
-  const addPess=()=>{const v=$("#cv-pess").value.trim();if(!v)return;if(!psel.includes(v))psel.push(v);$("#cv-pess").value="";renderPess();$("#cv-pess").focus();};
+  const addPess=()=>{const v=$("#cv-pess").value.trim();if(!v)return;const em=($("#cv-pemail")?$("#cv-pemail").value.trim().toLowerCase():"");if(!psel.includes(v))psel.push(v);if(em)pselEmail[v]=em;$("#cv-pess").value="";if($("#cv-pemail"))$("#cv-pemail").value="";renderPess();$("#cv-pess").focus();};
   $("#cv-pessadd").onclick=addPess;
   $("#cv-pess").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addPess();}});
   renderCid();renderPess();
@@ -2346,7 +2351,7 @@ function abrirCriarViagem(){
     if(!de||!ate){err.textContent="Toque no início e no fim no calendário.";return;}
     if(!psel.length){err.textContent="Adicione ao menos uma pessoa.";return;}
     const btn=$("#cv-criar");btn.disabled=true;btn.textContent="Criando…";
-    try{const code=await criarViagem({nome,tagline:tag,cidades:cidsel.slice(),inicio:de,fim:ate,pessoas:psel.slice(),moeda:moedaPrin,moedasVista:[moedaPrin].concat(moedasV.filter(m=>m!==moedaPrin))});close();if(code)mostrarCodigoViagem(code,nome,()=>abrirViagem(code));}
+    try{const code=await criarViagem({nome,tagline:tag,cidades:cidsel.slice(),inicio:de,fim:ate,pessoas:psel.slice(),moeda:moedaPrin,moedasVista:[moedaPrin].concat(moedasV.filter(m=>m!==moedaPrin))});close();if(code){for(const nm in pselEmail){await criarConvite(code,nome,nm,pselEmail[nm]);}mostrarCodigoViagem(code,nome,()=>abrirViagem(code));}}
     catch(e){console.warn("criarViagem:",e);btn.disabled=false;btn.textContent="Criar viagem";err.textContent="Não deu pra criar agora. Tente de novo.";}
   };
 }
@@ -3012,6 +3017,12 @@ async function aceitarConvite(inv){
     toast("Você entrou na viagem ✓");
   }catch(e){toast("Não consegui aceitar: "+((e&&e.code)||""));}
 }
+async function criarConvite(viagemId,viagemNome,nome,email){
+  if(MOCK||!db||!email)return false;
+  email=String(email).trim().toLowerCase();
+  try{await FB.setDoc(FB.doc(db,"convites",viagemId+"_"+normNome(email).replace(/[^a-z0-9]/g,"")),{email:email,viagemId:viagemId,viagemNome:viagemNome||"Viagem",nome:nome||"",por:UID,criadoEm:(FB.serverTimestamp?FB.serverTimestamp():Date.now())},{merge:true});return true;}
+  catch(e){return false;}
+}
 async function abrirParticipantes(){
   const pes=(STATE.config&&Array.isArray(STATE.config.pessoas)&&STATE.config.pessoas.length)?STATE.config.pessoas.slice():PEOPLE.slice();
   let pend=[];
@@ -3043,8 +3054,8 @@ async function abrirParticipantes(){
     const atual=pes.slice();
     if(!atual.some(p=>normNome(p)===normNome(nome))){atual.push(nome);saveDoc("config",{pessoas:atual});}
     if(email&&!MOCK&&db){
-      try{await FB.setDoc(FB.doc(db,"convites",VIAGEM.id+"_"+normNome(email).replace(/[^a-z0-9]/g,"")),{email:email,viagemId:VIAGEM.id,viagemNome:(STATE.config&&STATE.config.nome)||"Viagem",nome:nome,por:UID,criadoEm:(FB.serverTimestamp?FB.serverTimestamp():Date.now())},{merge:true});toast("Adicionado e convite criado ✓");}
-      catch(e){toast("Adicionado. Convite falhou: "+((e&&e.code)||""));}
+      const ok=await criarConvite(VIAGEM.id,(STATE.config&&STATE.config.nome)||"Viagem",nome,email);
+      toast(ok?"Adicionado e convite criado ✓":"Adicionado. Convite falhou.");
     }else{toast("Participante adicionado ✓");}
     abrirParticipantes();
   };
