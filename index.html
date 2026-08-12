@@ -1299,6 +1299,7 @@ function moedasVista(){
 function simboloMoeda(m){try{return new Intl.NumberFormat("pt-BR",{style:"currency",currency:m}).formatToParts(0).find(p=>p.type==="currency").value;}catch(e){return m;}}
 function ajustarMoeda(){if(!moedasVista().includes(STATE.cur))STATE.cur=moedaPrincipal();}
 function _chipsMoeda(sel,cand){return cand.map(c=>`<button type="button" class="mo-chip ${sel.includes(c)?'on':''}" data-c="${c}">${simboloMoeda(c)} ${c}</button>`).join("");}
+function moedasForm(atual){const v=moedasVista().slice();if(atual&&!v.includes(atual))v.unshift(atual);return v;}
 function _optsMoeda(prin){return MOEDAS_DB.map(([c,n])=>`<option value="${c}" ${c===prin?'selected':''}>${c} — ${esc(n)}</option>`).join("");}
 function _candMoeda(prin,dest,vista){let c=["BRL","USD","EUR","GBP"].concat([prin,dest]).concat(vista||[]).filter(Boolean);return c.filter((m,i)=>c.indexOf(m)===i);}
 async function salvarMinhasMoedas(prin,ver){
@@ -3326,7 +3327,7 @@ function depositoModal(valor){
   const me=STATE.me,mk=mesPadrao(),mo=moedaDe(me);
   openModal("Registrar depósito",[
     {id:"valor",label:"Valor",type:"money",value:valor?String(conv(valor,mo).toFixed(2)).replace(".",","):"",placeholder:"0,00"},
-    {id:"moeda",label:"Moeda",type:"select",options:["BRL","USD","EUR"],value:mo},
+    {id:"moeda",label:"Moeda",type:"select",options:moedasForm(mo),value:mo},
     {id:"mes",label:"Referente a",type:"select",options:monthRange().map(k=>({v:k,l:monthLabel(k)})),value:mk},
     {id:"nota",label:"Nota",placeholder:"opcional"}
   ],v=>{
@@ -3380,7 +3381,7 @@ function quickGasto(){
     {id:"desc",label:"O que foi",value:"",placeholder:"Ex.: almoço, táxi, ingresso"},
     {id:"cat",label:"Categoria",type:"cat",value:"Alimentação"},
     {id:"valor",label:"Valor pago",type:"money",value:"",placeholder:"0,00"},
-    {id:"moeda",label:"Moeda",type:"select",options:["EUR","BRL","USD"],value:moedaDe(me)},
+    {id:"moeda",label:"Moeda",type:"select",options:moedasForm(moedaDe(me)),value:moedaDe(me)},
     {id:"data",label:"Quando",type:"date",value:new Date().toISOString().slice(0,10)}
   ],v=>{
     if(!v.desc||v.valor<=0){toast("Preencha o que foi e o valor");return false;}
@@ -3731,7 +3732,7 @@ function renderCofre(){_sujo.delete("cofre");
     const dep=(meDoc().depositos||[]).find(x=>x.id===b.dataset.dedit);if(!dep)return;
     openModal("Editar depósito",[
       {id:"valor",label:"Valor",type:"money",value:String(dep.valor).replace(".",","),placeholder:"0,00"},
-      {id:"moeda",label:"Moeda",type:"select",options:["BRL","USD","EUR"],value:dep.moeda||"BRL"},
+      {id:"moeda",label:"Moeda",type:"select",options:moedasForm(dep.moeda||moedaPrincipal()),value:dep.moeda||moedaPrincipal()},
       {id:"mes",label:"Referente a",type:"select",options:monthRange().map(k=>({v:k,l:monthLabel(k)})),value:dep.mes||mesPadrao()},
       {id:"nota",label:"Nota",value:dep.nota||"",placeholder:"opcional"}
     ],v=>{if(v.valor<=0){toast("Informe um valor");return false;}
@@ -3930,7 +3931,7 @@ function renderCustos(){_sujo.delete("custos");
     {id:"desc",label:"O que é",value:x?x.desc:"",placeholder:"Ex.: camisa do Bayern"},
     {id:"cat",label:"Categoria",type:"cat",value:x?x.cat:"Compras"},
     {id:"valor",label:"Valor",type:"money",value:x?String(x.valor).replace(".",","):"",placeholder:"0,00"},
-    {id:"moeda",label:"Moeda",type:"select",options:["EUR","BRL","USD"],value:x?x.moeda:"EUR"}
+    {id:"moeda",label:"Moeda",type:"select",options:moedasForm(x&&x.moeda),value:x?x.moeda:moedaPrincipal()}
   ],v=>{
     if(!v.desc||v.valor<=0){toast("Preencha nome e valor");return false;}
     registrarCategoria(v.cat);
@@ -3951,7 +3952,7 @@ function renderCustos(){_sujo.delete("custos");
     {id:"desc",label:"O que foi pago",value:x?x.desc:"",placeholder:"Ex.: passagem aérea"},
     {id:"cat",label:"Categoria",type:"cat",value:x?x.cat:"Passagens"},
     {id:"valor",label:"Valor pago",type:"money",value:x?String(x.valor).replace(".",","):"",placeholder:"0,00"},
-    {id:"moeda",label:"Moeda",type:"select",options:["BRL","USD","EUR"],value:x?x.moeda:moedaDe(me)},
+    {id:"moeda",label:"Moeda",type:"select",options:moedasForm(x&&x.moeda),value:x?x.moeda:moedaDe(me)},
     {id:"data",label:"Quando",type:"date",value:x?x.data:new Date().toISOString().slice(0,10)}
   ],v=>{
     if(!v.desc||v.valor<=0){toast("Preencha nome e valor");return false;}
@@ -4148,7 +4149,7 @@ function renderRoteiro(){_sujo.delete("roteiro");
     {id:"local",label:"Local (abre no mapa)",type:"text",placeholder:"Ex.: Museu do Louvre"},
     {id:"nota",label:"Observação",type:"area",placeholder:"opcional"},
     {id:"valor",label:"Custo total (opcional)",type:"money",placeholder:"0,00"},
-    {id:"moeda",label:"Moeda",type:"select",options:["EUR","BRL","USD"],value:"EUR"},
+    {id:"moeda",label:"Moeda",type:"select",options:moedasVista(),value:moedaPrincipal()},
     {id:"quem",label:"Quem vai (e divide o custo)",type:"chips",value:PEOPLE.slice()}
   ],v=>{
     if(!v.titulo){toast("Dê um nome à atividade");return false;}
@@ -4174,7 +4175,7 @@ function renderRoteiro(){_sujo.delete("roteiro");
       {id:"local",label:"Local (abre no mapa)",type:"text",placeholder:"Ex.: Museu do Louvre",value:at.local||""},
       {id:"nota",label:"Observação",type:"area",placeholder:"opcional",value:at.nota||""},
       {id:"valor",label:"Custo total (opcional)",type:"money",placeholder:"0,00",value:Number(at.valor)>0?at.valor:""},
-      {id:"moeda",label:"Moeda",type:"select",options:["EUR","BRL","USD"],value:at.moeda||"EUR"},
+      {id:"moeda",label:"Moeda",type:"select",options:moedasForm(at.moeda||moedaPrincipal()),value:at.moeda||moedaPrincipal()},
       {id:"quem",label:"Quem vai (e divide o custo)",type:"chips",value:quemAtual}
     ],v=>{
       if(!v.titulo){toast("Dê um nome à atividade");return false;}
@@ -4230,7 +4231,7 @@ function renderCompras(){_sujo.delete("compras");
   $("#cpadd").onclick=()=>openModal("Novo item",[
     {id:"item",label:"O que é",placeholder:"Ex.: perfume pra minha mãe"},
     {id:"valor",label:"Quanto deve custar",type:"money",placeholder:"0,00"},
-    {id:"moeda",label:"Moeda",type:"select",options:["EUR","BRL","USD"],value:"EUR"},
+    {id:"moeda",label:"Moeda",type:"select",options:moedasVista(),value:moedaPrincipal()},
     {id:"onde",label:"Onde comprar",placeholder:"cidade ou loja (opcional)"}
   ],v=>{
     if(!v.item){toast("Escreva o item");return false;}
@@ -4249,7 +4250,7 @@ function renderCompras(){_sujo.delete("compras");
     openModal("Editar item",[
       {id:"item",label:"O que é",value:it.item,placeholder:"Ex.: perfume"},
       {id:"valor",label:"Quanto deve custar",type:"money",value:Number(it.valor)>0?String(it.valor).replace(".",","):"",placeholder:"0,00"},
-      {id:"moeda",label:"Moeda",type:"select",options:["EUR","BRL","USD"],value:it.moeda||"EUR"},
+      {id:"moeda",label:"Moeda",type:"select",options:moedasForm(it.moeda||moedaPrincipal()),value:it.moeda||moedaPrincipal()},
       {id:"onde",label:"Onde comprar",value:it.onde||"",placeholder:"opcional"}
     ],v=>{if(!v.item){toast("Escreva o item");return false;}
       savePessoa(me,{compras:(meDoc().compras||[]).map(x=>x.id===cid?Object.assign({},x,{item:v.item,valor:parseFloat(v.valor)||0,moeda:v.moeda,onde:v.onde}):x)});
@@ -4751,7 +4752,7 @@ function settle(bal){
 function despesaModal(d){
   const me=STATE.me, hoje=new Date().toISOString().slice(0,10);
   const isEdit=!!d;
-  const base={desc:d?d.desc:"",valor:d?d.valor:0,moeda:d?(d.moeda||"EUR"):"EUR",
+  const base={desc:d?d.desc:"",valor:d?d.valor:0,moeda:d?(d.moeda||moedaPrincipal()):moedaPrincipal(),
     pagou:d?d.pagou:me,entre:(d&&Array.isArray(d.entre)&&d.entre.length)?d.entre.slice():PEOPLE.slice(),
     data:d?(d.data||hoje):hoje,
     modo:(d&&d.pct)?"pct":"igual",
@@ -4761,7 +4762,7 @@ function despesaModal(d){
     <div class="fld"><label class="f">O que foi</label><input id="d_desc" value="${esc(base.desc)}" placeholder="Ex.: jantar no Hofbräuhaus"></div>
     <div class="row" style="gap:8px">
       <div class="fld" style="flex:2"><label class="f">Valor</label><input id="d_valor" inputmode="decimal" value="${isEdit?String(base.valor).replace(".",","):""}" placeholder="0,00"></div>
-      <div class="fld" style="flex:1"><label class="f">Moeda</label><select id="d_moeda">${optSel(["EUR","BRL","USD"],base.moeda)}</select></div>
+      <div class="fld" style="flex:1"><label class="f">Moeda</label><select id="d_moeda">${optSel(moedasForm(base.moeda),base.moeda)}</select></div>
     </div>
     <div class="fld"><label class="f">Quem pagou</label><select id="d_pagou">${optSel(PEOPLE,base.pagou)}</select></div>
     <div class="fld"><label class="f">Como dividir</label>
@@ -5044,7 +5045,7 @@ function renderAdmin(){_sujo.delete("admin");
     {id:"desc",label:"Descrição",value:it?it.desc:"",placeholder:"Ex.: Hotel em Berlim"},
     {id:"cat",label:"Categoria",type:"select",options:cats,value:it?it.cat:"Hospedagem"},
     {id:"valor",label:"Valor total",type:"money",value:it?String(it.valor).replace(".",","):"",placeholder:"0,00"},
-    {id:"moeda",label:"Moeda",type:"select",options:["EUR","BRL","USD"],value:it?it.moeda:"EUR"},
+    {id:"moeda",label:"Moeda",type:"select",options:moedasForm(it&&it.moeda),value:it?it.moeda:moedaPrincipal()},
     {id:"quem",label:"Dividir entre",type:"chips",value:it?itemPeople(it):PEOPLE.slice()},
     {id:"naMeta",label:"Entra na meta de poupança?",type:"select",
      options:[{v:"sim",l:"Sim — precisa estar guardado"},{v:"nao",l:"Não — vai parcelado no cartão"}],
