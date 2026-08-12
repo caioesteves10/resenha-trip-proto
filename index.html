@@ -553,6 +553,8 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 .pt-lb{font-size:12px;font-weight:800;color:var(--navy);margin:8px 0 6px}
 .pt-rm{background:none;border:none;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer;font-family:inherit;flex:none}
 .pt-rm:hover{color:#d64541}
+.pt-acts{display:flex;gap:10px;flex:none}
+.pt-ap{background:none;border:none;color:#2f8a53;font-size:12px;font-weight:700;text-decoration:underline;cursor:pointer;font-family:inherit}
 .drawer-ov{position:fixed;inset:0;background:rgba(10,18,34,.4);z-index:300;opacity:0;transition:opacity .18s}
 .drawer-ov.on{opacity:1}
 .drawer{position:absolute;top:0;left:0;bottom:0;width:80%;max-width:320px;background:var(--panel);box-shadow:8px 0 30px rgba(0,0,0,.16);transform:translateX(-100%);transition:transform .2s ease;overflow-y:auto;display:flex;flex-direction:column;padding-bottom:24px}
@@ -2196,7 +2198,7 @@ async function criarViagem(d){
   const ts=FB.serverTimestamp?FB.serverTimestamp():Date.now();
   const P=(...seg)=>FB.doc(db,"viagens",code,...seg);
   const b=FB.writeBatch(db);
-  b.set(FB.doc(db,"viagens",code),{nome:config.nome,tagline:config.tagline,cidades:cds.map(c=>c.n),inicio:d.inicio,fim:d.fim,membros:[UID],dono:UID,codigo:code,criadoEm:ts,atualizadoEm:ts});
+  b.set(FB.doc(db,"viagens",code),{nome:config.nome,tagline:config.tagline,cidades:cds.map(c=>c.n),inicio:d.inicio,fim:d.fim,membros:[UID],dono:UID,membrosInfo:{[UID]:(STATE.conta||STATE.me||"Você")},pendentes:[],pendentesInfo:{},convidados:[],codigo:code,criadoEm:ts,atualizadoEm:ts});
   b.set(P("dados","config"),config);
   b.set(P("dados","roteiro"),{dias:[]});
   b.set(P("dados","custos"),{itens:[]});
@@ -2367,8 +2369,11 @@ async function entrarPorCodigo(codigo){
     let id=raw, ref=FB.doc(db,"viagens",id), snap=await FB.getDoc(ref);
     if(!snap.exists()){const up=raw.toUpperCase();if(up!==raw){id=up;ref=FB.doc(db,"viagens",id);snap=await FB.getDoc(ref);}}
     if(!snap.exists())return {erro:"Código não encontrado. Confira as letras."};
-    await FB.setDoc(ref,{membros:FB.arrayUnion(UID),atualizadoEm:(FB.serverTimestamp?FB.serverTimestamp():Date.now())},{merge:true});
-    return {ok:true,id:id,nome:(snap.data()&&snap.data().nome)||"viagem"};
+    const dd=snap.data()||{};
+    if((dd.membros||[]).includes(UID))return {ok:true,id:id,nome:dd.nome||"viagem"};
+    const nome=STATE.conta||STATE.me||"Alguém";
+    await FB.setDoc(ref,{pendentes:FB.arrayUnion(UID),pendentesInfo:{[UID]:nome},atualizadoEm:(FB.serverTimestamp?FB.serverTimestamp():Date.now())},{merge:true});
+    return {pendente:true,id:id,nome:dd.nome||"viagem"};
   }catch(e){console.warn("entrarPorCodigo:",e&&e.code);return {erro:"Não deu pra entrar. Verifique o código."};}
 }
 function abrirEntrarCodigo(){
@@ -2394,7 +2399,8 @@ function abrirEntrarCodigo(){
     if(!code){err.textContent="Digite o código.";return;}
     btn.disabled=true;btn.textContent="Entrando…";
     const r=await entrarPorCodigo(code);
-    if(r&&r.ok){close();toast("Tudo certo! Você entrou em "+(r.nome||"viagem")+".");abrirViagem(r.id);}
+    if(r&&r.ok){close();toast("Você já é membro — abrindo "+(r.nome||"viagem")+".");abrirViagem(r.id);}
+    else if(r&&r.pendente){$("#modal").innerHTML=`<div class="modal"><div class="box" style="text-align:center"><h3>Solicitação enviada ✋</h3><p style="color:var(--muted);font-size:14px;margin:6px 0 14px">Pedimos pra entrar em <b>${esc(r.nome||"a viagem")}</b>. Assim que o dono aprovar, ela aparece nas suas viagens.</p><button class="btn" id="ec-fim">Entendi</button></div></div>`;$("#ec-fim").onclick=()=>{$("#modal").innerHTML="";};}
     else{btn.disabled=false;btn.textContent="Entrar";err.textContent=(r&&r.erro)||"Não deu pra entrar.";}
   };
 }
@@ -3011,8 +3017,10 @@ function mostrarConvites(invs){
 async function aceitarConvite(inv){
   if(MOCK||!db||!UID)return;
   try{
-    await FB.setDoc(FB.doc(db,"viagens",inv.viagemId),{membros:FB.arrayUnion(UID),atualizadoEm:(FB.serverTimestamp?FB.serverTimestamp():Date.now())},{merge:true});
-    if(inv.nome){MEU_VINCULO[inv.viagemId]=inv.nome;try{await FB.setDoc(FB.doc(db,"usuarios",UID),{euSou:MEU_VINCULO},{merge:true});}catch(e){}}
+    const ref=FB.doc(db,"viagens",inv.viagemId);
+    await FB.setDoc(ref,{membros:FB.arrayUnion(UID),atualizadoEm:(FB.serverTimestamp?FB.serverTimestamp():Date.now())},{merge:true});
+    try{await FB.setDoc(ref,{membrosInfo:{[UID]:(inv.nome||STATE.conta||"Membro")},convidados:FB.arrayRemove(String(inv.email||"").toLowerCase()),atualizadoEm:(FB.serverTimestamp?FB.serverTimestamp():Date.now())},{merge:true});}catch(e){}
+    if(inv.nome){MEU_VINCULO[inv.viagemId]=inv.nome;try{if(UID)localStorage.setItem("tr27_vinc_"+UID,JSON.stringify(MEU_VINCULO));}catch(e){}try{await FB.setDoc(FB.doc(db,"usuarios",UID),{euSou:MEU_VINCULO},{merge:true});}catch(e){}}
     if(inv._id){try{await FB.deleteDoc(FB.doc(db,"convites",inv._id));}catch(e){}}
     toast("Você entrou na viagem ✓");
   }catch(e){toast("Não consegui aceitar: "+((e&&e.code)||""));}
@@ -3020,19 +3028,48 @@ async function aceitarConvite(inv){
 async function criarConvite(viagemId,viagemNome,nome,email){
   if(MOCK||!db||!email)return false;
   email=String(email).trim().toLowerCase();
+  try{await FB.setDoc(FB.doc(db,"viagens",viagemId),{convidados:FB.arrayUnion(email),atualizadoEm:(FB.serverTimestamp?FB.serverTimestamp():Date.now())},{merge:true});}catch(e){}
   try{await FB.setDoc(FB.doc(db,"convites",viagemId+"_"+normNome(email).replace(/[^a-z0-9]/g,"")),{email:email,viagemId:viagemId,viagemNome:viagemNome||"Viagem",nome:nome||"",por:UID,criadoEm:(FB.serverTimestamp?FB.serverTimestamp():Date.now())},{merge:true});return true;}
   catch(e){return false;}
 }
+async function _aprovarSolic(uid,nome){
+  if(MOCK||!db)return;
+  try{await FB.setDoc(FB.doc(db,"viagens",VIAGEM.id),{membros:FB.arrayUnion(uid),membrosInfo:{[uid]:(nome||"Membro")},pendentes:FB.arrayRemove(uid),pendentesInfo:{[uid]:FB.deleteField()},atualizadoEm:(FB.serverTimestamp?FB.serverTimestamp():Date.now())},{merge:true});toast("Aprovado ✓");}catch(e){toast("Não consegui aprovar: "+((e&&e.code)||""));}
+  abrirParticipantes();
+}
+async function _recusarSolic(uid){
+  if(MOCK||!db)return;
+  try{await FB.setDoc(FB.doc(db,"viagens",VIAGEM.id),{pendentes:FB.arrayRemove(uid),pendentesInfo:{[uid]:FB.deleteField()},atualizadoEm:(FB.serverTimestamp?FB.serverTimestamp():Date.now())},{merge:true});toast("Recusado");}catch(e){}
+  abrirParticipantes();
+}
+async function _removerMembro(uid){
+  if(MOCK||!db)return;
+  try{await FB.setDoc(FB.doc(db,"viagens",VIAGEM.id),{membros:FB.arrayRemove(uid),membrosInfo:{[uid]:FB.deleteField()},atualizadoEm:(FB.serverTimestamp?FB.serverTimestamp():Date.now())},{merge:true});toast("Acesso removido");}catch(e){toast("Não consegui remover: "+((e&&e.code)||""));}
+  abrirParticipantes();
+}
 async function abrirParticipantes(){
   const pes=(STATE.config&&Array.isArray(STATE.config.pessoas)&&STATE.config.pessoas.length)?STATE.config.pessoas.slice():PEOPLE.slice();
-  let pend=[];
-  if(!MOCK&&db&&FB.query&&FB.where&&FB.getDocs){
-    try{const q=FB.query(FB.collection(db,"convites"),FB.where("viagemId","==",VIAGEM.id));const snap=await FB.getDocs(q);pend=snap.docs.map(d=>Object.assign({_id:d.id},d.data()));}catch(e){}
+  let pend=[],vdata={};
+  if(!MOCK&&db){
+    try{const vs=await FB.getDoc(FB.doc(db,"viagens",VIAGEM.id));vdata=vs.data()||{};}catch(e){}
+    if(FB.query&&FB.where&&FB.getDocs){try{const q=FB.query(FB.collection(db,"convites"),FB.where("viagemId","==",VIAGEM.id));const snap=await FB.getDocs(q);pend=snap.docs.map(d=>Object.assign({_id:d.id},d.data()));}catch(e){}}
   }
+  const souDono=(vdata.dono&&vdata.dono===UID)||IS_ADMIN;
+  const membros=vdata.membros||[], mInfo=vdata.membrosInfo||{};
+  const solic=vdata.pendentes||[], sInfo=vdata.pendentesInfo||{};
+
   const linhaP=pes.map(p=>`<div class="pt-row"><span>${esc(p)}${MEU_VINCULO[VIAGEM.id]===p?' <span class="pt-eu">você</span>':''}</span><button class="pt-rm" data-rm="${esc(p)}">remover</button></div>`).join("")||'<div class="empty">Ninguém ainda.</div>';
-  const linhaC=pend.length?('<div class="pt-lb">Convites pendentes</div>'+pend.map(c=>`<div class="pt-row"><span>${esc(c.nome||c.email)}<br><span class="s">${esc(c.email)}</span></span><button class="resv-copy" data-cancel="${esc(c._id)}">cancelar</button></div>`).join("")):'';
+
+  const secSolic=(souDono&&solic.length)?('<div class="pt-lb">Solicitações de entrada</div>'+solic.map(u=>`<div class="pt-row"><span>${esc(sInfo[u]||"Alguém")}<br><span class="s">quer entrar</span></span><span class="pt-acts"><button class="pt-ap" data-ap="${esc(u)}" data-nm="${esc(sInfo[u]||"")}">aprovar</button><button class="pt-rm" data-rj="${esc(u)}">recusar</button></span></div>`).join("")):'';
+
+  const secMembros=souDono?('<div class="pt-lb">Membros com acesso</div>'+(membros.length?membros.map(u=>`<div class="pt-row"><span>${esc(mInfo[u]||"Membro")}${u===vdata.dono?' <span class="pt-eu">dono</span>':''}</span>${(u!==vdata.dono&&u!==UID)?`<button class="pt-rm" data-mrm="${esc(u)}">remover</button>`:''}</div>`).join(""):'<div class="empty">Só você.</div>')):'';
+
+  const linhaC=pend.length?('<div class="pt-lb">Convites por e-mail (pendentes)</div>'+pend.map(c=>`<div class="pt-row"><span>${esc(c.nome||c.email)}<br><span class="s">${esc(c.email)}</span></span><button class="pt-rm" data-cancel="${esc(c._id)}">cancelar</button></div>`).join("")):'';
+
   $("#modal").innerHTML=`<div class="modal"><div class="box">
     <h3>Participantes</h3>
+    ${secSolic}
+    ${secMembros}
     <div class="pt-lb">Nesta viagem</div>
     <div class="pt-lista">${linhaP}</div>
     ${linhaC}
@@ -3045,6 +3082,9 @@ async function abrirParticipantes(){
   const close=()=>{$("#modal").innerHTML="";};
   $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};
   $("#pt-fechar").onclick=close;
+  $("#modal").querySelectorAll("[data-ap]").forEach(b=>b.onclick=()=>_aprovarSolic(b.dataset.ap,b.dataset.nm));
+  $("#modal").querySelectorAll("[data-rj]").forEach(b=>b.onclick=()=>_recusarSolic(b.dataset.rj));
+  $("#modal").querySelectorAll("[data-mrm]").forEach(b=>b.onclick=()=>_removerMembro(b.dataset.mrm));
   $("#modal").querySelectorAll("[data-cancel]").forEach(b=>b.onclick=async()=>{try{await FB.deleteDoc(FB.doc(db,"convites",b.dataset.cancel));toast("Convite cancelado");}catch(e){}abrirParticipantes();});
   $("#modal").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{const nome=b.dataset.rm;const atual=pes.filter(p=>p!==nome);saveDoc("config",{pessoas:atual});if(MEU_VINCULO[VIAGEM.id]===nome){delete MEU_VINCULO[VIAGEM.id];try{if(UID)localStorage.setItem("tr27_vinc_"+UID,JSON.stringify(MEU_VINCULO));}catch(e){}}toast("Removido");abrirParticipantes();});
   $("#pt-add").onclick=async()=>{
