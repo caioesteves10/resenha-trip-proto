@@ -3550,7 +3550,7 @@ function renderInicio(){_sujo.delete("inicio");
         <div class="gd-day"><div class="gd-day-k">dia</div><div class="gd-day-n">${Math.max(0,G.diaAtual)}</div><div class="gd-day-l">de ${G.totDias}</div></div>
       </div>
       ${(G.temVerba||G.plano>0)?`<div class="gd-allow"><span>Pode gastar por dia</span><b class="money">${fmt(G.temVerba?G.podeGastarDia:G.sobraPorDia)}</b></div><div class="ini-line-sm">${G.diasRestantes>0?`Média pelos <b>${G.diasRestantes}</b> ${G.diasRestantes===1?"dia que falta":"dias que faltam"}${G.temVerba?", com base no que você levou":", com base no seu orçamento"}.`:"Último dia da viagem — aproveite o que sobrou."}</div>`:""}
-      <div class="rail ${G.temVerba?"ok":(tom==="ok"?"ok":"dgr")}" style="margin:9px 0 4px"><i style="width:${G.temVerba?(G.verba>0?clamp(G.gastoTotal/G.verba*100,0,100):0):pctBar}%"></i></div>
+      <div class="rail ${((G.temVerba?G.saldoReal:G.restante)<=0)?"dgr":"ok"}" style="margin:9px 0 4px"><i style="width:${G.temVerba?(G.verba>0?clamp(G.saldoReal/G.verba*100,0,100):0):(G.plano>0?clamp(G.restante/G.plano*100,0,100):0)}%"></i></div>
       ${G.porDiaArr.some(g=>g>0)?`<div class="gd-chart">${barras}</div>`:""}
       ${G.temReal||G.temVerba?verbaBloco:`<div class="ini-line-sm ini-${tom}">Lance seus gastos em Custos › Já gastei para acompanhar aqui.</div><button class="btn sec sm" data-verba="1" style="margin-top:9px;width:100%">Definir minha verba de viagem</button>`}
     </div>`;
