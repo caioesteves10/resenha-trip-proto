@@ -3424,18 +3424,19 @@ function gastoVsPlano(me){
     const d=ymd(r.data); return d>=ini && d<=fim;
   });
   const gasto=reals.reduce((a,r)=>a+toBRL(r.valor,r.moeda),0);
+  const gastoTotal=realizadoTotal(me);   // TODOS os gastos (igual à aba Dinheiro), sem filtro de data
   const gastoAteHoje=reals.filter(r=>ymd(r.data)<=hoje).reduce((a,r)=>a+toBRL(r.valor,r.moeda),0);
   const esperadoAteHoje=porDia*Math.max(0,Math.min(totDias,diaAtual));
   const diff=gastoAteHoje-esperadoAteHoje;   // >0 acima do previsto
   const diasCorridos=Math.max(1,Math.min(totDias,diaAtual));
   const mediaDia=gastoAteHoje/diasCorridos;
   const diasRestantes=Math.max(0,totDias-diaAtual);
-  const restante=Math.max(0,plano-gasto);
+  const restante=Math.max(0,plano-gastoTotal);
   const sobraPorDia=diasRestantes>0?restante/diasRestantes:0;
   // ---- verba real (dinheiro que a pessoa levou) ----
   const verba=Number((STATE.pessoas[me]||{}).verba)||0;
   const temVerba=verba>0;
-  const saldoReal=Math.max(0,verba-gastoAteHoje);         // quanto ainda tem no bolso
+  const saldoReal=Math.max(0,verba-gastoTotal);         // quanto ainda tem no bolso
   // "a partir de amanhã": divide pelos dias estritamente após hoje
   const diasDepoisDeHoje=Math.max(0,totDias-Math.max(0,diaAtual));
   const podeGastarDia=diasDepoisDeHoje>0?saldoReal/diasDepoisDeHoje:saldoReal;
@@ -3447,7 +3448,7 @@ function gastoVsPlano(me){
     const g=reals.filter(r=>String(r.data).slice(0,10)===iso).reduce((a,r)=>a+toBRL(r.valor,r.moeda),0);
     porDiaArr.push(g);
   }
-  return {totDias,diaAtual,plano,porDia,gasto,gastoAteHoje,esperadoAteHoje,diff,mediaDia,
+  return {totDias,diaAtual,plano,porDia,gasto,gastoTotal,gastoAteHoje,esperadoAteHoje,diff,mediaDia,
           diasRestantes,restante,sobraPorDia,porDiaArr,temReal:reals.length>0,
           verba,temVerba,saldoReal,diasDepoisDeHoje,podeGastarDia};
 }
@@ -3513,7 +3514,7 @@ function renderInicio(){_sujo.delete("inicio");
   if(emV){
     const G=gastoVsPlano(me);
     const acima=G.diff>0.5, tom=acima?"dgr":"ok";
-    const pctBar=G.plano>0?clamp(G.gasto/G.plano*100,0,100):0;
+    const pctBar=G.plano>0?clamp(G.gastoTotal/G.plano*100,0,100):0;
     // mini-barras por dia (destaca o dia atual)
     const maxDia=Math.max(1,...G.porDiaArr,G.porDia);
     const barras=G.porDiaArr.map((g,i)=>{
@@ -3544,12 +3545,12 @@ function renderInicio(){_sujo.delete("inicio");
     gastoCard=`<div class="ini-card" data-goto="custos" role="button" tabindex="0">
       <div class="ini-h"><span class="ini-ic">${svgIcon("custos")}</span><span class="ini-t">Gasto da viagem</span>${infoBtn("Comparamos o que você já gastou (lançado em Custos › Já gastei) com o seu plano. Se você informar a verba que levou, calculamos também quanto dá pra gastar por dia com o que ainda sobra.")}<span class="ini-go">ver custos ›</span></div>
       <div class="ini-row">
-        <div class="grow"><div class="ini-big money">${fmt(G.gastoAteHoje)}</div>
+        <div class="grow"><div class="ini-big money">${fmt(G.gastoTotal)}</div>
           <div class="ini-sub">${G.temVerba?`de ${fmt(G.verba)} que você levou`:`de ${fmt(G.plano)} planejados`}</div></div>
         <div class="gd-day"><div class="gd-day-k">dia</div><div class="gd-day-n">${Math.max(0,G.diaAtual)}</div><div class="gd-day-l">de ${G.totDias}</div></div>
       </div>
       ${(G.temVerba||G.plano>0)?`<div class="gd-allow"><span>Pode gastar por dia</span><b class="money">${fmt(G.temVerba?G.podeGastarDia:G.sobraPorDia)}</b></div><div class="ini-line-sm">${G.diasRestantes>0?`Média pelos <b>${G.diasRestantes}</b> ${G.diasRestantes===1?"dia que falta":"dias que faltam"}${G.temVerba?", com base no que você levou":", com base no seu orçamento"}.`:"Último dia da viagem — aproveite o que sobrou."}</div>`:""}
-      <div class="rail ${G.temVerba?"ok":(tom==="ok"?"ok":"dgr")}" style="margin:9px 0 4px"><i style="width:${G.temVerba?(G.verba>0?clamp(G.gastoAteHoje/G.verba*100,0,100):0):pctBar}%"></i></div>
+      <div class="rail ${G.temVerba?"ok":(tom==="ok"?"ok":"dgr")}" style="margin:9px 0 4px"><i style="width:${G.temVerba?(G.verba>0?clamp(G.gastoTotal/G.verba*100,0,100):0):pctBar}%"></i></div>
       ${G.porDiaArr.some(g=>g>0)?`<div class="gd-chart">${barras}</div>`:""}
       ${G.temReal||G.temVerba?verbaBloco:`<div class="ini-line-sm ini-${tom}">Lance seus gastos em Custos › Já gastei para acompanhar aqui.</div><button class="btn sec sm" data-verba="1" style="margin-top:9px;width:100%">Definir minha verba de viagem</button>`}
     </div>`;
@@ -3579,9 +3580,12 @@ function renderInicio(){_sujo.delete("inicio");
 function verbaModal(){
   const me=STATE.me;if(!me)return;
   const atual=Number((STATE.pessoas[me]||{}).verba)||0;
+  const cofre=guardado(me);
+  const sugestao=atual>0?atual:cofre;   // concilia com o cofre: sugere o que você guardou
+  const lbl="Quanto você levou (em "+STATE.cur+")"+(atual<=0&&cofre>0?" — você guardou "+fmt(cofre)+" no cofre":"");
   openModal("Minha verba de viagem",[
-    {id:"verba",label:"Quanto você levou (em "+STATE.cur+")",type:"money",
-     value:atual>0?disp(atual).toFixed(2).replace(".",","):"",placeholder:"0,00"}
+    {id:"verba",label:lbl,type:"money",
+     value:sugestao>0?disp(sugestao).toFixed(2).replace(".",","):"",placeholder:"0,00"}
   ],v=>{
     savePessoa(me,{verba:v.verba>0?toBRL(v.verba,STATE.cur):0});
     toast(v.verba>0?"Verba salva ✓":"Verba removida");
