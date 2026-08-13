@@ -4135,7 +4135,7 @@ function renderRoteiro(){_sujo.delete("roteiro");
           ${Number(a.valor)>0?`<div class="s"><b style="color:var(--ber)">${fmtIn(a.valor,a.moeda||"EUR")}</b> · ${(!Array.isArray(a.quem)||a.quem.length>=PEOPLE.length)?"todos":a.quem.map(esc).join(", ")} · ${fmt(toBRL(a.valor,a.moeda||"EUR")/((Array.isArray(a.quem)&&a.quem.length)?a.quem.length:PEOPLE.length))} cada</div>`:""}</div>
         ${adm?`<button class="x" data-aedit="${d.id}|${a.id}" aria-label="Editar atividade">✎</button><button class="x" data-adel="${d.id}|${a.id}" aria-label="Excluir">✕</button>`:""}</div>`).join("")}
       ${adm?`<button class="btn gh sm" data-aadd="${d.id}" style="margin:2px 0 4px">+ atividade</button>`:""}
-    </div>`;}).join(""):`<div class="empty">${roteiroCidade?"Nenhuma programação em "+esc(cityOf(roteiroCidade).n)+".":"Roteiro vazio.<br>O admin monta os dias por aqui."}</div>`}
+    </div>`;}).join(""):`<div class="empty">${roteiroCidade?"Nada em "+esc(cityOf(roteiroCidade).n)+" ainda.<br>Os dias e passeios aparecem aqui quando forem montados.":"Roteiro vazio.<br>Os dias e passeios da viagem são montados por aqui."}</div>`}
   </div>
   ${adm?'<button class="btn sec" id="dayadd" style="margin-top:8px">+ Novo dia</button>':
     '<div class="note" style="text-align:center">Sugestão de passeio? Manda pro Caio incluir.</div>'}
@@ -4999,7 +4999,7 @@ function renderAdmin(){_sujo.delete("admin");
           <div class="s">${esc(it.cat)} · ${g.length===PEOPLE.length?"todos":g.map(esc).join(", ")}${naMeta(it)?"":" · fora da meta"}</div></div>
         <div class="v money">${fmtIn(it.valor,it.moeda)}</div>
         <button class="x" data-cite="${it.id}" aria-label="Editar">✎</button>
-        <button class="x" data-citd="${it.id}" aria-label="Excluir">✕</button></div>`;}).join("")||'<div class="empty">Nenhum item.</div>'}
+        <button class="x" data-citd="${it.id}" aria-label="Excluir">✕</button></div>`;}).join("")||'<div class="empty">Nenhum custo do grupo ainda.<br>Adicione hospedagem, transporte e outros gastos compartilhados.</div>'}
     </div>
     <div class="note">Cada pessoa vê o próprio rateio na aba Custos, e ele vira a meta automática no Cofre.</div>
   </div>
