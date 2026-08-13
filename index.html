@@ -271,7 +271,14 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 .gd-day-k{font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);line-height:1}
 .gd-allow{display:flex;align-items:center;justify-content:space-between;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:10px 0 2px}
 .gd-allow span{font-size:12.5px;color:var(--muted)}
-.gd-allow b{font-size:17px;color:var(--navy);font-weight:700}
+.gd-allow b{font-size:20px;color:var(--navy);font-weight:700}
+.gd-stats{display:flex;gap:10px;margin:10px 0 0}
+.gd-scol{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.gd-sk{font-size:10px;color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.gd-sv{font-size:17px;color:var(--navy);font-weight:700;margin-top:2px}
+.gd-sv.ok{color:var(--ok)}
+.gd-acts{display:flex;gap:8px;margin-top:10px}
+.gd-acts .btn{flex:1;width:auto}
 .mtabs{display:flex;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:4px;margin:14px 0 4px}
 .mtabs.hidden{display:none}
 .mtabs button{flex:1;border:none;background:none;border-radius:9px;padding:9px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;font-family:inherit}
@@ -3387,10 +3394,11 @@ function quickGasto(){
     {id:"desc",label:"O que foi",value:"",placeholder:"Ex.: almoço, táxi, ingresso"},
     {id:"cat",label:"Categoria",type:"cat",value:"Alimentação"},
     {id:"valor",label:"Valor pago",type:"money",value:"",placeholder:"0,00"},
-    {id:"moeda",label:"Moeda",type:"select",options:moedasForm(moedaDe(me)),value:moedaPadrao(moedaDe(me))},
+    {id:"moeda",label:"Moeda",type:"select",options:moedasForm(),value:moedaPadrao(moedaDe(me))},
     {id:"data",label:"Quando",type:"date",value:new Date().toISOString().slice(0,10)}
   ],v=>{
-    if(!v.desc||v.valor<=0){toast("Preencha o que foi e o valor");return false;}
+    if(!v.desc){toast("Dê um nome ao gasto (o que foi)");return false;}
+    if(v.valor<=0){toast("Informe o valor pago");return false;}
     registrarCategoria(v.cat);
     const arr=meusRealizados(me);
     savePessoa(me,{realizados:arr.concat([{id:uid(),desc:v.desc,cat:v.cat,valor:v.valor,moeda:v.moeda,data:v.data}])});
@@ -3518,15 +3526,20 @@ function renderInicio(){_sujo.delete("inicio");
     // bloco da verba real (o "quanto posso gastar por dia" com base no que levei)
     let verbaBloco;
     if(G.temVerba){
-      verbaBloco=`<div class="gd-verba">
-        <div class="gd-vcol"><div class="gd-vk">Levei</div><div class="gd-vv money">${fmt(G.verba)}</div></div>
-        <div class="gd-vcol"><div class="gd-vk">Ainda tenho</div><div class="gd-vv money" style="color:var(--ok)">${fmt(G.saldoReal)}</div></div>
-        <div class="gd-vcol gd-vhi"><div class="gd-vk">Posso gastar/dia</div><div class="gd-vv money">${fmt(G.podeGastarDia)}</div></div>
+      verbaBloco=`<div class="gd-stats">
+        <div class="gd-scol"><div class="gd-sk">Levei</div><div class="gd-sv money">${fmt(G.verba)}</div></div>
+        <div class="gd-scol"><div class="gd-sk">Ainda tenho</div><div class="gd-sv money ok">${fmt(G.saldoReal)}</div></div>
       </div>
-      <div class="ini-line-sm">${G.diasDepoisDeHoje>0?`Dá pra gastar <b>${fmt(G.podeGastarDia)}</b> por dia nos ${G.diasDepoisDeHoje} ${G.diasDepoisDeHoje===1?"dia":"dias"} que faltam.`:`Último dia — o que sobrou é seu: <b>${fmt(G.saldoReal)}</b>.`} <span class="lnk" data-verba="1">ajustar verba</span></div>`;
+      <div class="gd-acts">
+        <button class="btn sm" data-quick="1">+ Lançar gasto</button>
+        <button class="btn sec sm" data-verba="1">Ajustar verba</button>
+      </div>`;
     }else{
-      verbaBloco=`<button class="btn sec sm" data-verba="1" style="margin-top:9px;width:100%">Definir minha verba de viagem</button>
-      <div class="ini-line-sm" style="margin-top:6px">Diga quanto você levou pra ver <b>quanto pode gastar por dia</b> com base no que ainda tem.</div>`;
+      verbaBloco=`<div class="gd-acts">
+        <button class="btn sm" data-quick="1">+ Lançar gasto</button>
+        <button class="btn sec sm" data-verba="1">Definir verba</button>
+      </div>
+      <div class="ini-line-sm" style="margin-top:8px">Diga quanto você levou pra ver <b>quanto pode gastar por dia</b> com base no saldo real.</div>`;
     }
     gastoCard=`<div class="ini-card" data-goto="custos" role="button" tabindex="0">
       <div class="ini-h"><span class="ini-ic">${svgIcon("custos")}</span><span class="ini-t">Gasto da viagem</span>${infoBtn("Comparamos o que você já gastou (lançado em Custos › Já gastei) com o seu plano. Se você informar a verba que levou, calculamos também quanto dá pra gastar por dia com o que ainda sobra.")}<span class="ini-go">ver custos ›</span></div>
@@ -3553,11 +3566,12 @@ function renderInicio(){_sujo.delete("inicio");
 
   // navegação: cada cartão abre a aba correspondente (menos ao tocar no (i) ou na verba)
   $("#p-inicio").querySelectorAll("[data-goto]").forEach(el=>{
-    const ir=(e)=>{if(e&&e.target&&e.target.closest&&e.target.closest(".ibtn, [data-verba]"))return;show(el.dataset.goto);};
+    const ir=(e)=>{if(e&&e.target&&e.target.closest&&e.target.closest(".ibtn, [data-verba], [data-quick]"))return;show(el.dataset.goto);};
     el.onclick=ir;
     el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();ir(e);}};
   });
   $("#p-inicio").querySelectorAll("[data-verba]").forEach(el=>el.onclick=e=>{e.stopPropagation();verbaModal();});
+  $("#p-inicio").querySelectorAll("[data-quick]").forEach(el=>el.onclick=e=>{e.stopPropagation();quickGasto();});
   requestAnimationFrame(animarNumeros);
 }
 
@@ -4024,6 +4038,7 @@ function openModal(title,fields,onSave,saveLabel){
     // valida antes de fechar: onSave retorna false quando falta algo
     let ok=true; try{ok=(salvar()!==false);}catch(e){console.error(e);toast("Erro ao salvar");ok=true;}
     if(ok)close();
+    else{const first=$("#modal")&&$("#modal").querySelector("input,select,textarea");if(first&&first.focus)setTimeout(()=>{try{first.focus();}catch(e){}},40);}
   };
 }
 
