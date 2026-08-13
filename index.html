@@ -283,6 +283,11 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 .mtabs.hidden{display:none}
 .mtabs button{flex:1;border:none;background:none;border-radius:9px;padding:9px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;font-family:inherit}
 .mtabs button.on{background:var(--panel);color:var(--navy);box-shadow:0 1px 3px rgba(20,34,56,.08)}
+.cofre-disp{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-top:10px}
+.cofre-disp .lbl{font-size:11px;color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.cofre-disp .disp{color:var(--navy);margin:2px 0}
+.cofre-disp .of{font-size:11.5px;color:var(--muted)}
+.cofre-disp .btn{flex:none}
 .fxbar{margin-top:11px;border-top:1px solid rgba(255,255,255,.16);padding-top:10px;display:flex;align-items:center;gap:10px}
 .fxseg{display:flex;background:rgba(255,255,255,.12);border-radius:9px;padding:2px;flex:none}
 .fxpill{border:none;background:none;color:rgba(255,255,255,.82);font-size:12px;font-weight:600;padding:5px 10px;border-radius:7px;cursor:pointer;font-family:inherit}
@@ -3437,9 +3442,13 @@ function gastoVsPlano(me){
   const restante=Math.max(0,plano-gastoTotal);
   const sobraPorDia=diasRestantes>0?restante/diasRestantes:0;
   // ---- verba real (dinheiro que a pessoa levou) ----
-  const verba=Number((STATE.pessoas[me]||{}).verba)||0;
+  const cofre=guardado(me);
+  const verba=Number((STATE.pessoas[me]||{}).verba)||0;   // ajuste manual opcional
+  const disponivel=verba>0?verba:cofre;                    // fonte unica: ajuste ou cofre
+  const temDisponivel=disponivel>0;
+  const ajustada=verba>0;
   const temVerba=verba>0;
-  const saldoReal=Math.max(0,verba-gastoTotal);         // quanto ainda tem no bolso
+  const saldoReal=Math.max(0,disponivel-gastoTotal);      // quanto ainda tem
   // "a partir de amanhã": divide pelos dias estritamente após hoje
   const diasDepoisDeHoje=Math.max(0,totDias-Math.max(0,diaAtual));
   const podeGastarDia=diasDepoisDeHoje>0?saldoReal/diasDepoisDeHoje:saldoReal;
@@ -3453,7 +3462,7 @@ function gastoVsPlano(me){
   }
   return {totDias,diaAtual,plano,porDia,gasto,gastoTotal,gastoAteHoje,esperadoAteHoje,diff,mediaDia,
           diasRestantes,restante,sobraPorDia,porDiaArr,temReal:reals.length>0,
-          verba,temVerba,saldoReal,diasDepoisDeHoje,podeGastarDia};
+          verba,temVerba,cofre,disponivel,temDisponivel,ajustada,saldoReal,diasDepoisDeHoje,podeGastarDia};
 }
 
 function renderInicio(){_sujo.delete("inicio");
@@ -3529,33 +3538,33 @@ function renderInicio(){_sujo.delete("inicio");
                `Você está dentro do previsto — <b>${fmt(Math.abs(G.diff))}</b> de folga.`);
     // bloco da verba real (o "quanto posso gastar por dia" com base no que levei)
     let verbaBloco;
-    if(G.temVerba){
+    if(G.temDisponivel){
       verbaBloco=`<div class="gd-stats">
-        <div class="gd-scol"><div class="gd-sk">Levei</div><div class="gd-sv money">${fmt(G.verba)}</div></div>
+        <div class="gd-scol"><div class="gd-sk">Disponível${G.ajustada?"":" (cofre)"}</div><div class="gd-sv money">${fmt(G.disponivel)}</div></div>
         <div class="gd-scol"><div class="gd-sk">Ainda tenho</div><div class="gd-sv money ok">${fmt(G.saldoReal)}</div></div>
       </div>
       <div class="gd-acts">
         <button class="btn sm" data-quick="1">+ Lançar gasto</button>
-        <button class="btn sec sm" data-verba="1">Ajustar verba</button>
+        <button class="btn sec sm" data-verba="1">Ajustar</button>
       </div>`;
     }else{
       verbaBloco=`<div class="gd-acts">
         <button class="btn sm" data-quick="1">+ Lançar gasto</button>
-        <button class="btn sec sm" data-verba="1">Definir verba</button>
+        <button class="btn sec sm" data-verba="1">Definir disponível</button>
       </div>
-      <div class="ini-line-sm" style="margin-top:8px">Diga quanto você levou pra ver <b>quanto pode gastar por dia</b> com base no saldo real.</div>`;
+      <div class="ini-line-sm" style="margin-top:8px">Guarde no <b>cofre</b> ou informe quanto levou pra ver <b>quanto pode gastar por dia</b>.</div>`;
     }
     gastoCard=`<div class="ini-card" data-goto="custos" role="button" tabindex="0">
       <div class="ini-h"><span class="ini-ic">${svgIcon("custos")}</span><span class="ini-t">Gasto da viagem</span>${infoBtn("Comparamos o que você já gastou (lançado em Custos › Já gastei) com o seu plano. Se você informar a verba que levou, calculamos também quanto dá pra gastar por dia com o que ainda sobra.")}<span class="ini-go">ver custos ›</span></div>
       <div class="ini-row">
         <div class="grow"><div class="ini-big money">${fmt(G.gastoTotal)}</div>
-          <div class="ini-sub">${G.temVerba?`de ${fmt(G.verba)} que você levou`:`de ${fmt(G.plano)} planejados`}</div></div>
+          <div class="ini-sub">${G.temDisponivel?`de ${fmt(G.disponivel)} disponível${G.ajustada?"":" (do cofre)"}`:`de ${fmt(G.plano)} planejados`}</div></div>
         <div class="gd-day"><div class="gd-day-k">dia</div><div class="gd-day-n">${Math.max(0,G.diaAtual)}</div><div class="gd-day-l">de ${G.totDias}</div></div>
       </div>
-      ${(G.temVerba||G.plano>0)?`<div class="gd-allow"><span>Pode gastar por dia</span><b class="money">${fmt(G.temVerba?G.podeGastarDia:G.sobraPorDia)}</b></div><div class="ini-line-sm">${G.diasRestantes>0?`Média pelos <b>${G.diasRestantes}</b> ${G.diasRestantes===1?"dia que falta":"dias que faltam"}${G.temVerba?", com base no que você levou":", com base no seu orçamento"}.`:"Último dia da viagem — aproveite o que sobrou."}</div>`:""}
-      <div class="rail ${((G.temVerba?G.saldoReal:G.restante)<=0)?"dgr":"ok"}" style="margin:9px 0 4px"><i style="width:${G.temVerba?(G.verba>0?clamp(G.saldoReal/G.verba*100,0,100):0):(G.plano>0?clamp(G.restante/G.plano*100,0,100):0)}%"></i></div>
+      ${(G.temDisponivel||G.plano>0)?`<div class="gd-allow"><span>Pode gastar por dia</span><b class="money">${fmt(G.temDisponivel?G.podeGastarDia:G.sobraPorDia)}</b></div><div class="ini-line-sm">${G.diasRestantes>0?`Média pelos <b>${G.diasRestantes}</b> ${G.diasRestantes===1?"dia que falta":"dias que faltam"}${G.temDisponivel?", com base no que você tem":", com base no seu orçamento"}.`:"Último dia da viagem — aproveite o que sobrou."}</div>`:""}
+      <div class="rail ${((G.temDisponivel?G.saldoReal:G.restante)<=0)?"dgr":"ok"}" style="margin:9px 0 4px"><i style="width:${G.temDisponivel?(G.disponivel>0?clamp(G.saldoReal/G.disponivel*100,0,100):0):(G.plano>0?clamp(G.restante/G.plano*100,0,100):0)}%"></i></div>
       ${G.porDiaArr.some(g=>g>0)?`<div class="gd-chart">${barras}</div>`:""}
-      ${G.temReal||G.temVerba?verbaBloco:`<div class="ini-line-sm ini-${tom}">Lance seus gastos em Custos › Já gastei para acompanhar aqui.</div><button class="btn sec sm" data-verba="1" style="margin-top:9px;width:100%">Definir minha verba de viagem</button>`}
+      ${G.temReal||G.temDisponivel?verbaBloco:`<div class="ini-line-sm ini-${tom}">Lance seus gastos em Custos › Já gastei para acompanhar aqui.</div><button class="btn sec sm" data-verba="1" style="margin-top:9px;width:100%">Definir quanto tenho pra viagem</button>`}
     </div>`;
   }
 
@@ -3663,6 +3672,8 @@ function renderCofre(){_sujo.delete("cofre");
   const M=mesInfo(me);
   const mm=depMonths(me),keys=Object.keys(mm).sort();
   const deps=(d.depositos||[]).slice().sort((a,b)=>String(b.mes||"").localeCompare(String(a.mes||""))||String(b.id).localeCompare(String(a.id)));
+  const _verbaAj=Number((d||{}).verba)||0;
+  const _dispV=_verbaAj>0?_verbaAj:sav;   // disponível pra viagem = ajuste ou o que está no cofre
 
   $("#p-cofre").innerHTML=`
   <div class="cofre-top">
@@ -3683,6 +3694,12 @@ function renderCofre(){_sujo.delete("cofre");
     </div>
   </div>
 
+  <div class="cofre-disp">
+    <div class="grow"><div class="lbl">Disponível pra viagem${_verbaAj>0?" · ajustado":" · do cofre"}</div>
+      <div class="disp money" style="font-size:23px">${fmt(_dispV)}</div>
+      <div class="of">${_verbaAj>0?"Você ajustou manualmente quanto levou.":"Por padrão, é o que você guardou no cofre."}</div></div>
+    <button class="btn sec sm" id="ajverba">Ajustar</button>
+  </div>
   <div class="cofre-month"><div class="sect" style="margin-top:0">${M.antes?"Plano mensal":"Este mês"}<span class="r">${M.antes?"começa em "+monthLabel(iniPoup()):monthLabel(M.mk)}</span></div>
   <div class="card ${M.ok||M.acabou?"okline":""}">
     ${M.acabou?
@@ -3766,6 +3783,7 @@ function renderCofre(){_sujo.delete("cofre");
     ],v=>{if(v.valor<=0){toast("Informe um valor");return false;}
       savePessoa(me,{depositos:(meDoc().depositos||[]).map(x=>x.id===dep.id?{id:dep.id,valor:v.valor,moeda:v.moeda,mes:v.mes,nota:v.nota}:x)});
       toast("Depósito atualizado");},"Salvar");});
+  {const _aj=$("#ajverba");if(_aj)_aj.onclick=()=>verbaModal();}
   $("#metaedit").onclick=()=>openModal("Minha meta",[
     {id:"meta",label:"Meta em "+STATE.cur,type:"money",value:Number(d.meta)>0?disp(d.meta).toFixed(2).replace(".",","):"",
      placeholder:disp(orcamentoDe(me)).toFixed(2).replace(".",",")}
