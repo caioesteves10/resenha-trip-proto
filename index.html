@@ -283,6 +283,14 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 .mtabs.hidden{display:none}
 .mtabs button{flex:1;border:none;background:none;border-radius:9px;padding:9px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;font-family:inherit}
 .mtabs button.on{background:var(--panel);color:var(--navy);box-shadow:0 1px 3px rgba(20,34,56,.08)}
+.fxbar{margin-top:11px;border-top:1px solid rgba(255,255,255,.16);padding-top:10px;display:flex;align-items:center;gap:10px}
+.fxseg{display:flex;background:rgba(255,255,255,.12);border-radius:9px;padding:2px;flex:none}
+.fxpill{border:none;background:none;color:rgba(255,255,255,.82);font-size:12px;font-weight:600;padding:5px 10px;border-radius:7px;cursor:pointer;font-family:inherit}
+.fxpill.on{background:#fff;color:var(--navy)}
+.fxrate{font-size:13px;font-weight:600;flex:1;color:#fff;line-height:1.25;min-width:0}
+.fxlab{display:block;font-size:10px;font-weight:500;opacity:.72;letter-spacing:.03em}
+.fxconvbtn{border:1px solid rgba(255,255,255,.28);border-radius:9px;width:34px;height:30px;display:flex;align-items:center;justify-content:center;color:#fff;flex:none;cursor:pointer;background:none;padding:0}
+.fxconvbtn svg{width:16px;height:16px}
 .panel-v.on{display:block}
 
 /* ---------- trilho de progresso ---------- */
@@ -867,7 +875,6 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
       <button class="hamb" id="menubtn" aria-label="Menu"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
       <span class="kicker" id="tagline">Bem-vindo</span><span id="mename" style="display:none"></span>
       <button class="viasw" id="viabtn" role="switch" aria-checked="false" title="Modo viagem"><span class="viasw-knob"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 3.2c.4-.9 1.6-.9 2 0l.3.8v5.3l7 4.1v1.9l-7-2.1v3.8l2 1.5v1.5l-3.3-1-3.3 1v-1.5l2-1.5v-3.8l-7 2.1v-1.9l7-4.1V4l.3-.8Z" fill="currentColor" stroke="none"/></svg></span></button>
-    <button class="iconbtn" id="adminkey" title="Área do admin" aria-label="Área do admin"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="M19.4 13c.04-.33.06-.66.06-1s-.02-.67-.06-1l1.7-1.3a.5.5 0 0 0 .12-.64l-1.6-2.8a.5.5 0 0 0-.6-.22l-2 .8a7 7 0 0 0-1.7-1l-.3-2.1a.5.5 0 0 0-.5-.44h-3.2a.5.5 0 0 0-.5.44l-.3 2.1a7 7 0 0 0-1.7 1l-2-.8a.5.5 0 0 0-.6.22l-1.6 2.8a.5.5 0 0 0 .12.64L4.6 11c-.04.33-.06.66-.06 1s.02.67.06 1l-1.7 1.3a.5.5 0 0 0-.12.64l1.6 2.8a.5.5 0 0 0 .6.22l2-.8a7 7 0 0 0 1.7 1l.3 2.1a.5.5 0 0 0 .5.44h3.2a.5.5 0 0 0 .5-.44l.3-2.1a7 7 0 0 0 1.7-1l2 .8a.5.5 0 0 0 .6-.22l1.6-2.8a.5.5 0 0 0-.12-.64L19.4 13Z"/></svg></button>
     </div>
 
     <div class="strip">
@@ -876,7 +883,7 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
       <h1 class="disp" id="tripname">Resenha Trip 2027</h1>
       <div class="when" id="tripwhen">—</div>
       <div class="perf"></div>
-      <div class="route" style="margin-top:7px;font-size:11.5px" id="fxline">—</div>
+      <div class="fxbar" id="fxline">—</div>
     </div>
 
     <div id="offbar" class="warnbox hidden"></div>
@@ -1472,7 +1479,7 @@ function reinserir(arr,item,idx){
   c.splice(Math.max(0,Math.min(c.length,idx==null?c.length:idx)),0,item);
   return c;
 }
-function isAdmin(){return localStorage.getItem(LS.admin)==="1";}
+function isAdmin(){return MOCK||IS_ADMIN||localStorage.getItem(LS.admin)==="1";}
 function cityOf(k){return (STATE.config.cidades||[]).find(c=>c.k===k)||{k:k,n:"—"};}
 /* ---- local no mapa: link que abre o app de mapas nativo (funciona offline) ---
    Monta a busca com o nome do lugar + a cidade do dia, pra não cair em outro
@@ -2535,7 +2542,6 @@ function buildNav(){
   $("#nav").querySelectorAll("div[data-t]").forEach(el=>{
     el.onclick=()=>show(el.dataset.t);
     el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();show(el.dataset.t);}};});
-  $("#adminkey").classList.toggle("on",isAdmin());
 }
 /* resumo fixo no rodapé da sidebar (só aparece no desktop, via CSS) */
 function navResumo(){
@@ -2625,7 +2631,6 @@ function syncViaBtn(){
   b.title=ativo?"Modo viagem ligado (toque para desligar)":"Modo viagem desligado (toque para ligar)";
   b.setAttribute("aria-label",b.title);
 }
-$("#adminkey").onclick=()=>{show("admin");renderAdmin();if(!isAdmin())setTimeout(()=>{const i=$("#apin");if(i)i.focus();},60);};
 
 /* ---- 8. CÁLCULOS COMPARTILHADOS ------------------------ */
 function itemPeople(it){
@@ -2735,15 +2740,13 @@ function renderHeader(){
   const viva=!!FXLIVE;
   const hora=viva?new Date(FXLIVE.at).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):"";
   ajustarMoeda();
-  const _prin=moedaPrincipal(), _setM=moedasVista(), _alvos=_setM.filter(m=>m!==_prin);
-  const _taxas=_alvos.length?_alvos.map(m=>`1 ${simboloMoeda(m)} = ${fmtIn(rate(m)/rate(_prin),_prin)}`).join(" · "):`tudo em ${simboloMoeda(_prin)}`;
+  const _prin=moedaPrincipal(), _setM=moedasVista(), _cur=STATE.cur;
+  const _rateStr=(_cur===_prin)?("tudo em "+simboloMoeda(_prin)):`1 ${simboloMoeda(_cur)} = ${fmtIn(rate(_cur)/rate(_prin),_prin)}`;
+  const _fxlab=viva?(esc(FXLIVE.src)+" "+esc(hora)):"taxa do grupo";
   $("#fxline").innerHTML=
-    `<span style="color:var(--dim)">${_taxas}`+
-    (viva?` <span style="color:var(--ok)">• ${esc(FXLIVE.src)} ${esc(hora)}</span>`:` <span style="color:var(--warn)">• taxa fixa</span>`)+`</span>`+
-    `<span style="margin-left:auto;display:flex;gap:4px;align-items:center">`+
-      _setM.map(m=>`<span class="pill ${STATE.cur===m?"ok":""}" data-cur="${m}" style="cursor:pointer">${m}</span>`).join("")+
-      `<button id="fxconv" class="fxconvbtn" type="button" title="Simular conversão" aria-label="Simular conversão"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10h14l-3-3M17 14H3l3 3"/></svg></button>`+
-    `</span>`;
+    `<span class="fxseg">`+_setM.map(m=>`<button class="fxpill ${STATE.cur===m?"on":""}" data-cur="${m}" type="button">${esc(m)}</button>`).join("")+`</span>`+
+    `<span class="fxrate"><span class="fxlab">${_fxlab}</span>${_rateStr}</span>`+
+    `<button id="fxconv" class="fxconvbtn" type="button" title="Converter" aria-label="Converter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg></button>`;
   const cbtn=$("#fxconv");
   if(cbtn)cbtn.onclick=abrirCambio;
   $("#fxline").querySelectorAll("[data-cur]").forEach(el=>el.onclick=()=>{
