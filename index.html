@@ -135,7 +135,9 @@ select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,va
 label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:var(--dim);margin:0 0 5px 2px}
 .f2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .f2>div,.f2 input,.f2 select{min-width:0}
-.f2 input[type=date]{width:100%}
+input[type=date],input[type=time]{-webkit-appearance:none;appearance:none;min-width:0;width:100%}
+input[type=date]::-webkit-date-and-time-value{text-align:left;width:100%;margin:0;padding:0}
+input[type=date]::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer;margin:0 0 0 4px}
 .city-row{margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--line)}
 .city-row:last-of-type{border-bottom:0;margin-bottom:4px}
 .city-head{display:flex;align-items:center;gap:8px}
