@@ -625,6 +625,12 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
 .toast .undo:active{transform:scale(.94)}
 
 .modal{position:fixed;inset:0;z-index:80;background:rgba(18,29,50,.5);display:flex;align-items:flex-end;justify-content:center}
+.aj-screen{position:fixed;inset:0;z-index:55;background:var(--bg);overflow:auto;-webkit-overflow-scrolling:touch}
+.aj-topbar{position:sticky;top:0;display:flex;align-items:center;gap:10px;padding:calc(12px + env(safe-area-inset-top)) 14px 12px;background:var(--panel);border-bottom:1px solid var(--line);z-index:1}
+.aj-tt{flex:1;font-weight:700;color:var(--navy);font-size:16px}
+.aj-inner{padding:14px 15px calc(28px + env(safe-area-inset-bottom));max-width:900px;margin:0 auto}
+#aj-tabs{margin-bottom:14px}
+.mk-hint2{font-size:12px;color:var(--muted);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 11px;margin-bottom:14px;line-height:1.4}
 .modal .box{position:relative}
 .mx{position:absolute;top:14px;right:14px;background:var(--panel2);border:none;color:var(--muted);width:30px;height:30px;border-radius:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;z-index:3}
 .mx:hover{color:var(--text)}
@@ -911,7 +917,6 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
     <section class="panel-v" id="p-check"></section>
     <section class="panel-v" id="p-racha"></section>
     <section class="panel-v" id="p-reservas"></section>
-    <section class="panel-v" id="p-admin"></section>
 
     <div class="foot" id="foot">Faltam poucos meses de disciplina — depois é só aproveitar. 🍂</div>
   </div>
@@ -920,6 +925,17 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
 <nav class="nav hidden" id="nav" aria-label="Navegação"></nav>
 <button id="fab" class="fab hidden" aria-label="Lançar um gasto rápido" title="Lançar um gasto"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
 <div id="toast" class="toast" role="status"></div>
+<div id="ajustes" class="hidden aj-screen">
+  <div class="aj-topbar">
+    <button class="hamb" id="aj-back" aria-label="Voltar"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <div class="aj-tt">Ajustes da viagem</div>
+    <span style="width:36px"></span>
+  </div>
+  <div class="aj-inner">
+    <div class="seg" id="aj-tabs"></div>
+    <div id="aj-body"></div>
+  </div>
+</div>
 <div id="modal"></div>
 
 <script type="module">
@@ -1936,6 +1952,7 @@ async function sairDaConta(){
   if(!auth||!auth.currentUser)showLogin();
 }
 {const _vh=$("#vg-hamb");if(_vh)_vh.onclick=(e)=>{e.stopPropagation();abrirPerfil();};}
+{const _ab=$("#aj-back");if(_ab)_ab.onclick=fecharAjustes;}
 {const _tn=$("#tripname");if(_tn){_tn.classList.add("tapname");_tn.onclick=abrirTrocadorViagem;}}
 $("#menubtn").onclick=(e)=>{e.stopPropagation();abrirPerfil();};
 function abrirPerfil(){
@@ -1975,8 +1992,8 @@ function abrirPerfil(){
   $("#pf-sair").onclick=()=>ir(sairDaConta);
   const _bv=$("#pf-viagens");if(_bv)_bv.onclick=()=>ir(showViagens);
   const _bc=$("#pf-codigo");if(_bc)_bc.onclick=async()=>{try{await navigator.clipboard.writeText(STATE.config.codigo);toast("Código copiado ✓");}catch(e){toast(STATE.config.codigo);}};
-  const _mo=$("#pf-moeda");if(_mo)_mo.onclick=()=>ir(abrirMinhasMoedas);
-  const _cv=$("#pf-configvia");if(_cv)_cv.onclick=()=>ir(abrirConfigViagem);
+  const _mo=$("#pf-moeda");if(_mo)_mo.onclick=()=>ir(()=>abrirAjustes("minha"));
+  const _cv=$("#pf-configvia");if(_cv)_cv.onclick=()=>ir(()=>abrirAjustes("padrao"));
   const _es=$("#pf-euSou");if(_es)_es.onclick=()=>ir(perguntarQuemEhVoce);
   const _pp=$("#pf-participantes");if(_pp)_pp.onclick=()=>ir(abrirParticipantes);
   const _pu=$("#pf-perfil");if(_pu)_pu.onclick=()=>ir(abrirPerfilUsuario);
@@ -2563,7 +2580,6 @@ let curTab=localStorage.getItem(LS.tab)||"inicio";
 if(curTab==="compras")curTab="custos";
 function buildNav(){
   let t=TABS().slice();
-  if(isAdmin())t.push(["admin","Admin"]);
   if(!t.some(x=>x[0]===curTab)&&!MONEY.includes(curTab))curTab=t[0][0];
   $("#nav").innerHTML=t.map(x=>`<div data-t="${x[0]}" class="${x[0]===curTab?"on":""}" role="button" tabindex="0">
     <span class="ic">${svgIcon(x[0])}</span><span>${x[1]}</span><span class="navdot"></span></div>`).join("")+
@@ -2721,7 +2737,7 @@ let _rendering=false;
    Agora só o painel visível é redesenhado; os outros ficam marcados como
    "sujos" e se redesenham na hora em que você entra neles.              */
 const RENDERS={inicio:()=>renderInicio(),cofre:()=>renderCofre(),custos:()=>renderCustos(),roteiro:()=>renderRoteiro(),
-  compras:()=>renderCompras(),check:()=>renderCheck(),racha:()=>renderRacha(),reservas:()=>renderReservas(),admin:()=>renderAdmin()};
+  compras:()=>renderCompras(),check:()=>renderCheck(),racha:()=>renderRacha(),reservas:()=>renderReservas()};
 const _sujo=new Set(Object.keys(RENDERS));
 function renderPainel(t){
   const f=RENDERS[t];if(!f)return;
@@ -2741,6 +2757,7 @@ function renderAll(){
   renderHeader();buildNav();
   Object.keys(RENDERS).forEach(k=>_sujo.add(k)); // os dados mudaram: todos ficam sujos
   renderPainel(curTab);                          // e só o visível é redesenhado agora
+  if($("#ajustes")&&!$("#ajustes").classList.contains("hidden"))renderAjustesBody();
   _primeiraCarga=false;
   applyTab();
   window.scrollTo(0,sy);
@@ -3988,7 +4005,7 @@ function renderCustos(){_sujo.delete("custos");
     const sl=$("#cseg")?$("#cseg").scrollLeft:0;
     renderCustos();
     const seg=$("#cseg");if(seg)seg.scrollLeft=sl;});
-  const ga=$("#goadm");if(ga)ga.onclick=()=>{show("admin");admView="custos";renderAdmin();};
+  const ga=$("#goadm");if(ga)ga.onclick=()=>abrirAjustes("padrao");
   const pmB=$("#plano-mais-btn"),pmBox=$("#plano-mais");
   if(pmB&&pmBox)pmB.onclick=()=>{
     const abrir=pmBox.hidden;pmBox.hidden=!abrir;
@@ -5010,34 +5027,78 @@ function renderRacha(){_sujo.delete("racha");
 }
 
 /* ---- 16. ADMIN ----------------------------------------- */
-let admView="custos";
-function renderAdmin(){_sujo.delete("admin");
-  const el=$("#p-admin");if(!el)return;
-  if(!isAdmin()){
-    el.innerHTML=`<div class="card"><div class="note" style="margin:0 0 10px">Área do admin: editar orçamento, roteiro, datas e câmbio.</div>
-      <input id="apin" type="password" autocomplete="current-password" placeholder="senha do admin" style="text-align:center;font-weight:700">
-      <button class="btn" id="aenter" style="margin-top:10px">Entrar</button><div id="aerr" class="err"></div></div>`;
-    const go=async()=>{
-      const b=$("#aenter");b.disabled=true;b.textContent="Conferindo…";
-      const ok=await checarAdmin($("#apin").value);
-      b.disabled=false;b.textContent="Entrar";
-      if(ok){localStorage.setItem(LS.admin,"1");renderAll();show("admin");toast("Modo admin ligado");}
-      else{$("#aerr").textContent="Senha incorreta.";$("#apin").value="";}};
-    $("#aenter").onclick=go;
-    $("#apin").addEventListener("keydown",e=>{if(e.key==="Enter")go();});
-    return;
+let ajTab="minha";
+function abrirAjustes(tab){
+  const adm=isAdmin();
+  ajTab=(adm&&tab==="padrao")?"padrao":"minha";
+  const a=$("#ajustes");if(!a)return;
+  a.classList.remove("hidden");
+  try{window.scrollTo(0,0);}catch(e){}
+  $("#aj-tabs").innerHTML=`<div data-t="minha" class="${ajTab==="minha"?"on":""}">Minha visão</div>${adm?`<div data-t="padrao" class="${ajTab==="padrao"?"on":""}">Padrão da viagem</div>`:""}`;
+  $("#aj-tabs").querySelectorAll("[data-t]").forEach(x=>x.onclick=()=>abrirAjustes(x.dataset.t));
+  renderAjustesBody();
+}
+function renderAjustesBody(){
+  const el=$("#aj-body");if(!el)return;
+  if(ajTab==="padrao"&&isAdmin()){
+    el.innerHTML=`<div class="mk-hint2">Você é dono desta viagem. O que muda aqui vale para todo o grupo.</div><div id="aj-moedas"></div><div id="aj-admin"></div>`;
+    renderMoedasPadrao($("#aj-moedas"));
+    renderAdminPadrao($("#aj-admin"));
+  }else{
+    renderMinhaVisao(el);
   }
+}
+function fecharAjustes(){const a=$("#ajustes");if(a)a.classList.add("hidden");}
+function renderMinhaVisao(el){
+  if(!el)return;
+  let prin=moedaPrincipal();let sel=moedasVista().slice();
+  const dest=(STATE.config&&STATE.config.moedaViagem)||"";
+  const tag=STATE.prefMoeda?'<div class="mo-tag">visão personalizada ativa</div>':'<div class="mo-tag off">usando o padrão da viagem</div>';
+  el.innerHTML=`<div class="card">
+    <p class="mo-sub">Muda só a SUA visão nesta viagem — cada pessoa escolhe a dela.</p>
+    ${tag}
+    <label class="mo-lb">Minha moeda principal</label>
+    <select id="mo-prin" class="au-inp">${_optsMoeda(prin)}</select>
+    <label class="mo-lb">Moedas que eu quero ver</label>
+    <div id="mo-chips" class="mo-chips">${_chipsMoeda(sel,_candMoeda(prin,dest,sel))}</div>
+    <button class="btn" id="mo-salvar">Salvar minha visão</button>
+    <button class="btn gh" id="mo-padrao">Usar o padrão da viagem</button>
+  </div>`;
+  function wire(){$("#mo-chips").querySelectorAll(".mo-chip").forEach(b=>b.onclick=()=>{const c=b.dataset.c;if(sel.includes(c)){if(sel.length>1)sel=sel.filter(x=>x!==c);}else sel.push(c);b.classList.toggle("on",sel.includes(c));});}
+  $("#mo-prin").onchange=e=>{prin=e.target.value;if(!sel.includes(prin))sel.push(prin);$("#mo-chips").innerHTML=_chipsMoeda(sel,_candMoeda(prin,dest,sel));wire();};
+  wire();
+  $("#mo-salvar").onclick=()=>{salvarMinhasMoedas(prin,sel);toast("Sua visão de moedas foi salva ✓");renderAjustesBody();};
+  $("#mo-padrao").onclick=()=>{limparMinhasMoedas();toast("Voltou pro padrão da viagem");renderAjustesBody();};
+}
+function renderMoedasPadrao(el){
+  if(!el)return;
+  const c=STATE.config||{};
+  let prin=c.moeda||"BRL";
+  let sel=(Array.isArray(c.moedasVista)&&c.moedasVista.length)?c.moedasVista.slice():["BRL","USD","EUR"];
+  let dest=c.moedaViagem||prin;
+  el.innerHTML=`<div class="sect">Moedas da viagem</div><div class="card">
+    <p class="mo-sub">Padrão sugerido pra quem ainda não personalizou. Cada pessoa pode mudar a própria visão na aba "Minha visão".</p>
+    <label class="mo-lb">Moeda de destino (modo viagem)</label>
+    <select id="cv-dest" class="au-inp">${_optsMoeda(dest)}</select>
+    <label class="mo-lb">Moeda principal sugerida</label>
+    <select id="cv-prin" class="au-inp">${_optsMoeda(prin)}</select>
+    <label class="mo-lb">Moedas sugeridas</label>
+    <div id="cv-chips" class="mo-chips">${_chipsMoeda(sel,_candMoeda(prin,dest,sel))}</div>
+    <button class="btn" id="cv-salvar">Salvar padrão da viagem</button>
+  </div>`;
+  function wire(){$("#cv-chips").querySelectorAll(".mo-chip").forEach(b=>b.onclick=()=>{const cc=b.dataset.c;if(sel.includes(cc)){if(sel.length>1)sel=sel.filter(x=>x!==cc);}else sel.push(cc);b.classList.toggle("on",sel.includes(cc));});}
+  $("#cv-dest").onchange=e=>{dest=e.target.value;};
+  $("#cv-prin").onchange=e=>{prin=e.target.value;if(!sel.includes(prin))sel.push(prin);$("#cv-chips").innerHTML=_chipsMoeda(sel,_candMoeda(prin,dest,sel));wire();};
+  wire();
+  $("#cv-salvar").onclick=()=>{if(!sel.includes(prin))sel=[prin].concat(sel);saveDoc("config",{moeda:prin,moedasVista:sel,moedaViagem:dest});toast("Padrão da viagem atualizado ✓");};
+}
+function renderAdminPadrao(el){
+  if(!el)return;
   const c=STATE.config,itens=(STATE.custos.itens||[]);
   el.innerHTML=`
-  <div class="seg" id="aseg">
-    <div data-v="custos" class="${admView==="custos"?"on":""}">Orçamento</div>
-    <div data-v="config" class="${admView==="config"?"on":""}">Viagem</div>
-    <div data-v="tools" class="${admView==="tools"?"on":""}">Ferramentas</div>
-  </div>
-
-  <div class="${admView==="custos"?"":"hidden"}">
+  <div>
     <button class="btn" id="citadd">+ Novo item do orçamento</button>
-    <div class="sect">Itens<span class="r">${fmt(totalShared())}</span></div>
+    <div class="sect">Orçamento do grupo<span class="r">${fmt(totalShared())}</span></div>
     <div class="adm-scroll">
       ${itens.map(it=>{const g=itemPeople(it);return `<div class="li" style="margin-bottom:6px">
         <div class="t"><div class="n">${esc(it.desc)}</div>
@@ -5049,7 +5110,8 @@ function renderAdmin(){_sujo.delete("admin");
     <div class="note">Cada pessoa vê o próprio rateio na aba Custos, e ele vira a meta automática no Cofre.</div>
   </div>
 
-  <div class="${admView==="config"?"":"hidden"}">
+  <div>
+    <div class="sect">Datas &amp; câmbio</div>
     <div class="card">
       <div class="fld"><label class="f" for="cnome">Nome da viagem</label><input id="cnome" value="${esc(c.nome||"")}"></div>
       <div class="f2">
@@ -5081,7 +5143,8 @@ function renderAdmin(){_sujo.delete("admin");
     </div>
   </div>
 
-  <div class="${admView==="tools"?"":"hidden"}">
+  <div>
+    <div class="sect">Ferramentas</div>
     <div class="card">
       <div class="note" style="margin:0 0 10px">Banco: <b>${MOCK?"local (sem conexão)":"conectado ao Firestore"}</b><br>
         App Check: <b style="color:${/^OK/.test(APPCHECK_ST)?"var(--ok)":(/^FALHOU|sem token/.test(APPCHECK_ST)?"var(--danger)":"var(--muted)")}">${esc(APPCHECK_ST)}</b><br>
@@ -5110,7 +5173,6 @@ function renderAdmin(){_sujo.delete("admin");
     </div>
   </div>`;
 
-  $("#aseg").querySelectorAll("[data-v]").forEach(x=>x.onclick=()=>{admView=x.dataset.v;renderAdmin();});
   const cats=["Passagens","Hospedagem","Transporte","Passeios","Alimentação","Compras","Reserva","Outros"];
   const itemForm=(it)=>openModal(it?"Editar item":"Novo item",[
     {id:"desc",label:"Descrição",value:it?it.desc:"",placeholder:"Ex.: Hotel em Berlim"},
@@ -5278,7 +5340,7 @@ setInterval(()=>{const k=monthKey(new Date());if(k!==ULT_MES){ULT_MES=k;renderAl
       atual.style.transform=`translateX(${dir>0?-40:40}px)`;atual.style.opacity="0";}
     vibrar(8);
     setTimeout(()=>{
-      show(o[n]);if(o[n]==="admin")renderAdmin();
+      show(o[n]);
       const novo=painel();
       if(novo){novo.style.transition="none";novo.style.transform=`translateX(${dir>0?60:-60}px)`;novo.style.opacity="0";
         requestAnimationFrame(()=>{novo.style.transition="transform .24s cubic-bezier(.2,.7,.3,1), opacity .24s ease";
