@@ -134,6 +134,14 @@ select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,va
  background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:32px}
 label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:var(--dim);margin:0 0 5px 2px}
 .f2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.f2>div,.f2 input,.f2 select{min-width:0}
+.f2 input[type=date]{width:100%}
+.city-row{margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.city-row:last-of-type{border-bottom:0;margin-bottom:4px}
+.city-head{display:flex;align-items:center;gap:8px}
+.city-name{flex:1;min-width:0}
+.city-del{flex:0 0 auto}
+.city-note{color:var(--muted);font-size:12px}
 .f3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px}
 .fld{margin-bottom:9px}
 .btn{background:var(--orange);border:none;color:#fff;border-radius:12px;padding:13px 16px;font-size:14px;
@@ -1190,6 +1198,7 @@ const CIDADES_DB=(()=>{
   const alias={munich:"munique",munchen:"munique",muenchen:"munique",berlin:"berlim",london:"londres",rome:"roma",madrid:"madri",lisbon:"lisboa",amsterdam:"amsterda",wien:"viena",vienna:"viena",prague:"praga",zurich:"zurique",milan:"milao",milano:"milao",venice:"veneza",venezia:"veneza",florence:"florenca",firenze:"florenca","new york":"nova york",newyork:"nova york",nyc:"nova york",tokyo:"toquio",athens:"atenas"};
   return {db,alias};
 })();
+const CIDADES_NOMES=["Paris","Munique","Berlim","Londres","Roma","Madri","Barcelona","Lisboa","Porto","Amsterdã","Bruxelas","Praga","Viena","Zurique","Milão","Veneza","Florença","Copenhague","Budapeste","Atenas","Dublin","Nova York","Tóquio"];
 function normNome(x){return String(x||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();}
 function dbCidade(nome){const k=normNome(nome);return CIDADES_DB.db[CIDADES_DB.alias[k]||k]||null;}
 
@@ -3761,7 +3770,7 @@ function renderCofre(){_sujo.delete("cofre");
       `A partir de ${monthLabel(M.proximo)}, precisa guardar <b>${fmt(M.ritmoFuturo)}</b> por mês — faltam <b>${fmt(M.faltaTotal)}</b> em ${M.meses-1} ${M.meses-1===1?"mês":"meses"}.`:
       `Guardou <b>${fmt(M.guardado)}</b> de ${fmt(M.alvo)}. Faltam <b>${fmt(M.falta)}</b> este mês.`}</div>`)}
     <div class="row" style="gap:8px;margin-top:11px">
-      ${(M.ok||M.antes||M.acabou)?"":`<button class="btn" id="quick" style="flex:2">Guardei ${fmtCur(M.falta,moedaDe(me))}</button>`}
+      ${(M.ok||M.antes||M.acabou)?"":`<button class="btn" id="quick" style="flex:2">Guardei ${fmt(M.falta)}</button>`}
       <button class="btn ${(M.ok||M.antes||M.acabou)?"":"sec"}" id="dpadd" style="flex:1">+ Adicionar ao cofre</button>
     </div>
   </div>
@@ -3806,7 +3815,7 @@ function renderCofre(){_sujo.delete("cofre");
   if(!(($("#cofre-mais")||{}).hidden))wireChart();
   requestAnimationFrame(animarNumeros);
   const q=$("#quick");if(q)q.onclick=()=>{
-    savePessoa(me,{depositos:(meDoc().depositos||[]).concat([{id:uid(),valor:conv(M.falta,moedaDe(me)),moeda:moedaDe(me),mes:M.mk,nota:"meta do mês"}])});
+    savePessoa(me,{depositos:(meDoc().depositos||[]).concat([{id:uid(),valor:conv(M.falta,moedaPrincipal()),moeda:moedaPrincipal(),mes:M.mk,nota:"meta do mês"}])});
     vibrar(18);toast("Mês fechado 🎉");};
   const dp=$("#dpadd");if(dp)dp.onclick=()=>depositoModal(0);
   $("#p-cofre").querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
@@ -5034,7 +5043,7 @@ function abrirAjustes(tab){
   const a=$("#ajustes");if(!a)return;
   a.classList.remove("hidden");
   try{window.scrollTo(0,0);}catch(e){}
-  $("#aj-tabs").innerHTML=`<div data-t="minha" class="${ajTab==="minha"?"on":""}">Minha visão</div>${adm?`<div data-t="padrao" class="${ajTab==="padrao"?"on":""}">Padrão da viagem</div>`:""}`;
+  $("#aj-tabs").innerHTML=`${adm?`<div data-t="padrao" class="${ajTab==="padrao"?"on":""}">Padrão da viagem</div>`:""}<div data-t="minha" class="${ajTab==="minha"?"on":""}">Minha visão</div>`;
   $("#aj-tabs").querySelectorAll("[data-t]").forEach(x=>x.onclick=()=>abrirAjustes(x.dataset.t));
   renderAjustesBody();
 }
@@ -5097,8 +5106,8 @@ function renderAdminPadrao(el){
   const c=STATE.config,itens=(STATE.custos.itens||[]);
   el.innerHTML=`
   <div>
-    <button class="btn" id="citadd">+ Novo item do orçamento</button>
     <div class="sect">Orçamento do grupo<span class="r">${fmt(totalShared())}</span></div>
+    <button class="btn" id="citadd">+ Novo item do orçamento</button>
     <div class="adm-scroll">
       ${itens.map(it=>{const g=itemPeople(it);return `<div class="li" style="margin-bottom:6px">
         <div class="t"><div class="n">${esc(it.desc)}</div>
@@ -5129,12 +5138,15 @@ function renderAdminPadrao(el){
     </div>
     <div class="sect">Cidades</div>
     <div class="card">
-      ${(c.cidades||[]).map((x,i)=>{const _i=dbCidade(x.n);return `<div style="margin-bottom:9px"><div class="row" style="gap:7px">
-        <input data-cn="${i}" value="${esc(x.n)}" style="flex:2" placeholder="Cidade">
-        <input data-cd="${i}" type="date" value="${esc(x.de)}" style="flex:2">
-        <input data-ca="${i}" type="date" value="${esc(x.ate)}" style="flex:2">
-        <button class="x" data-cidel="${i}" aria-label="Remover cidade">✕</button></div>
-        <div class="note" style="margin:3px 0 0">${_i?`${_i.flag} ${esc(_i.pais)} · fuso ${esc(_i.tz)}${_i.clima?" · clima incluído":""}`:`fuso não reconhecido — usará ${esc(tzViagem())}`}</div></div>`;}).join("")}
+      <datalist id="cidades-db">${CIDADES_NOMES.map(n=>`<option value="${esc(n)}">`).join("")}</datalist>
+      ${(c.cidades||[]).map((x,i)=>{const _i=dbCidade(x.n);return `<div class="city-row">
+        <div class="city-head"><input class="city-name" data-cn="${i}" list="cidades-db" value="${esc(x.n)}" placeholder="Digite e escolha a cidade" autocomplete="off">
+        <button class="x city-del" data-cidel="${i}" aria-label="Remover cidade">✕</button></div>
+        <div class="f2" style="margin-top:7px">
+          <div><label class="f">Chegada</label><input data-cd="${i}" type="date" value="${esc(x.de)}"></div>
+          <div><label class="f">Saída</label><input data-ca="${i}" type="date" value="${esc(x.ate)}"></div>
+        </div>
+        <div class="note city-note" data-cnote="${i}" style="margin:6px 0 0">${_i?`${_i.flag} ${esc(_i.pais)} · fuso ${esc(_i.tz)}${_i.clima?" · clima incluído":""}`:`fuso não reconhecido — usará ${esc(tzViagem())}`}</div></div>`;}).join("")}
       <div class="row" style="gap:8px;margin-top:4px">
         <button class="btn sec" id="cidadd" style="flex:1">+ Cidade</button>
         <button class="btn" id="cidsave" style="flex:2">Salvar cidades</button>
@@ -5218,8 +5230,13 @@ function renderAdminPadrao(el){
   const cad=$("#cidadd");
   if(cad)cad.onclick=()=>{
     const atual=lerCidades();
-    const nova={k:slug("cidade"),n:"Nova cidade",de:c.inicio||"",ate:c.fim||""};
-    saveDoc("config",{cidades:atual.concat([nova])});toast("Cidade adicionada — edite o nome");};
+    const nova={k:slug("cidade"),n:"",de:c.inicio||"",ate:c.fim||""};
+    saveDoc("config",{cidades:atual.concat([nova])});toast("Cidade adicionada — digite o nome");};
+  el.querySelectorAll("[data-cn]").forEach(inp=>inp.onchange=()=>{
+    const info=dbCidade(inp.value);
+    const nt=el.querySelector(`[data-cnote="${inp.dataset.cn}"]`);
+    if(nt)nt.innerHTML=info?`${info.flag} ${esc(info.pais)} · fuso ${esc(info.tz)}${info.clima?" · clima incluído":""}`:`fuso não reconhecido — usará ${esc(tzViagem())}`;
+  });
   el.querySelectorAll("[data-cidel]").forEach(b=>b.onclick=()=>{
     const i=Number(b.dataset.cidel);const atual=lerCidades();
     if(atual.length<=1){toast("Deixe ao menos uma cidade");return;}
