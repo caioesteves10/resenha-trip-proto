@@ -134,6 +134,9 @@ select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,va
  background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:32px}
 label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:var(--dim);margin:0 0 5px 2px}
 .f2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.pt-cod{display:flex;align-items:center;gap:10px;margin-top:2px}
+.pt-cod-val{flex:1;font-weight:700;font-size:18px;letter-spacing:.08em;color:var(--navy);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;text-align:center}
+.pt-cod .btn{width:auto;flex:0 0 auto}
 .f2>div,.f2 input,.f2 select{min-width:0}
 input[type=date],input[type=time]{-webkit-appearance:none;appearance:none;min-width:0;width:100%}
 input[type=date]::-webkit-date-and-time-value{text-align:left;width:100%;margin:0;padding:0}
@@ -1972,11 +1975,8 @@ function abrirPerfil(){
   const it=(id,em,lab,val)=>`<button class="dw-item" id="${id}"><span class="dw-emoji">${ICO(em)}</span><span class="dw-label">${lab}</span>${val?`<span class="dw-val">${val}</span>`:'<span class="dw-chev">›</span>'}</button>`;
   let naHome=false;try{naHome=localStorage.getItem("tr27_naHome")==="1";}catch(e){}
   const secEsta = naHome ? "" : `<div class="dw-sec"><div class="dw-sec-tit">Esta viagem</div>
-      ${!MOCK?it("pf-euSou","eu",`Sou <b>${esc(STATE.me)}</b> aqui`):''}
       ${!MOCK?it("pf-participantes","participantes","Participantes"):''}
-      ${it("pf-moeda","moeda","Minhas moedas")}
-      ${it("pf-configvia","ajustes","Configuração da viagem")}
-      ${cod?it("pf-codigo","codigo","Código",esc(cod)):''}
+      ${it("pf-configvia","ajustes","Ajustes da viagem")}
       ${!MOCK?it("pf-viagens","viagem","Trocar de viagem"):''}
     </div>`;
   $("#modal").innerHTML=`<div class="drawer-ov" id="dw-ov"><aside class="drawer" id="dw">
@@ -1988,7 +1988,6 @@ function abrirPerfil(){
     ${secEsta}
     <div class="dw-sec"><div class="dw-sec-tit">Você</div>
       ${it("pf-perfil","perfil","Meu perfil")}
-      ${it("pf-meta","meta","Minha meta de poupança")}
       ${it("pf-ajuda","ajuda","Como usar o app")}
     </div>
     <div class="dw-sec"><div class="dw-sec-tit">Conta</div>
@@ -2002,13 +2001,9 @@ function abrirPerfil(){
   const ir=(fn)=>{$("#modal").innerHTML="";fn();};
   $("#pf-sair").onclick=()=>ir(sairDaConta);
   const _bv=$("#pf-viagens");if(_bv)_bv.onclick=()=>ir(showViagens);
-  const _bc=$("#pf-codigo");if(_bc)_bc.onclick=async()=>{try{await navigator.clipboard.writeText(STATE.config.codigo);toast("Código copiado ✓");}catch(e){toast(STATE.config.codigo);}};
-  const _mo=$("#pf-moeda");if(_mo)_mo.onclick=()=>ir(()=>abrirAjustes("minha"));
   const _cv=$("#pf-configvia");if(_cv)_cv.onclick=()=>ir(()=>abrirAjustes("padrao"));
-  const _es=$("#pf-euSou");if(_es)_es.onclick=()=>ir(perguntarQuemEhVoce);
   const _pp=$("#pf-participantes");if(_pp)_pp.onclick=()=>ir(abrirParticipantes);
   const _pu=$("#pf-perfil");if(_pu)_pu.onclick=()=>ir(abrirPerfilUsuario);
-  const _me=$("#pf-meta");if(_me)_me.onclick=()=>ir(()=>{show("cofre");renderCofre();setTimeout(()=>{const m=$("#metaedit");if(m)m.click();},80);});
   const _aj=$("#pf-ajuda");if(_aj)_aj.onclick=()=>ir(()=>mostrarIntro(true));
 }
 /* ---- Onboarding: boas-vindas + dicas de recursos escondidos --------
@@ -3227,6 +3222,7 @@ async function _removerMembro(uid){
   abrirParticipantes();
 }
 async function abrirParticipantes(){
+  const cod=(STATE.config&&STATE.config.codigo)||"";
   const pes=(STATE.config&&Array.isArray(STATE.config.pessoas)&&STATE.config.pessoas.length)?STATE.config.pessoas.slice():PEOPLE.slice();
   let pend=[],vdata={};
   if(!MOCK&&db){
@@ -3256,11 +3252,17 @@ async function abrirParticipantes(){
     <input id="pt-nome" class="au-inp" placeholder="Nome">
     <input id="pt-email" class="au-inp" type="email" inputmode="email" placeholder="E-mail (opcional, pra convidar)" style="margin-top:8px">
     <button class="btn" id="pt-add" style="margin-top:10px">Adicionar</button>
-    <button class="btn gh" id="pt-fechar">Fechar</button>
+    ${cod?`<div class="pt-lb">Código de convite</div>
+    <div class="pt-cod"><span class="pt-cod-val">${esc(cod)}</span><button class="btn sec" id="pt-copcod">Copiar</button></div>
+    <button class="btn gh" id="pt-coplink" style="margin-top:8px">Copiar link de convite</button>
+    <div class="note" style="margin-top:6px">Compartilhe pra alguém entrar nesta viagem — quem entrar por código precisa da sua aprovação aqui.</div>`:''}
+    <button class="btn gh" id="pt-fechar" style="margin-top:10px">Fechar</button>
   </div></div>`;
   const close=()=>{$("#modal").innerHTML="";};
   $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};
   $("#pt-fechar").onclick=close;
+  {const _pcc=$("#pt-copcod");if(_pcc)_pcc.onclick=async()=>{try{await navigator.clipboard.writeText(cod);toast("Código copiado ✓");}catch(e){toast(cod);}};}
+  {const _pcl=$("#pt-coplink");if(_pcl)_pcl.onclick=async()=>{const link=location.origin+location.pathname+"?entrar="+encodeURIComponent(cod);try{await navigator.clipboard.writeText(link);toast("Link copiado ✓");}catch(e){toast(link);}};}
   $("#modal").querySelectorAll("[data-ap]").forEach(b=>b.onclick=()=>_aprovarSolic(b.dataset.ap,b.dataset.nm));
   $("#modal").querySelectorAll("[data-rj]").forEach(b=>b.onclick=()=>{const uid=b.dataset.rj;confirmModal("Recusar solicitação?","A pessoa não entra na viagem. Ela pode pedir de novo.","Recusar",()=>_recusarSolic(uid),true,abrirParticipantes);});
   $("#modal").querySelectorAll("[data-mrm]").forEach(b=>b.onclick=()=>{const uid=b.dataset.mrm;confirmModal("Remover acesso?","Essa pessoa perde o acesso à viagem. Ela pode pedir pra entrar de novo pelo código.","Remover acesso",()=>_removerMembro(uid),true,abrirParticipantes);});
