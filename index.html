@@ -135,6 +135,10 @@ select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,va
 label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:var(--dim);margin:0 0 5px 2px}
 .f2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .pt-cod{display:flex;align-items:center;gap:10px;margin-top:2px}
+.pu-alert{margin-top:8px;font-size:12.5px;line-height:1.4;border-radius:10px;padding:9px 11px;border:1px solid}
+.pu-alert.crit{color:#c8372d;background:rgba(200,55,45,.10);border-color:rgba(200,55,45,.35)}
+.pu-alert.warn{color:#b06a10;background:rgba(232,114,46,.12);border-color:rgba(232,114,46,.38)}
+.pu-alert.ok{color:#3f8158;background:rgba(63,125,84,.12);border-color:rgba(63,125,84,.32)}
 .pt-cod-val{flex:1;font-weight:700;font-size:18px;letter-spacing:.08em;color:var(--navy);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;text-align:center}
 .pt-cod .btn{width:auto;flex:0 0 auto}
 .f2>div,.f2 input,.f2 select{min-width:0}
@@ -3155,6 +3159,17 @@ async function aceitarConvite(inv){
     toast("Você entrou na viagem ✓");
   }catch(e){toast("Não consegui aceitar: "+((e&&e.code)||""));}
 }
+function _alertaPassaporte(validade){
+  const fim=(STATE.config&&STATE.config.fim)||"";
+  if(!validade||!fim)return "";
+  const d=new Date(fim+"T00:00:00"); if(isNaN(d))return "";
+  const req=new Date(d); req.setMonth(req.getMonth()+6);
+  const val=new Date(validade+"T00:00:00"); if(isNaN(val))return "";
+  const br=x=>x.split("-").reverse().join("/");
+  if(validade<fim) return `<div class="pu-alert crit">Seu passaporte vence <b>antes do fim da viagem</b> (${br(validade)}). Renove antes de viajar.</div>`;
+  if(val<req) return `<div class="pu-alert warn">Passaporte válido até ${br(validade)} — <b>menos de 6 meses</b> após o fim da viagem. Muitos países exigem 6 meses de validade; confirme a exigência do destino.</div>`;
+  return `<div class="pu-alert ok">Validade suficiente pra esta viagem (6+ meses após a volta).</div>`;
+}
 async function abrirPerfilUsuario(){
   let p=PERFIL||{};
   if(!MOCK&&db&&UID){try{const s=await FB.getDoc(FB.doc(db,"usuarios",UID));if(s.exists()){PERFIL=s.data()||{};p=PERFIL;}}catch(e){}}
@@ -3170,19 +3185,19 @@ async function abrirPerfilUsuario(){
     <input id="pu-passn" class="au-inp" value="${esc(p.passaporteNum||"")}" placeholder="Número" autocomplete="off">
     <label class="mo-lb">Passaporte — validade</label>
     <input id="pu-passv" class="au-inp" type="date" value="${esc(p.passaporteValidade||"")}">
+    <div id="pu-passalert">${_alertaPassaporte(p.passaporteValidade||"")}</div>
     <label class="mo-lb">Contato de emergência</label>
     <input id="pu-emn" class="au-inp" value="${esc(p.emergNome||"")}" placeholder="Nome" autocomplete="off">
     <input id="pu-emt" class="au-inp" value="${esc(p.emergTel||"")}" placeholder="Telefone" inputmode="tel" autocomplete="off" style="margin-top:8px">
     <label class="mo-lb">Restrições alimentares / alergias</label>
     <input id="pu-rest" class="au-inp" value="${esc(p.restricoes||"")}" placeholder="Ex.: vegetariano, sem glúten" autocomplete="off">
-    <label class="mo-lb">Tamanhos (roupa / sapato)</label>
-    <input id="pu-tam" class="au-inp" value="${esc(p.tamanhos||"")}" placeholder="Ex.: M / 42" autocomplete="off">
     <button class="btn" id="pu-save" style="margin-top:14px">Salvar</button>
     <button class="btn gh" id="pu-cancel">Fechar</button>
   </div></div>`;
   const close=()=>{$("#modal").innerHTML="";};
   $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};
   $("#pu-cancel").onclick=close;
+  {const _pv=$("#pu-passv");if(_pv)_pv.onchange=()=>{const el=$("#pu-passalert");if(el)el.innerHTML=_alertaPassaporte(_pv.value);};}
   $("#pu-save").onclick=async()=>{
     const dados={
       moedaBase:$("#pu-moeda").value,
@@ -3191,8 +3206,7 @@ async function abrirPerfilUsuario(){
       passaporteValidade:$("#pu-passv").value||"",
       emergNome:($("#pu-emn").value||"").trim(),
       emergTel:($("#pu-emt").value||"").trim(),
-      restricoes:($("#pu-rest").value||"").trim(),
-      tamanhos:($("#pu-tam").value||"").trim()
+      restricoes:($("#pu-rest").value||"").trim()
     };
     PERFIL=Object.assign({},PERFIL,dados);
     close();toast("Perfil salvo ✓");
