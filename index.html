@@ -153,6 +153,11 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 .sh-tag{font-size:12px;background:rgba(232,114,46,.12);color:#b06a10;border:1px solid rgba(232,114,46,.35);border-radius:999px;padding:2px 9px}
 .sh-none{font-size:12px;color:var(--dim)}
 .sh-emg{font-size:12.5px;color:var(--muted);margin-top:4px;margin-left:33px}
+.vs-item{padding:9px 0;border-top:1px solid var(--line)}
+.vs-item:first-child{border-top:0}
+.vs-pais{font-weight:700;color:var(--navy);font-size:14px;margin-bottom:2px}
+.vs-line{font-size:12.5px;color:var(--text);line-height:1.45;margin-top:2px}
+.vs-lb{display:inline-block;min-width:74px;color:var(--muted);font-weight:600}
 .pt-cod-val{flex:1;font-weight:700;font-size:18px;letter-spacing:.08em;color:var(--navy);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;text-align:center}
 .pt-cod .btn{width:auto;flex:0 0 auto}
 .f2>div,.f2 input,.f2 select{min-width:0}
@@ -4768,6 +4773,39 @@ function abrirFormSos(at){
     else{addArr("essenciais","itens",item);toast("Item adicionado");}
   });
 }
+const VISTOS_DB=(()=>{
+  const SCH={visto:"Sem visto p/ turismo — até 90 dias em 180 (Schengen). ETIAS previsto; confirme.",vacina:"Nenhuma obrigatória; febre amarela pode ser exigida se vier de área de risco.",passaporte:"Válido 3+ meses após sair do Schengen (recomendado 6)."};
+  const br={
+    "França":SCH,"Alemanha":SCH,"Itália":SCH,"Espanha":SCH,"Portugal":SCH,"Países Baixos":SCH,"Bélgica":SCH,"Tchéquia":SCH,"Áustria":SCH,"Suíça":SCH,"Dinamarca":SCH,"Hungria":SCH,"Grécia":SCH,
+    "Reino Unido":{visto:"Sem visto p/ turismo — até 6 meses. ETA (autorização eletrônica) previsto p/ brasileiros; confirme.",vacina:"Nenhuma obrigatória.",passaporte:"Válido por toda a estadia."},
+    "Irlanda":{visto:"Sem visto p/ turismo — até 90 dias.",vacina:"Nenhuma obrigatória.",passaporte:"Válido por toda a estadia."},
+    "Estados Unidos":{visto:"Visto obrigatório (B1/B2). Brasil não tem isenção — não há ESTA.",vacina:"Nenhuma obrigatória.",passaporte:"Válido por toda a estadia (recomendado 6 meses)."},
+    "Japão":{visto:"Sem visto p/ turismo — até 90 dias.",vacina:"Nenhuma obrigatória.",passaporte:"Válido por toda a estadia."}
+  };
+  return {brasil:br};
+})();
+function vistosCard(){
+  const nacRaw=(PERFIL&&PERFIL.nacionalidade)||"";
+  const nac=normNome(nacRaw);
+  const paises=[]; const flagDe={};
+  (STATE.config.cidades||[]).forEach(c=>{const d=dbCidade(c.n);if(d&&d.pais&&!paises.includes(d.pais)){paises.push(d.pais);flagDe[d.pais]=d.flag;}});
+  if(!paises.length)return "";
+  const head=`<div class="lbl">🛂 Vistos & saúde</div>
+    <div class="note" style="margin:4px 0 0">Orientação geral pra planejar — <b>sempre confirme na fonte oficial</b> (consulado/embaixada do destino).</div>`;
+  if(!nacRaw) return `<div class="card tight">${head}<div class="note" style="margin-top:10px">Preencha sua <b>nacionalidade</b> no perfil (☰ › Meu perfil) pra ver as exigências por destino.</div></div>`;
+  const base=(nac==="brasil"||nac==="brazil")?VISTOS_DB.brasil:null;
+  if(!base) return `<div class="card tight">${head}<div class="note" style="margin-top:10px">A base atual cobre <b>passaporte brasileiro</b>. Pra <b>${esc(nacRaw)}</b>, confirme cada destino na fonte oficial.</div></div>`;
+  const rows=paises.map(pais=>{
+    const v=base[pais], fl=flagDe[pais]||"";
+    if(!v)return `<div class="vs-item"><div class="vs-pais">${fl} ${esc(pais)}</div><div class="vs-line">Sem dados na base — confirme na fonte oficial.</div></div>`;
+    return `<div class="vs-item"><div class="vs-pais">${fl} ${esc(pais)}</div>
+      <div class="vs-line"><span class="vs-lb">Visto</span> ${esc(v.visto)}</div>
+      <div class="vs-line"><span class="vs-lb">Vacina</span> ${esc(v.vacina)}</div>
+      <div class="vs-line"><span class="vs-lb">Passaporte</span> ${esc(v.passaporte)}</div></div>`;
+  }).join("");
+  return `<div class="card tight">${head}<div style="margin-top:8px">${rows}</div>
+    <div class="note" style="margin-top:6px">Para <b>${esc(nacRaw)}</b>. Regras mudam (ETIAS/ETA, vacinas) — a fonte oficial é a palavra final.</div></div>`;
+}
 function sosCard(){
   const its=sosItens();
   const linha=(x)=>{const fone=(x.valor||"").trim();const soFone=/^[+\d\s()\-]{6,}$/.test(fone);
@@ -4831,6 +4869,7 @@ function renderReservas(){_sujo.delete("reservas");
   }
   $("#p-reservas").innerHTML=`
   ${sosCard()}
+  ${vistosCard()}
   <div class="card tight">
     <div class="row"><div class="grow">
       <div class="lbl">Reservas & documentos</div>
