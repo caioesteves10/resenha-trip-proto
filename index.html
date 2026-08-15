@@ -1308,7 +1308,9 @@ function resolverLocal(nome){
   const iso=paisISOde(d.pais); const meta=iso?PAIS_POR_ISO[iso]:null;
   return {nome, flag:d.flag, paisISO:iso, paisNome:(meta?meta.nome:d.pais), fuso:d.tz, lat:d.lat, lng:d.lng, moedaISO:(meta?meta.moeda:""), fonte:"base"};
 }
-let _geoTimer=null; const _geoCache={};
+let _geoTimer=null;
+const _geoCache=(()=>{try{return JSON.parse(localStorage.getItem("tr27_geocache")||"{}")||{};}catch(e){return {};}})();
+function _geoCacheSave(){try{const ks=Object.keys(_geoCache);if(ks.length>80)ks.slice(0,ks.length-80).forEach(k=>delete _geoCache[k]);localStorage.setItem("tr27_geocache",JSON.stringify(_geoCache));}catch(e){}}
 async function geoBuscar(q){
   q=(q||"").trim(); if(q.length<2)return [];
   const key=normNome(q); if(_geoCache[key])return _geoCache[key];
@@ -1317,7 +1319,7 @@ async function geoBuscar(q){
     if(!r.ok)return [];
     const j=await r.json();
     const out=(j.results||[]).map(x=>({nome:x.name,iso:(x.country_code||"").toUpperCase(),paisNome:x.country||"",tz:x.timezone||"",lat:x.latitude,lng:x.longitude,admin:x.admin1||""}));
-    _geoCache[key]=out; return out;
+    _geoCache[key]=out; _geoCacheSave(); return out;
   }catch(e){return [];}
 }
 async function sugestoesCidade(q){
