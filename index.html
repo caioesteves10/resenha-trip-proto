@@ -1229,33 +1229,94 @@ const CIDADES_DB=(()=>{
 const CIDADES_NOMES=["Paris","Munique","Berlim","Londres","Roma","Madri","Barcelona","Lisboa","Porto","Amsterdã","Bruxelas","Praga","Viena","Zurique","Milão","Veneza","Florença","Copenhague","Budapeste","Atenas","Dublin","Nova York","Tóquio"];
 function normNome(x){return String(x||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();}
 function dbCidade(nome){const k=normNome(nome);return CIDADES_DB.db[CIDADES_DB.alias[k]||k]||null;}
+const PAISES=(()=>{
+  const raw=[
+    ["BR","Brasil","BRL",["brasil","brazil"]],
+    ["FR","França","EUR",["franca","france"]],
+    ["DE","Alemanha","EUR",["alemanha","germany","deutschland"]],
+    ["GB","Reino Unido","GBP",["reino unido","inglaterra","uk","united kingdom","gra-bretanha","gra bretanha"]],
+    ["IT","Itália","EUR",["italia","italy"]],
+    ["ES","Espanha","EUR",["espanha","spain"]],
+    ["PT","Portugal","EUR",["portugal"]],
+    ["NL","Países Baixos","EUR",["paises baixos","holanda","netherlands","holland"]],
+    ["BE","Bélgica","EUR",["belgica","belgium"]],
+    ["CZ","Tchéquia","CZK",["tchequia","republica tcheca","czechia","czech republic"]],
+    ["AT","Áustria","EUR",["austria"]],
+    ["CH","Suíça","CHF",["suica","switzerland"]],
+    ["DK","Dinamarca","DKK",["dinamarca","denmark"]],
+    ["HU","Hungria","HUF",["hungria","hungary"]],
+    ["GR","Grécia","EUR",["grecia","greece"]],
+    ["IE","Irlanda","EUR",["irlanda","ireland"]],
+    ["US","Estados Unidos","USD",["estados unidos","eua","usa","united states","estados unidos da america"]],
+    ["JP","Japão","JPY",["japao","japan"]],
+    ["AR","Argentina","ARS",["argentina"]],
+    ["CL","Chile","CLP",["chile"]],
+    ["UY","Uruguai","UYU",["uruguai","uruguay"]],
+    ["PY","Paraguai","PYG",["paraguai","paraguay"]],
+    ["BO","Bolívia","BOB",["bolivia"]],
+    ["PE","Peru","PEN",["peru"]],
+    ["CO","Colômbia","COP",["colombia"]],
+    ["EC","Equador","USD",["equador","ecuador"]],
+    ["MX","México","MXN",["mexico"]],
+    ["CA","Canadá","CAD",["canada"]],
+    ["SE","Suécia","SEK",["suecia","sweden"]],
+    ["NO","Noruega","NOK",["noruega","norway"]],
+    ["FI","Finlândia","EUR",["finlandia","finland"]],
+    ["PL","Polônia","PLN",["polonia","poland"]],
+    ["IS","Islândia","ISK",["islandia","iceland"]],
+    ["LU","Luxemburgo","EUR",["luxemburgo","luxembourg"]],
+    ["HR","Croácia","EUR",["croacia","croatia"]],
+    ["RO","Romênia","RON",["romenia","romania"]],
+    ["TR","Turquia","TRY",["turquia","turkey"]],
+    ["CN","China","CNY",["china"]],
+    ["KR","Coreia do Sul","KRW",["coreia do sul","south korea","coreia"]],
+    ["IN","Índia","INR",["india"]],
+    ["TH","Tailândia","THB",["tailandia","thailand"]],
+    ["AE","Emirados Árabes Unidos","AED",["emirados arabes unidos","emirados arabes","uae"]],
+    ["EG","Egito","EGP",["egito","egypt"]],
+    ["MA","Marrocos","MAD",["marrocos","morocco"]],
+    ["ZA","África do Sul","ZAR",["africa do sul","south africa"]],
+    ["AU","Austrália","AUD",["australia"]],
+    ["NZ","Nova Zelândia","NZD",["nova zelandia","new zealand"]]
+  ];
+  const byName={},byIso={};
+  raw.forEach(([iso,nome,moeda,al])=>{const rec={iso,nome,moeda};byIso[iso]=rec;al.forEach(a=>byName[a]=rec);});
+  return {byName,byIso};
+})();
+const PAIS_POR_ISO=PAISES.byIso;
+function paisISOde(nome){const p=PAISES.byName[normNome(nome)];return p?p.iso:"";}
+function resolverLocal(nome){
+  const d=dbCidade(nome); if(!d)return null;
+  const iso=paisISOde(d.pais); const meta=iso?PAIS_POR_ISO[iso]:null;
+  return {nome, flag:d.flag, paisISO:iso, paisNome:(meta?meta.nome:d.pais), fuso:d.tz, lat:d.lat, lng:d.lng, moedaISO:(meta?meta.moeda:""), fonte:"base"};
+}
 const PAIS_INFO={
- "França":{moeda:"€ Euro (EUR)",tomada:"C/E · 230V",emerg:"112",gorjeta:"Serviço incluído; arredondar ou ~5–10% é gentileza"},
- "Alemanha":{moeda:"€ Euro (EUR)",tomada:"C/F · 230V",emerg:"112",gorjeta:"~5–10%; costuma-se arredondar a conta"},
- "Reino Unido":{moeda:"£ Libra (GBP)",tomada:"G · 230V",emerg:"999 (ou 112)",gorjeta:"10–12,5%, muitas vezes já incluído"},
- "Itália":{moeda:"€ Euro (EUR)",tomada:"C/F/L · 230V",emerg:"112",gorjeta:"Coperto comum; arredondar basta"},
- "Espanha":{moeda:"€ Euro (EUR)",tomada:"C/F · 230V",emerg:"112",gorjeta:"Opcional e pequena; arredondar"},
- "Portugal":{moeda:"€ Euro (EUR)",tomada:"C/F · 230V",emerg:"112",gorjeta:"Opcional; arredondar ou ~5%"},
- "Países Baixos":{moeda:"€ Euro (EUR)",tomada:"C/F · 230V",emerg:"112",gorjeta:"Arredondar ou ~5–10%"},
- "Bélgica":{moeda:"€ Euro (EUR)",tomada:"C/E · 230V",emerg:"112",gorjeta:"Serviço incluído; arredondar"},
- "Tchéquia":{moeda:"Kč Coroa (CZK)",tomada:"C/E · 230V",emerg:"112",gorjeta:"~10%"},
- "Áustria":{moeda:"€ Euro (EUR)",tomada:"C/F · 230V",emerg:"112",gorjeta:"~5–10%"},
- "Suíça":{moeda:"Fr Franco (CHF)",tomada:"J · 230V",emerg:"112",gorjeta:"Serviço incluído; arredondar"},
- "Dinamarca":{moeda:"kr Coroa (DKK)",tomada:"C/F/K · 230V",emerg:"112",gorjeta:"Serviço incluído; opcional"},
- "Hungria":{moeda:"Ft Florim (HUF)",tomada:"C/F · 230V",emerg:"112",gorjeta:"~10%"},
- "Grécia":{moeda:"€ Euro (EUR)",tomada:"C/F · 230V",emerg:"112",gorjeta:"Arredondar ou ~5–10%"},
- "Irlanda":{moeda:"€ Euro (EUR)",tomada:"G · 230V",emerg:"112 (ou 999)",gorjeta:"10–12,5%"},
- "Estados Unidos":{moeda:"$ Dólar (USD)",tomada:"A/B · 120V",emerg:"911",gorjeta:"15–20% esperado em restaurantes e táxis"},
- "Japão":{moeda:"¥ Iene (JPY)",tomada:"A/B · 100V",emerg:"110 polícia · 119 ambulância",gorjeta:"Não se dá gorjeta — pode soar ofensivo"}
+ "FR":{moeda:"€ Euro (EUR)",tomada:"C/E · 230V",emerg:"112",gorjeta:"Serviço incluído; arredondar ou ~5–10% é gentileza"},
+ "DE":{moeda:"€ Euro (EUR)",tomada:"C/F · 230V",emerg:"112",gorjeta:"~5–10%; costuma-se arredondar a conta"},
+ "GB":{moeda:"£ Libra (GBP)",tomada:"G · 230V",emerg:"999 (ou 112)",gorjeta:"10–12,5%, muitas vezes já incluído"},
+ "IT":{moeda:"€ Euro (EUR)",tomada:"C/F/L · 230V",emerg:"112",gorjeta:"Coperto comum; arredondar basta"},
+ "ES":{moeda:"€ Euro (EUR)",tomada:"C/F · 230V",emerg:"112",gorjeta:"Opcional e pequena; arredondar"},
+ "PT":{moeda:"€ Euro (EUR)",tomada:"C/F · 230V",emerg:"112",gorjeta:"Opcional; arredondar ou ~5%"},
+ "NL":{moeda:"€ Euro (EUR)",tomada:"C/F · 230V",emerg:"112",gorjeta:"Arredondar ou ~5–10%"},
+ "BE":{moeda:"€ Euro (EUR)",tomada:"C/E · 230V",emerg:"112",gorjeta:"Serviço incluído; arredondar"},
+ "CZ":{moeda:"Kč Coroa (CZK)",tomada:"C/E · 230V",emerg:"112",gorjeta:"~10%"},
+ "AT":{moeda:"€ Euro (EUR)",tomada:"C/F · 230V",emerg:"112",gorjeta:"~5–10%"},
+ "CH":{moeda:"Fr Franco (CHF)",tomada:"J · 230V",emerg:"112",gorjeta:"Serviço incluído; arredondar"},
+ "DK":{moeda:"kr Coroa (DKK)",tomada:"C/F/K · 230V",emerg:"112",gorjeta:"Serviço incluído; opcional"},
+ "HU":{moeda:"Ft Florim (HUF)",tomada:"C/F · 230V",emerg:"112",gorjeta:"~10%"},
+ "GR":{moeda:"€ Euro (EUR)",tomada:"C/F · 230V",emerg:"112",gorjeta:"Arredondar ou ~5–10%"},
+ "IE":{moeda:"€ Euro (EUR)",tomada:"G · 230V",emerg:"112 (ou 999)",gorjeta:"10–12,5%"},
+ "US":{moeda:"$ Dólar (USD)",tomada:"A/B · 120V",emerg:"911",gorjeta:"15–20% esperado em restaurantes e táxis"},
+ "JP":{moeda:"¥ Iene (JPY)",tomada:"A/B · 100V",emerg:"110 polícia · 119 ambulância",gorjeta:"Não se dá gorjeta — pode soar ofensivo"}
 };
 function _cardDestino(nome){
-  const d=dbCidade(nome); if(!d)return "";
-  const pi=PAIS_INFO[d.pais]||null;
+  const loc=resolverLocal(nome); if(!loc)return "";
+  const pi=loc.paisISO?PAIS_INFO[loc.paisISO]:null;
   const row=(ic,lb,v)=> v?`<div class="sd-row"><span class="sd-ic">${ic}</span><span class="sd-lb">${lb}</span><span class="sd-v">${v}</span></div>`:"";
   return `<div class="card sd-card">
-    <div class="sd-top">${d.flag} <b>${esc(nome)}</b> · ${esc(d.pais)}</div>
-    ${row("🕑","Fuso",esc(d.tz))}
-    ${pi?row("💱","Moeda",esc(pi.moeda)):""}
+    <div class="sd-top">${loc.flag} <b>${esc(nome)}</b> · ${esc(loc.paisNome)}</div>
+    ${row("🕑","Fuso",esc(loc.fuso))}
+    ${pi?row("💱","Moeda",esc(pi.moeda)):(loc.moedaISO?row("💱","Moeda",esc(loc.moedaISO)):"")}
     ${pi?row("🔌","Tomada",esc(pi.tomada)):""}
     ${pi?row("🚨","Emergência",esc(pi.emerg)):""}
     ${pi?row("🪙","Gorjeta",esc(pi.gorjeta)):`<div class="sd-row"><span class="sd-ic">ℹ️</span><span class="sd-v" style="color:var(--muted)">Sem dados extras deste país ainda.</span></div>`}
@@ -4775,30 +4836,30 @@ function abrirFormSos(at){
 }
 const VISTOS_DB=(()=>{
   const SCH={visto:"Sem visto p/ turismo — até 90 dias em 180 (Schengen). ETIAS previsto; confirme.",vacina:"Nenhuma obrigatória; febre amarela pode ser exigida se vier de área de risco.",passaporte:"Válido 3+ meses após sair do Schengen (recomendado 6)."};
-  const br={
-    "França":SCH,"Alemanha":SCH,"Itália":SCH,"Espanha":SCH,"Portugal":SCH,"Países Baixos":SCH,"Bélgica":SCH,"Tchéquia":SCH,"Áustria":SCH,"Suíça":SCH,"Dinamarca":SCH,"Hungria":SCH,"Grécia":SCH,
-    "Reino Unido":{visto:"Sem visto p/ turismo — até 6 meses. ETA (autorização eletrônica) previsto p/ brasileiros; confirme.",vacina:"Nenhuma obrigatória.",passaporte:"Válido por toda a estadia."},
-    "Irlanda":{visto:"Sem visto p/ turismo — até 90 dias.",vacina:"Nenhuma obrigatória.",passaporte:"Válido por toda a estadia."},
-    "Estados Unidos":{visto:"Visto obrigatório (B1/B2). Brasil não tem isenção — não há ESTA.",vacina:"Nenhuma obrigatória.",passaporte:"Válido por toda a estadia (recomendado 6 meses)."},
-    "Japão":{visto:"Sem visto p/ turismo — até 90 dias.",vacina:"Nenhuma obrigatória.",passaporte:"Válido por toda a estadia."}
+  const BR={
+    "FR":SCH,"DE":SCH,"IT":SCH,"ES":SCH,"PT":SCH,"NL":SCH,"BE":SCH,"CZ":SCH,"AT":SCH,"CH":SCH,"DK":SCH,"HU":SCH,"GR":SCH,
+    "GB":{visto:"Sem visto p/ turismo — até 6 meses. ETA (autorização eletrônica) previsto p/ brasileiros; confirme.",vacina:"Nenhuma obrigatória.",passaporte:"Válido por toda a estadia."},
+    "IE":{visto:"Sem visto p/ turismo — até 90 dias.",vacina:"Nenhuma obrigatória.",passaporte:"Válido por toda a estadia."},
+    "US":{visto:"Visto obrigatório (B1/B2). Brasil não tem isenção — não há ESTA.",vacina:"Nenhuma obrigatória.",passaporte:"Válido por toda a estadia (recomendado 6 meses)."},
+    "JP":{visto:"Sem visto p/ turismo — até 90 dias.",vacina:"Nenhuma obrigatória.",passaporte:"Válido por toda a estadia."}
   };
-  return {brasil:br};
+  return {BR:BR};
 })();
 function vistosCard(){
   const nacRaw=(PERFIL&&PERFIL.nacionalidade)||"";
-  const nac=normNome(nacRaw);
-  const paises=[]; const flagDe={};
-  (STATE.config.cidades||[]).forEach(c=>{const d=dbCidade(c.n);if(d&&d.pais&&!paises.includes(d.pais)){paises.push(d.pais);flagDe[d.pais]=d.flag;}});
-  if(!paises.length)return "";
+  const nacISO=paisISOde(nacRaw);
+  const dest=[]; const seen={};
+  (STATE.config.cidades||[]).forEach(c=>{const loc=resolverLocal(c.n);if(loc&&loc.paisISO&&!seen[loc.paisISO]){seen[loc.paisISO]=1;dest.push(loc);}});
+  if(!dest.length)return "";
   const head=`<div class="lbl">🛂 Vistos & saúde</div>
     <div class="note" style="margin:4px 0 0">Orientação geral pra planejar — <b>sempre confirme na fonte oficial</b> (consulado/embaixada do destino).</div>`;
   if(!nacRaw) return `<div class="card tight">${head}<div class="note" style="margin-top:10px">Preencha sua <b>nacionalidade</b> no perfil (☰ › Meu perfil) pra ver as exigências por destino.</div></div>`;
-  const base=(nac==="brasil"||nac==="brazil")?VISTOS_DB.brasil:null;
+  const base=nacISO?VISTOS_DB[nacISO]:null;
   if(!base) return `<div class="card tight">${head}<div class="note" style="margin-top:10px">A base atual cobre <b>passaporte brasileiro</b>. Pra <b>${esc(nacRaw)}</b>, confirme cada destino na fonte oficial.</div></div>`;
-  const rows=paises.map(pais=>{
-    const v=base[pais], fl=flagDe[pais]||"";
-    if(!v)return `<div class="vs-item"><div class="vs-pais">${fl} ${esc(pais)}</div><div class="vs-line">Sem dados na base — confirme na fonte oficial.</div></div>`;
-    return `<div class="vs-item"><div class="vs-pais">${fl} ${esc(pais)}</div>
+  const rows=dest.map(loc=>{
+    const v=base[loc.paisISO], fl=loc.flag||"";
+    if(!v)return `<div class="vs-item"><div class="vs-pais">${fl} ${esc(loc.paisNome)}</div><div class="vs-line">Sem dados na base — confirme na fonte oficial.</div></div>`;
+    return `<div class="vs-item"><div class="vs-pais">${fl} ${esc(loc.paisNome)}</div>
       <div class="vs-line"><span class="vs-lb">Visto</span> ${esc(v.visto)}</div>
       <div class="vs-line"><span class="vs-lb">Vacina</span> ${esc(v.vacina)}</div>
       <div class="vs-line"><span class="vs-lb">Passaporte</span> ${esc(v.passaporte)}</div></div>`;
