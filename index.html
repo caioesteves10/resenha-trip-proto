@@ -166,6 +166,10 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 .geo-item:active,.geo-item:hover{background:var(--panel2)}
 .geo-load,.geo-empty{color:var(--muted)}
 .geo-adm{color:var(--dim);font-size:12px}
+.cv-sug{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin:2px 0 10px;font-size:12.5px;color:var(--muted)}
+.cv-sug span{flex:1;min-width:140px}
+.cv-sug .btn{width:auto;flex:0 0 auto}
+.cv-sug b{color:var(--navy)}
 .pt-cod-val{flex:1;font-weight:700;font-size:18px;letter-spacing:.08em;color:var(--navy);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;text-align:center}
 .pt-cod .btn{width:auto;flex:0 0 auto}
 .f2>div,.f2 input,.f2 select{min-width:0}
@@ -5305,6 +5309,11 @@ function renderMinhaVisao(el){
   $("#mo-salvar").onclick=()=>{salvarMinhasMoedas(prin,sel);toast("Sua visão de moedas foi salva ✓");renderAjustesBody();};
   $("#mo-padrao").onclick=()=>{limparMinhasMoedas();toast("Voltou pro padrão da viagem");renderAjustesBody();};
 }
+function moedasDosDestinos(){
+  const cnt={};
+  ((STATE.config&&STATE.config.cidades)||[]).forEach(c=>{const loc=resolverLocal(c.n);const m=loc&&loc.moedaISO;if(m&&MOEDAS_DB.some(([cc])=>cc===m))cnt[m]=(cnt[m]||0)+1;});
+  return Object.keys(cnt).map(iso=>({iso,count:cnt[iso]})).sort((a,b)=>b.count-a.count);
+}
 function renderMoedasPadrao(el){
   if(!el)return;
   const c=STATE.config||{};
@@ -5313,6 +5322,7 @@ function renderMoedasPadrao(el){
   let dest=c.moedaViagem||prin;
   el.innerHTML=`<div class="sect">Moedas da viagem</div><div class="card">
     <p class="mo-sub">Padrão sugerido pra quem ainda não personalizou. Cada pessoa pode mudar a própria visão na aba "Minha visão".</p>
+    ${(()=>{const dm=moedasDosDestinos();if(!dm.length)return "";const lst=dm.map(x=>`${simboloMoeda(x.iso)} ${x.iso}`).join(", ");return `<div class="cv-sug"><span>Seus destinos usam <b>${lst}</b>.</span><button class="btn sec sm" id="cv-aplicar" type="button">Usar essas moedas</button></div>`;})()}
     <label class="mo-lb">Moeda de destino (modo viagem)</label>
     <select id="cv-dest" class="au-inp">${_optsMoeda(dest)}</select>
     <label class="mo-lb">Moeda principal sugerida</label>
@@ -5325,6 +5335,14 @@ function renderMoedasPadrao(el){
   $("#cv-dest").onchange=e=>{dest=e.target.value;};
   $("#cv-prin").onchange=e=>{prin=e.target.value;if(!sel.includes(prin))sel.push(prin);$("#cv-chips").innerHTML=_chipsMoeda(sel,_candMoeda(prin,dest,sel));wire();};
   wire();
+  {const ap=$("#cv-aplicar");if(ap)ap.onclick=()=>{
+    const dm=moedasDosDestinos();
+    if(!dm.length){toast("Cadastre cidades reconhecidas primeiro");return;}
+    dest=dm[0].iso; dm.forEach(x=>{if(!sel.includes(x.iso))sel.push(x.iso);});
+    const ds=$("#cv-dest");if(ds)ds.value=dest;
+    $("#cv-chips").innerHTML=_chipsMoeda(sel,_candMoeda(prin,dest,sel));wire();
+    toast("Moedas dos destinos aplicadas — confira e salve");
+  };}
   $("#cv-salvar").onclick=()=>{if(!sel.includes(prin))sel=[prin].concat(sel);saveDoc("config",{moeda:prin,moedasVista:sel,moedaViagem:dest});toast("Padrão da viagem atualizado ✓");};
 }
 function renderAdminPadrao(el){
