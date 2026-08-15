@@ -139,6 +139,20 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 .pu-alert.crit{color:#c8372d;background:rgba(200,55,45,.10);border-color:rgba(200,55,45,.35)}
 .pu-alert.warn{color:#b06a10;background:rgba(232,114,46,.12);border-color:rgba(232,114,46,.38)}
 .pu-alert.ok{color:#3f8158;background:rgba(63,125,84,.12);border-color:rgba(63,125,84,.32)}
+.sd-card .sd-top{font-size:15px;color:var(--text);margin-bottom:8px}
+.sd-row{display:flex;align-items:center;gap:9px;padding:5px 0;border-top:1px solid var(--line);font-size:13.5px;color:var(--text)}
+.sd-card .sd-row:first-of-type{border-top:0}
+.sd-ic{width:20px;text-align:center;flex:0 0 auto}
+.sd-lb{color:var(--muted);width:92px;flex:0 0 auto}
+.sd-v{color:var(--text);font-weight:500}
+.sd-title{font-weight:800;color:var(--navy);font-size:15px}
+.sh-item{padding:9px 0;border-top:1px solid var(--line)}
+.sh-item:first-of-type{border-top:0}
+.sh-head{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.sh-nome{font-weight:600;color:var(--text)}
+.sh-tag{font-size:12px;background:rgba(232,114,46,.12);color:#b06a10;border:1px solid rgba(232,114,46,.35);border-radius:999px;padding:2px 9px}
+.sh-none{font-size:12px;color:var(--dim)}
+.sh-emg{font-size:12.5px;color:var(--muted);margin-top:4px;margin-left:33px}
 .pt-cod-val{flex:1;font-weight:700;font-size:18px;letter-spacing:.08em;color:var(--navy);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;text-align:center}
 .pt-cod .btn{width:auto;flex:0 0 auto}
 .f2>div,.f2 input,.f2 select{min-width:0}
@@ -1210,6 +1224,38 @@ const CIDADES_DB=(()=>{
 const CIDADES_NOMES=["Paris","Munique","Berlim","Londres","Roma","Madri","Barcelona","Lisboa","Porto","Amsterdã","Bruxelas","Praga","Viena","Zurique","Milão","Veneza","Florença","Copenhague","Budapeste","Atenas","Dublin","Nova York","Tóquio"];
 function normNome(x){return String(x||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();}
 function dbCidade(nome){const k=normNome(nome);return CIDADES_DB.db[CIDADES_DB.alias[k]||k]||null;}
+const PAIS_INFO={
+ "França":{moeda:"€ Euro (EUR)",tomada:"C/E · 230V",emerg:"112",gorjeta:"Serviço incluído; arredondar ou ~5–10% é gentileza"},
+ "Alemanha":{moeda:"€ Euro (EUR)",tomada:"C/F · 230V",emerg:"112",gorjeta:"~5–10%; costuma-se arredondar a conta"},
+ "Reino Unido":{moeda:"£ Libra (GBP)",tomada:"G · 230V",emerg:"999 (ou 112)",gorjeta:"10–12,5%, muitas vezes já incluído"},
+ "Itália":{moeda:"€ Euro (EUR)",tomada:"C/F/L · 230V",emerg:"112",gorjeta:"Coperto comum; arredondar basta"},
+ "Espanha":{moeda:"€ Euro (EUR)",tomada:"C/F · 230V",emerg:"112",gorjeta:"Opcional e pequena; arredondar"},
+ "Portugal":{moeda:"€ Euro (EUR)",tomada:"C/F · 230V",emerg:"112",gorjeta:"Opcional; arredondar ou ~5%"},
+ "Países Baixos":{moeda:"€ Euro (EUR)",tomada:"C/F · 230V",emerg:"112",gorjeta:"Arredondar ou ~5–10%"},
+ "Bélgica":{moeda:"€ Euro (EUR)",tomada:"C/E · 230V",emerg:"112",gorjeta:"Serviço incluído; arredondar"},
+ "Tchéquia":{moeda:"Kč Coroa (CZK)",tomada:"C/E · 230V",emerg:"112",gorjeta:"~10%"},
+ "Áustria":{moeda:"€ Euro (EUR)",tomada:"C/F · 230V",emerg:"112",gorjeta:"~5–10%"},
+ "Suíça":{moeda:"Fr Franco (CHF)",tomada:"J · 230V",emerg:"112",gorjeta:"Serviço incluído; arredondar"},
+ "Dinamarca":{moeda:"kr Coroa (DKK)",tomada:"C/F/K · 230V",emerg:"112",gorjeta:"Serviço incluído; opcional"},
+ "Hungria":{moeda:"Ft Florim (HUF)",tomada:"C/F · 230V",emerg:"112",gorjeta:"~10%"},
+ "Grécia":{moeda:"€ Euro (EUR)",tomada:"C/F · 230V",emerg:"112",gorjeta:"Arredondar ou ~5–10%"},
+ "Irlanda":{moeda:"€ Euro (EUR)",tomada:"G · 230V",emerg:"112 (ou 999)",gorjeta:"10–12,5%"},
+ "Estados Unidos":{moeda:"$ Dólar (USD)",tomada:"A/B · 120V",emerg:"911",gorjeta:"15–20% esperado em restaurantes e táxis"},
+ "Japão":{moeda:"¥ Iene (JPY)",tomada:"A/B · 100V",emerg:"110 polícia · 119 ambulância",gorjeta:"Não se dá gorjeta — pode soar ofensivo"}
+};
+function _cardDestino(nome){
+  const d=dbCidade(nome); if(!d)return "";
+  const pi=PAIS_INFO[d.pais]||null;
+  const row=(ic,lb,v)=> v?`<div class="sd-row"><span class="sd-ic">${ic}</span><span class="sd-lb">${lb}</span><span class="sd-v">${v}</span></div>`:"";
+  return `<div class="card sd-card">
+    <div class="sd-top">${d.flag} <b>${esc(nome)}</b> · ${esc(d.pais)}</div>
+    ${row("🕑","Fuso",esc(d.tz))}
+    ${pi?row("💱","Moeda",esc(pi.moeda)):""}
+    ${pi?row("🔌","Tomada",esc(pi.tomada)):""}
+    ${pi?row("🚨","Emergência",esc(pi.emerg)):""}
+    ${pi?row("🪙","Gorjeta",esc(pi.gorjeta)):`<div class="sd-row"><span class="sd-ic">ℹ️</span><span class="sd-v" style="color:var(--muted)">Sem dados extras deste país ainda.</span></div>`}
+  </div>`;
+}
 
 /* ---- data/hora ancoradas no FUSO da viagem (não no do aparelho) ----
    Quem embarca de outro fuso (ex.: de Chicago) enxerga "hoje" e "próximo
@@ -1778,7 +1824,7 @@ function listen(){
   doc1("essenciais","essenciais",SEED.essenciais);
   UNSUBS.push(FB.onSnapshot(caminhoPessoas(),opts,s=>{
     PEOPLE.forEach(p=>{if(!STATE.pessoas[p])STATE.pessoas[p]={meta:0,depositos:[],compras:[],checklist:[],pessoais:[],realizados:[],mala:[]};});
-    s.forEach(d=>{const v=d.data()||{};STATE.pessoas[d.id]={meta:Number(v.meta)||0,verba:Number(v.verba)||0,depositos:v.depositos||[],compras:v.compras||[],checklist:v.checklist||[],pessoais:v.pessoais||[],realizados:v.realizados||[],mala:v.mala||[],malaTpls:v.malaTpls||[]};});
+    s.forEach(d=>{const v=d.data()||{};STATE.pessoas[d.id]={meta:Number(v.meta)||0,verba:Number(v.verba)||0,depositos:v.depositos||[],compras:v.compras||[],checklist:v.checklist||[],pessoais:v.pessoais||[],realizados:v.realizados||[],mala:v.mala||[],malaTpls:v.malaTpls||[],saude:v.saude||null};});
     marcarPend("pessoas",s.metadata);renderAll();}));
   atualizarSync();
 }
@@ -3235,6 +3281,34 @@ async function _removerMembro(uid){
   try{await FB.setDoc(FB.doc(db,"viagens",VIAGEM.id),{membros:FB.arrayRemove(uid),membrosInfo:{[uid]:FB.deleteField()},atualizadoEm:(FB.serverTimestamp?FB.serverTimestamp():Date.now())},{merge:true});toast("Acesso removido");}catch(e){toast("Não consegui remover: "+((e&&e.code)||""));}
   abrirParticipantes();
 }
+function abrirSaudeGrupo(){
+  const me=STATE.me;
+  const meS=((STATE.pessoas[me]||{}).saude)||{};
+  const rows=PEOPLE.map(pp=>{
+    const sd=((STATE.pessoas[pp]||{}).saude)||{};
+    const rest=sd.restricoes?`<span class="sh-tag">${esc(sd.restricoes)}</span>`:'<span class="sh-none">sem restrições</span>';
+    const emg=(sd.emergNome||sd.emergTel)?`🚨 ${esc(sd.emergNome||"")}${sd.emergTel?" — "+esc(sd.emergTel):""}`:'<span class="sh-none">sem contato de emergência</span>';
+    return `<div class="sh-item"><div class="sh-head"><span class="av">${esc((pp.trim()[0]||"?").toUpperCase())}</span><span class="sh-nome">${esc(pp)}</span>${rest}</div><div class="sh-emg">${emg}</div></div>`;
+  }).join("");
+  $("#modal").innerHTML=`<div class="modal"><div class="box">
+    <h3>Saúde & emergência do grupo</h3>
+    <p class="mo-sub">Restrições e contatos de todo mundo, à mão durante a viagem.</p>
+    <div class="card" style="margin-top:6px">${rows}</div>
+    <div class="sd-title" style="margin-top:14px">Minha saúde nesta viagem</div>
+    <p class="mo-sub">Só você edita a sua. Some do grupo se ficar em branco.</p>
+    <label class="mo-lb">Restrições / alergias</label>
+    <input id="sh-rest" class="au-inp" value="${esc(meS.restricoes||"")}" placeholder="Ex.: vegetariano, sem glúten" autocomplete="off">
+    <label class="mo-lb">Contato de emergência</label>
+    <input id="sh-emn" class="au-inp" value="${esc(meS.emergNome||"")}" placeholder="Nome" autocomplete="off">
+    <input id="sh-emt" class="au-inp" value="${esc(meS.emergTel||"")}" placeholder="Telefone" inputmode="tel" autocomplete="off" style="margin-top:8px">
+    <button class="btn gh" id="sh-perfil" style="margin-top:8px">Puxar do meu perfil</button>
+    <button class="btn" id="sh-save" style="margin-top:8px">Salvar minha saúde</button>
+    <button class="btn gh" id="sh-back">Voltar aos participantes</button>
+  </div></div>`;
+  {const b=$("#sh-back");if(b)b.onclick=()=>abrirParticipantes();}
+  {const b=$("#sh-perfil");if(b)b.onclick=()=>{const P=PERFIL||{};if(P.restricoes)$("#sh-rest").value=P.restricoes;if(P.emergNome)$("#sh-emn").value=P.emergNome;if(P.emergTel)$("#sh-emt").value=P.emergTel;toast("Puxei do seu perfil — confira e salve");};}
+  {const b=$("#sh-save");if(b)b.onclick=()=>{const saude={restricoes:($("#sh-rest").value||"").trim(),emergNome:($("#sh-emn").value||"").trim(),emergTel:($("#sh-emt").value||"").trim()};savePessoa(me,{saude});toast("Sua saúde foi salva ✓");abrirSaudeGrupo();};}
+}
 async function abrirParticipantes(){
   const cod=(STATE.config&&STATE.config.codigo)||"";
   const pes=(STATE.config&&Array.isArray(STATE.config.pessoas)&&STATE.config.pessoas.length)?STATE.config.pessoas.slice():PEOPLE.slice();
@@ -3266,6 +3340,7 @@ async function abrirParticipantes(){
     <input id="pt-nome" class="au-inp" placeholder="Nome">
     <input id="pt-email" class="au-inp" type="email" inputmode="email" placeholder="E-mail (opcional, pra convidar)" style="margin-top:8px">
     <button class="btn" id="pt-add" style="margin-top:10px">Adicionar</button>
+    <button class="btn sec" id="pt-saude" style="margin-top:12px">Saúde & emergência do grupo</button>
     ${cod?`<div class="pt-lb">Código de convite</div>
     <div class="pt-cod"><span class="pt-cod-val">${esc(cod)}</span><button class="btn sec" id="pt-copcod">Copiar</button></div>
     <button class="btn gh" id="pt-coplink" style="margin-top:8px">Copiar link de convite</button>
@@ -3275,6 +3350,7 @@ async function abrirParticipantes(){
   const close=()=>{$("#modal").innerHTML="";};
   $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};
   $("#pt-fechar").onclick=close;
+  {const _ps=$("#pt-saude");if(_ps)_ps.onclick=abrirSaudeGrupo;}
   {const _pcc=$("#pt-copcod");if(_pcc)_pcc.onclick=async()=>{try{await navigator.clipboard.writeText(cod);toast("Código copiado ✓");}catch(e){toast(cod);}};}
   {const _pcl=$("#pt-coplink");if(_pcl)_pcl.onclick=async()=>{const link=location.origin+location.pathname+"?entrar="+encodeURIComponent(cod);try{await navigator.clipboard.writeText(link);toast("Link copiado ✓");}catch(e){toast(link);}};}
   $("#modal").querySelectorAll("[data-ap]").forEach(b=>b.onclick=()=>_aprovarSolic(b.dataset.ap,b.dataset.nm));
@@ -4194,6 +4270,7 @@ function renderRoteiro(){_sujo.delete("roteiro");
       <div class="note" style="margin-top:5px">${fmtDate(c.de).slice(4)} – ${fmtDate(c.ate).slice(4)}${(()=>{const cl=climaCidade(c.n);return cl?`<br>${cl.min}–${cl.max}°C`:"";})()}</div></div>`).join("")}</div>
     ${roteiroCidade?`<div class="note" style="text-align:center;margin-top:8px">Mostrando só ${esc(cityOf(roteiroCidade).n)} · <span class="lnk" id="cidlimpa">ver tudo</span></div>`:""}
   </div>
+  ${roteiroCidade?_cardDestino(cityOf(roteiroCidade).n):""}
   ${(emV&&prox.length)?`<div class="strip" style="margin-bottom:8px">
     <div class="lbl" style="color:rgba(255,255,255,.7)">Próximo passeio</div>
     <div class="disp" style="font-size:24px;color:#fff;margin:2px 0 2px">${esc(prox[0].a.titulo)}</div>
