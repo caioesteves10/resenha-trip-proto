@@ -1032,7 +1032,7 @@ const DATA={
         {k:"mun",n:"Munique",pais:"🇩🇪", tz:"Europe/Berlin", lat:48.1351, lng:11.5820, de:"2027-10-13", ate:"2027-10-16"},
         {k:"ber",n:"Berlim", pais:"🇩🇪", tz:"Europe/Berlin", lat:52.5200, lng:13.4050, de:"2027-10-16", ate:"2027-10-20"}
       ],
-      nota:"A passagem fica fora da meta (parcelada no cartão), mas entra no plano total."
+      nota:""
     },
     roteiro:{dias:[
       {id:"d01",data:"2027-10-08",cidade:"par",titulo:"Chegada em Paris",itens:[
@@ -3776,7 +3776,12 @@ function renderInicio(){_sujo.delete("inicio");
 
   // ---- 3. meu cofre (uma linha + barra) ----
   const meta=metaDe(me),sav=guardado(me),pctC=meta>0?clamp(sav/meta*100,0,100):0,doneC=sav>=meta&&meta>0;
-  const cofreCard=`<div class="ini-card" data-goto="cofre" role="button" tabindex="0">
+  const semMetaC=meta<=0;
+  const cofreCard=semMetaC?`<div class="ini-card" data-goto="cofre" role="button" tabindex="0">
+    <div class="ini-h"><span class="ini-ic">${svgIcon("cofre")}</span><span class="ini-t">Meu cofre</span><span class="ini-go">definir meta ›</span></div>
+    <div class="ini-big" style="font-size:18px">Defina quanto quer juntar</div>
+    <div class="ini-sub">A meta aparece aqui — calculada dos custos ou definida por você.</div>
+  </div>`:`<div class="ini-card" data-goto="cofre" role="button" tabindex="0">
     <div class="ini-h"><span class="ini-ic">${svgIcon("cofre")}</span><span class="ini-t">Meu cofre</span><span class="ini-go">ver cofre ›</span></div>
     <div class="ini-row"><div class="ini-line">${doneC?"Meta batida 🎉":"Já guardei <b>"+Math.round(pctC)+"%</b> da meta"}</div><div class="ini-pct ${doneC?"ok":""}">${Math.round(pctC)}%</div></div>
     <div class="rail ${doneC?"ok":""}" style="margin:8px 0 2px"><i style="width:${pctC}%"></i></div>
@@ -3846,11 +3851,6 @@ function renderInicio(){_sujo.delete("inicio");
   }
 
   $("#p-inicio").innerHTML=`
-  <div class="ini-hero ${emV?"viax":""}">
-    <div class="ini-hero-lbl">${esc(c.nome||"Resenha Trip 2027")}</div>
-    <div class="ini-hero-big"><span class="ini-hero-n">${statusBig}</span> <span class="ini-hero-u">${statusLbl}</span></div>
-    <div class="ini-hero-sub">${statusSub}</div>
-  </div>
   ${emV?`${roteiroCard}${gastoCard}${rachaCard}${cofreCard}`:`${cofreCard}${roteiroCard}${rachaCard}`}
   <div class="note" style="text-align:center;margin-top:4px">Toque em qualquer cartão para abrir a aba completa.</div>`;
 
@@ -3945,6 +3945,7 @@ function renderCofre(){_sujo.delete("cofre");
   const meta=metaDe(me),sav=guardado(me),falta=Math.max(0,meta-sav);
   const pct=meta>0?clamp(sav/meta*100,0,100):0;
   const done=sav>=meta&&meta>0;
+  const semMeta=meta<=0;
   const fm=foraDaMeta(me);
   const M=mesInfo(me);
   const mm=depMonths(me),keys=Object.keys(mm).sort();
@@ -3978,8 +3979,12 @@ function renderCofre(){_sujo.delete("cofre");
     <button class="btn sec sm" id="ajverba">Ajustar</button>
   </div>
   <div class="cofre-month"><div class="sect" style="margin-top:0">${M.antes?"Plano mensal":"Este mês"}<span class="r">${M.antes?"começa em "+monthLabel(iniPoup()):monthLabel(M.mk)}</span></div>
-  <div class="card ${M.ok||M.acabou?"okline":""}">
-    ${M.acabou?
+  <div class="card ${(!semMeta&&(M.ok||M.acabou))?"okline":""}">
+    ${semMeta?
+    `<div class="row"><div class="grow"><div class="lbl">Sua meta ainda não está definida</div>
+      <div class="disp" style="font-size:20px;color:var(--muted)">Quanto você quer juntar?</div></div></div>
+     <div class="note" style="margin:10px 0 0">A meta se calcula sozinha a partir dos custos da viagem (aba Custos) — ou defina um valor agora.</div>`:
+    (M.acabou?
     `<div class="row"><div class="grow"><div class="lbl">Meta batida</div>
       <div class="disp money" style="font-size:26px;color:var(--ok)">tudo guardado 🎉</div></div>
       <div class="badge on">✓ completo</div></div>
@@ -3995,10 +4000,10 @@ function renderCofre(){_sujo.delete("cofre");
      <div class="rail ${M.ok?"ok":""}" style="margin:11px 0 6px"><i style="width:${M.pct}%"></i></div>
      <div class="note" style="margin:0">${M.ok?
       `A partir de ${monthLabel(M.proximo)}, precisa guardar <b>${fmt(M.ritmoFuturo)}</b> por mês — faltam <b>${fmt(M.faltaTotal)}</b> em ${M.meses-1} ${M.meses-1===1?"mês":"meses"}.`:
-      `Guardou <b>${fmt(M.guardado)}</b> de ${fmt(M.alvo)}. Faltam <b>${fmt(M.falta)}</b> este mês.`}</div>`)}
+      `Guardou <b>${fmt(M.guardado)}</b> de ${fmt(M.alvo)}. Faltam <b>${fmt(M.falta)}</b> este mês.`}</div>`))}
     <div class="row" style="gap:8px;margin-top:11px">
-      ${(M.ok||M.antes||M.acabou)?"":`<button class="btn" id="quick" style="flex:2">Guardei ${fmt(M.falta)}</button>`}
-      <button class="btn ${(M.ok||M.antes||M.acabou)?"":"sec"}" id="dpadd" style="flex:1">+ Adicionar ao cofre</button>
+      ${semMeta?`<button class="btn" id="metasetup" style="flex:1">Definir minha meta</button>`:`${(M.ok||M.antes||M.acabou)?"":`<button class="btn" id="quick" style="flex:2">Guardei ${fmt(M.falta)}</button>`}
+      <button class="btn ${(M.ok||M.antes||M.acabou)?"":"sec"}" id="dpadd" style="flex:1">+ Adicionar ao cofre</button>`}
     </div>
   </div>
 
@@ -4067,6 +4072,7 @@ function renderCofre(){_sujo.delete("cofre");
   ],v=>{
     savePessoa(me,{meta:v.meta>0?toBRL(v.meta,STATE.cur):0});
     toast(v.meta>0?"Meta salva":"Meta automática");},"Salvar");
+  {const _ms=$("#metasetup");if(_ms)_ms.onclick=()=>$("#metaedit").click();}
 
   // "Ver histórico e a família": começa recolhido; o gráfico só é desenhado
   // depois de aparecer (SVG oculto mede largura 0 e sairia torto).
