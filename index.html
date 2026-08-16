@@ -158,6 +158,7 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 .vs-pais{font-weight:700;color:var(--navy);font-size:14px;margin-bottom:2px}
 .vs-line{font-size:12.5px;color:var(--text);line-height:1.45;margin-top:2px}
 .vs-lb{display:inline-block;min-width:74px;color:var(--muted);font-weight:600}
+.vs-lb.doc{color:var(--orange)}
 .geo-sug:empty{display:none}
 .geo-sug{margin-top:-1px;border-radius:0 0 10px 10px;overflow:hidden;border:1px solid var(--line2);border-top:0}
 .geo-item,.geo-load,.geo-empty{font-size:13.5px;padding:9px 12px;background:var(--panel)}
@@ -4900,10 +4901,10 @@ function abrirFormSos(at){
   });
 }
 const VISTOS_DB=(()=>{
-  const SCH={visto:"Sem visto p/ turismo — até 90 dias em 180 (Schengen). ETIAS (autorização eletrônica, ~€20) deve entrar em vigor em 2027 — pode ser exigido na sua viagem; confirme.",vacina:"Nenhuma obrigatória; febre amarela pode ser exigida se vier de área de risco no Brasil.",passaporte:"Válido 3+ meses após sair do Schengen (recomendado 6)."};
+  const SCH={visto:"Sem visto p/ turismo — até 90 dias em 180 (Schengen). ETIAS (autorização eletrônica, €20) previsto para 2026–2027 — provável exigência na sua viagem; confirme.",vacina:"Nenhuma obrigatória; febre amarela pode ser exigida se vier de área de risco no Brasil.",passaporte:"Válido 3+ meses após sair do Schengen (recomendado 6).",doc:"Na fronteira podem pedir passagem de volta, comprovante de fundos e hospedagem. Seguro viagem: recomendado (não é obrigatório p/ brasileiros isentos de visto)."};
   const BR={
     "FR":SCH,"DE":SCH,"IT":SCH,"ES":SCH,"PT":SCH,"NL":SCH,"BE":SCH,"CZ":SCH,"AT":SCH,"CH":SCH,"DK":SCH,"HU":SCH,"GR":SCH,
-    "GB":{visto:"Sem visto p/ turismo — até 6 meses. ETA (autorização eletrônica, £16) já em vigor p/ brasileiros — solicite online antes de embarcar.",vacina:"Nenhuma obrigatória.",passaporte:"Válido por toda a estadia."},
+    "GB":{visto:"Sem visto p/ turismo — até 6 meses. ETA (autorização eletrônica, £20) já em vigor p/ brasileiros — solicite online antes de embarcar.",vacina:"Nenhuma obrigatória.",passaporte:"Válido por toda a estadia."},
     "IE":{visto:"Sem visto p/ turismo — até 90 dias.",vacina:"Nenhuma obrigatória.",passaporte:"Válido por toda a estadia."},
     "US":{visto:"Visto obrigatório (B1/B2). Brasil não tem isenção — não há ESTA.",vacina:"Nenhuma obrigatória.",passaporte:"Válido por toda a estadia (recomendado 6 meses)."},
     "JP":{visto:"Sem visto p/ turismo — até 90 dias.",vacina:"Nenhuma obrigatória.",passaporte:"Válido por toda a estadia."},
@@ -4939,6 +4940,17 @@ const VISTOS_DB=(()=>{
   };
   return {BR:BR};
 })();
+const UE_EEE=new Set(["FR","DE","IT","ES","PT","NL","BE","CZ","AT","DK","HU","GR","IE","SE","FI","PL","LU","HR","RO","IS","NO","CH"]);
+const DOC_PADRAO="Passagem de saída e comprovante de fundos/hospedagem podem ser pedidos na imigração.";
+function infoVisto(nacISO,destISO){
+  const base=nacISO?VISTOS_DB[nacISO]:null;
+  if(base&&base[destISO]){const v=base[destISO];return {origem:"curada",visto:v.visto,vacina:v.vacina,passaporte:v.passaporte,doc:v.doc||DOC_PADRAO};}
+  if(nacISO&&destISO&&nacISO===destISO)
+    return {origem:"casa",visto:"É seu país de cidadania — sem exigências de visto.",vacina:"—",passaporte:"Documento de identidade ou passaporte do país.",doc:""};
+  if(nacISO&&destISO&&UE_EEE.has(nacISO)&&UE_EEE.has(destISO))
+    return {origem:"ue",visto:"Livre circulação (UE/EEE) — sem visto nem ETIAS; pode entrar com documento de identidade.",vacina:"Nenhuma obrigatória; rotina em dia.",passaporte:"RG nacional (UE) ou passaporte válido.",doc:""};
+  return {origem:"generico",visto:"",vacina:"",passaporte:"",doc:DOC_PADRAO};
+}
 function vistosCard(){
   const nacRaw=(PERFIL&&PERFIL.nacionalidade)||"";
   const nacISO=paisISOde(nacRaw);
@@ -4948,17 +4960,21 @@ function vistosCard(){
   const head=`<div class="lbl">🛂 Vistos & saúde</div>
     <div class="note" style="margin:4px 0 0">Orientação geral pra planejar — <b>sempre confirme na fonte oficial</b> (consulado/embaixada do destino).</div>`;
   if(!nacRaw) return `<div class="card tight">${head}<div class="note" style="margin-top:10px">Preencha sua <b>nacionalidade</b> no perfil (☰ › Meu perfil) pra ver as exigências por destino.</div></div>`;
-  const base=nacISO?VISTOS_DB[nacISO]:null;
-  if(!base) return `<div class="card tight">${head}<div class="note" style="margin-top:10px">A base atual cobre <b>passaporte brasileiro</b>. Pra <b>${esc(nacRaw)}</b>, confirme cada destino na fonte oficial.</div></div>`;
   const rows=dest.map(loc=>{
-    const v=base[loc.paisISO], fl=loc.flag||"";
-    if(!v)return `<div class="vs-item"><div class="vs-pais">${fl} ${esc(loc.paisNome)}</div><div class="vs-line">Sem dados na base — confirme na fonte oficial.</div></div>`;
+    const fl=loc.flag||"", info=infoVisto(nacISO,loc.paisISO);
+    const linha=(lb,val,cls)=> (val&&val!=="—")?`<div class="vs-line"><span class="vs-lb${cls?" "+cls:""}">${lb}</span> ${esc(val)}</div>`:"";
+    if(info.origem==="generico")
+      return `<div class="vs-item"><div class="vs-pais">${fl} ${esc(loc.paisNome)}</div>
+        <div class="vs-line">Fora da base curada pra sua nacionalidade — confirme visto, vacina e documentos na fonte oficial.</div>
+        ${linha("Documentos",info.doc,"doc")}</div>`;
     return `<div class="vs-item"><div class="vs-pais">${fl} ${esc(loc.paisNome)}</div>
-      <div class="vs-line"><span class="vs-lb">Visto</span> ${esc(v.visto)}</div>
-      <div class="vs-line"><span class="vs-lb">Vacina</span> ${esc(v.vacina)}</div>
-      <div class="vs-line"><span class="vs-lb">Passaporte</span> ${esc(v.passaporte)}</div></div>`;
+      ${linha("Visto",info.visto)}
+      ${linha("Vacina",info.vacina)}
+      ${linha("Passaporte",info.passaporte)}
+      ${linha("Documentos",info.doc,"doc")}</div>`;
   }).join("");
-  return `<div class="card tight">${head}<div style="margin-top:8px">${rows}</div>
+  const notaNac= nacISO? "" : `<div class="note" style="margin:6px 0 0">Não reconhecemos <b>${esc(nacRaw)}</b> na base — mostrando orientação geral. Use o nome do país (ex.: “Portugal”, “Brasil”).</div>`;
+  return `<div class="card tight">${head}${notaNac}<div style="margin-top:8px">${rows}</div>
     <div class="note" style="margin-top:6px">Para <b>${esc(nacRaw)}</b>. Regras mudam (ETIAS/ETA, vacinas) — a fonte oficial é a palavra final.</div></div>`;
 }
 function sosCard(){
