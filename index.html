@@ -1344,7 +1344,36 @@ const PAIS_INFO={
  "GR":{moeda:"€ Euro (EUR)",tomada:"C/F · 230V",emerg:"112",gorjeta:"Arredondar ou ~5–10%"},
  "IE":{moeda:"€ Euro (EUR)",tomada:"G · 230V",emerg:"112 (ou 999)",gorjeta:"10–12,5%"},
  "US":{moeda:"$ Dólar (USD)",tomada:"A/B · 120V",emerg:"911",gorjeta:"15–20% esperado em restaurantes e táxis"},
- "JP":{moeda:"¥ Iene (JPY)",tomada:"A/B · 100V",emerg:"110 polícia · 119 ambulância",gorjeta:"Não se dá gorjeta — pode soar ofensivo"}
+ "JP":{moeda:"¥ Iene (JPY)",tomada:"A/B · 100V",emerg:"110 polícia · 119 ambulância",gorjeta:"Não se dá gorjeta — pode soar ofensivo"},
+ "AR":{moeda:"$ Peso argentino (ARS)",tomada:"C/I · 220V",emerg:"911",gorjeta:"~10% em restaurantes"},
+ "CL":{moeda:"$ Peso chileno (CLP)",tomada:"C/L · 220V",emerg:"133 polícia · 131 ambulância",gorjeta:"~10% (propina sugerida)"},
+ "UY":{moeda:"$ Peso uruguaio (UYU)",tomada:"C/F/L · 220V",emerg:"911",gorjeta:"~10%"},
+ "PY":{moeda:"₲ Guarani (PYG)",tomada:"C · 220V",emerg:"911",gorjeta:"~10%"},
+ "BO":{moeda:"Bs Boliviano (BOB)",tomada:"A/C · 230V",emerg:"110 polícia · 118 ambulância",gorjeta:"~10%"},
+ "PE":{moeda:"S/ Sol (PEN)",tomada:"A/C · 220V",emerg:"105 polícia · 116 emergência",gorjeta:"~10%"},
+ "CO":{moeda:"$ Peso colombiano (COP)",tomada:"A/B · 110V",emerg:"123",gorjeta:"~10%, às vezes já incluído"},
+ "EC":{moeda:"$ Dólar (USD)",tomada:"A/B · 120V",emerg:"911",gorjeta:"~10%, às vezes já incluído"},
+ "MX":{moeda:"$ Peso mexicano (MXN)",tomada:"A/B · 127V",emerg:"911",gorjeta:"10–15%"},
+ "CA":{moeda:"$ Dólar canadense (CAD)",tomada:"A/B · 120V",emerg:"911",gorjeta:"15–20% esperado"},
+ "SE":{moeda:"kr Coroa sueca (SEK)",tomada:"C/F · 230V",emerg:"112",gorjeta:"Arredondar; ~10% opcional"},
+ "NO":{moeda:"kr Coroa norueguesa (NOK)",tomada:"C/F · 230V",emerg:"112",gorjeta:"Arredondar; ~5–10% opcional"},
+ "FI":{moeda:"€ Euro (EUR)",tomada:"C/F · 230V",emerg:"112",gorjeta:"Arredondar; opcional"},
+ "PL":{moeda:"zł Złoty (PLN)",tomada:"C/E · 230V",emerg:"112",gorjeta:"~10%"},
+ "IS":{moeda:"kr Coroa islandesa (ISK)",tomada:"C/F · 230V",emerg:"112",gorjeta:"Não esperada; serviço incluído"},
+ "LU":{moeda:"€ Euro (EUR)",tomada:"C/F · 230V",emerg:"112",gorjeta:"Arredondar ou ~5–10%"},
+ "HR":{moeda:"€ Euro (EUR)",tomada:"C/F · 230V",emerg:"112",gorjeta:"~10%"},
+ "RO":{moeda:"lei Leu (RON)",tomada:"C/F · 230V",emerg:"112",gorjeta:"~10%"},
+ "TR":{moeda:"₺ Lira (TRY)",tomada:"C/F · 230V",emerg:"112",gorjeta:"~5–10%"},
+ "CN":{moeda:"¥ Yuan (CNY)",tomada:"A/C/I · 220V",emerg:"110 polícia · 120 ambulância",gorjeta:"Não se costuma dar gorjeta"},
+ "KR":{moeda:"₩ Won (KRW)",tomada:"C/F · 220V",emerg:"112 polícia · 119 ambulância",gorjeta:"Não se dá gorjeta"},
+ "IN":{moeda:"₹ Rúpia (INR)",tomada:"C/D/M · 230V",emerg:"112",gorjeta:"~10%"},
+ "TH":{moeda:"฿ Baht (THB)",tomada:"A/B/C · 220V",emerg:"191 polícia · 1669 ambulância",gorjeta:"Não obrigatória; arredondar"},
+ "AE":{moeda:"Dh Dirham (AED)",tomada:"G · 230V",emerg:"999 polícia · 998 ambulância",gorjeta:"~10%, às vezes já incluído"},
+ "EG":{moeda:"£ Libra egípcia (EGP)",tomada:"C/F · 220V",emerg:"122 polícia · 123 ambulância",gorjeta:"~10% (baksheesh), comum"},
+ "MA":{moeda:"DH Dirham (MAD)",tomada:"C/E · 220V",emerg:"19 polícia · 15 ambulância",gorjeta:"~10%"},
+ "ZA":{moeda:"R Rand (ZAR)",tomada:"M/N/D · 230V",emerg:"10111 polícia · 112 do celular",gorjeta:"10–15%"},
+ "AU":{moeda:"$ Dólar australiano (AUD)",tomada:"I · 230V",emerg:"000 · 112 do celular",gorjeta:"Não obrigatória; opcional"},
+ "NZ":{moeda:"$ Dólar neozelandês (NZD)",tomada:"I · 230V",emerg:"111",gorjeta:"Não obrigatória"}
 };
 function _cardDestino(nome){
   const loc=resolverLocal(nome); if(!loc)return "";
@@ -2461,7 +2490,7 @@ function distribuirDatas(inicio,fim,n){
 async function criarViagem(d){
   if(MOCK||!db||!UID)throw new Error("sem-banco");
   const code=gerarCodigo(),usados={};
-  const cds=d.cidades.map(c=>({n:c.n,pais:c.flag||"",tz:c.tz||"",lat:c.lat||0,lng:c.lng||0}));
+  const cds=d.cidades.map(c=>({n:c.n,pais:c.flag||"",tz:c.tz||"",lat:c.lat||0,lng:c.lng||0,iso:c.iso||"",paisNome:c.paisNome||""}));
   cds.forEach(c=>{let base=(normNome(c.n).replace(/[^a-z]/g,"").slice(0,3))||"cid",k=base,i=2;while(usados[k]){k=base+i;i++;}usados[k]=1;c.k=k;});
   const datas=distribuirDatas(d.inicio,d.fim,cds.length);
   cds.forEach((c,i)=>{c.de=datas[i].de;c.ate=datas[i].ate;});
@@ -2538,11 +2567,11 @@ function abrirCriarViagem(){
     $("#cv-cidsel").innerHTML=cidsel.map((c,i)=>`<span class="cv-chip">${c.flag||"📍"} ${esc(c.n)}<button data-i="${i}" aria-label="remover">×</button></span>`).join("");
     $("#cv-cidsel").querySelectorAll("button").forEach(b=>b.onclick=()=>{cidsel.splice(+b.dataset.i,1);renderCid();});
   };
-  const localMatches=nq=>chaves.filter(k=>k.includes(nq)).slice(0,6).map(k=>{const e=CIDADES_DB.db[k];return {n:nomeBonito(k),flag:e.flag||"",tz:e.tz,lat:e.lat,lng:e.lng,pais:e.pais||""};});
+  const localMatches=nq=>chaves.filter(k=>k.includes(nq)).slice(0,6).map(k=>{const e=CIDADES_DB.db[k];return {n:nomeBonito(k),flag:e.flag||"",tz:e.tz,lat:e.lat,lng:e.lng,pais:e.pais||"",iso:paisISOde(e.pais||""),paisNome:e.pais||""};});
   const pintar=arr=>{
     if(!arr.length){lista.innerHTML="";return;}
     lista.innerHTML=arr.map((c,i)=>`<div class="cv-dropit" data-i="${i}">${c.flag||"📍"} ${esc(c.n)}<span style="color:var(--dim);font-size:12px;margin-left:auto;text-align:right">${esc(c.pais||"")}</span></div>`).join("");
-    lista.querySelectorAll(".cv-dropit").forEach(it=>it.onclick=()=>{const c=arr[+it.dataset.i];cidsel.push({n:c.n,flag:c.flag,tz:c.tz,lat:c.lat,lng:c.lng});busca.value="";lista.innerHTML="";renderCid();busca.focus();});
+    lista.querySelectorAll(".cv-dropit").forEach(it=>it.onclick=()=>{const c=arr[+it.dataset.i];cidsel.push({n:c.n,flag:c.flag,tz:c.tz,lat:c.lat,lng:c.lng,iso:c.iso||"",paisNome:c.paisNome||""});busca.value="";lista.innerHTML="";renderCid();busca.focus();});
   };
   let tGeo=null,seq=0;
   busca.oninput=()=>{
@@ -2556,7 +2585,7 @@ function abrirCriarViagem(){
         const r=await fetch("https://geocoding-api.open-meteo.com/v1/search?count=8&language=pt&format=json&name="+encodeURIComponent(q));
         if(!r.ok)return; const jj=await r.json();
         if(meu!==seq||busca.value.trim()!==q)return;
-        const online=(jj.results||[]).map(x=>({n:x.name,flag:flagPais(x.country_code),tz:x.timezone||"",lat:x.latitude,lng:x.longitude,pais:[x.admin1,x.country].filter(Boolean).join(", ")}));
+        const online=(jj.results||[]).map(x=>({n:x.name,flag:flagPais(x.country_code),tz:x.timezone||"",lat:x.latitude,lng:x.longitude,pais:[x.admin1,x.country].filter(Boolean).join(", "),iso:(x.country_code||"").toUpperCase(),paisNome:x.country||""}));
         const vistos=new Set(),merged=[];
         localMatches(nq).concat(online).forEach(c=>{const key=normNome(c.n)+"|"+(c.pais||"");if(!vistos.has(key)){vistos.add(key);merged.push(c);}});
         pintar(merged.slice(0,10));
@@ -4871,13 +4900,42 @@ function abrirFormSos(at){
   });
 }
 const VISTOS_DB=(()=>{
-  const SCH={visto:"Sem visto p/ turismo — até 90 dias em 180 (Schengen). ETIAS previsto; confirme.",vacina:"Nenhuma obrigatória; febre amarela pode ser exigida se vier de área de risco.",passaporte:"Válido 3+ meses após sair do Schengen (recomendado 6)."};
+  const SCH={visto:"Sem visto p/ turismo — até 90 dias em 180 (Schengen). ETIAS (autorização eletrônica, ~€20) deve entrar em vigor em 2027 — pode ser exigido na sua viagem; confirme.",vacina:"Nenhuma obrigatória; febre amarela pode ser exigida se vier de área de risco no Brasil.",passaporte:"Válido 3+ meses após sair do Schengen (recomendado 6)."};
   const BR={
     "FR":SCH,"DE":SCH,"IT":SCH,"ES":SCH,"PT":SCH,"NL":SCH,"BE":SCH,"CZ":SCH,"AT":SCH,"CH":SCH,"DK":SCH,"HU":SCH,"GR":SCH,
-    "GB":{visto:"Sem visto p/ turismo — até 6 meses. ETA (autorização eletrônica) previsto p/ brasileiros; confirme.",vacina:"Nenhuma obrigatória.",passaporte:"Válido por toda a estadia."},
+    "GB":{visto:"Sem visto p/ turismo — até 6 meses. ETA (autorização eletrônica, £16) já em vigor p/ brasileiros — solicite online antes de embarcar.",vacina:"Nenhuma obrigatória.",passaporte:"Válido por toda a estadia."},
     "IE":{visto:"Sem visto p/ turismo — até 90 dias.",vacina:"Nenhuma obrigatória.",passaporte:"Válido por toda a estadia."},
     "US":{visto:"Visto obrigatório (B1/B2). Brasil não tem isenção — não há ESTA.",vacina:"Nenhuma obrigatória.",passaporte:"Válido por toda a estadia (recomendado 6 meses)."},
-    "JP":{visto:"Sem visto p/ turismo — até 90 dias.",vacina:"Nenhuma obrigatória.",passaporte:"Válido por toda a estadia."}
+    "JP":{visto:"Sem visto p/ turismo — até 90 dias.",vacina:"Nenhuma obrigatória.",passaporte:"Válido por toda a estadia."},
+    "SE":SCH,
+    "NO":SCH,
+    "FI":SCH,
+    "PL":SCH,
+    "IS":SCH,
+    "LU":SCH,
+    "HR":SCH,
+    "RO":SCH,
+    "AR":{visto:"Sem visto p/ turismo — entra com RG (documento de identidade) ou passaporte válido (acordo Mercosul).",vacina:"Nenhuma obrigatória; rotina em dia.",passaporte:"RG ou passaporte válido; recomendado passaporte."},
+    "CL":{visto:"Sem visto p/ turismo — entra com RG (documento de identidade) ou passaporte válido (acordo Mercosul).",vacina:"Nenhuma obrigatória; rotina em dia.",passaporte:"RG ou passaporte válido; recomendado passaporte."},
+    "UY":{visto:"Sem visto p/ turismo — entra com RG (documento de identidade) ou passaporte válido (acordo Mercosul).",vacina:"Nenhuma obrigatória; rotina em dia.",passaporte:"RG ou passaporte válido; recomendado passaporte."},
+    "PY":{visto:"Sem visto p/ turismo — entra com RG (documento de identidade) ou passaporte válido (acordo Mercosul).",vacina:"Febre amarela recomendada (exigida em algumas áreas de risco) — confirme.",passaporte:"RG ou passaporte válido; recomendado passaporte."},
+    "BO":{visto:"Sem visto p/ turismo — entra com RG (documento de identidade) ou passaporte válido (acordo Mercosul).",vacina:"Febre amarela recomendada (exigida em algumas áreas de risco) — confirme.",passaporte:"RG ou passaporte válido; recomendado passaporte."},
+    "PE":{visto:"Sem visto p/ turismo — entra com RG (documento de identidade) ou passaporte válido (acordo Mercosul).",vacina:"Febre amarela recomendada (exigida em algumas áreas de risco) — confirme.",passaporte:"RG ou passaporte válido; recomendado passaporte."},
+    "CO":{visto:"Sem visto p/ turismo — entra com RG (documento de identidade) ou passaporte válido (acordo Mercosul).",vacina:"Febre amarela recomendada (exigida em algumas áreas de risco) — confirme.",passaporte:"RG ou passaporte válido; recomendado passaporte."},
+    "EC":{visto:"Sem visto p/ turismo — entra com RG (documento de identidade) ou passaporte válido (acordo Mercosul).",vacina:"Febre amarela recomendada (exigida em algumas áreas de risco) — confirme.",passaporte:"RG ou passaporte válido; recomendado passaporte."},
+    "MX":{visto:"Sem visto p/ turismo — até 180 dias. Preenche o cartão de turista (FMM), hoje em geral digital.",vacina:"Nenhuma obrigatória.",passaporte:"Válido por toda a estadia."},
+    "CA":{visto:"Precisa de autorização: eTA (CAD 7) se tiver visto americano válido ou visto canadense anterior; senão, visto de visitante (TRV).",vacina:"Nenhuma obrigatória.",passaporte:"Válido; recomendado 6 meses além do retorno."},
+    "TR":{visto:"Sem visto p/ turismo — até 90 dias em 180.",vacina:"Nenhuma obrigatória.",passaporte:"Válido 6+ meses a partir da entrada."},
+    "CN":{visto:"Isenção de visto até 30 dias vigente até dez/2026 (política temporária — pode ser prorrogada ou não valer na sua viagem). Fora disso, visto obrigatório.",vacina:"Nenhuma obrigatória.",passaporte:"Válido 6+ meses."},
+    "KR":{visto:"Sem visto p/ turismo — até 90 dias. K-ETA exigido (isenção temporária p/ brasileiros até dez/2026 — confirme se voltou a ser exigido).",vacina:"Nenhuma obrigatória.",passaporte:"Válido por toda a estadia."},
+    "IN":{visto:"Visto obrigatório — e-Visa turístico disponível online.",vacina:"Febre amarela pode ser exigida se vier de área de risco no Brasil.",passaporte:"Válido 6+ meses, com 2 páginas livres."},
+    "TH":{visto:"Sem visto p/ turismo — até 60 dias (isenção). Pode ser pedido comprovante de saída.",vacina:"Febre amarela se vier de área de risco no Brasil.",passaporte:"Válido 6+ meses."},
+    "AE":{visto:"Sem visto p/ turismo — carimbo na chegada, até 90 dias em 180.",vacina:"Nenhuma obrigatória.",passaporte:"Válido 6+ meses a partir da entrada."},
+    "EG":{visto:"Visto na chegada ou e-Visa (turismo, ~30 dias).",vacina:"Febre amarela se vier de área de risco no Brasil.",passaporte:"Válido 6+ meses."},
+    "MA":{visto:"Sem visto p/ turismo — até 90 dias.",vacina:"Nenhuma obrigatória.",passaporte:"Recomendado válido 6+ meses."},
+    "ZA":{visto:"Sem visto p/ turismo — até 90 dias.",vacina:"Febre amarela: certificado OBRIGATÓRIO para quem chega vindo do Brasil (país de risco). Leve a carteirinha (CIVP).",passaporte:"Válido 30+ dias após a saída, com 2 páginas em branco."},
+    "AU":{visto:"Visto obrigatório — autorização eletrônica (Visitor visa), solicitada online antes de embarcar. Confirme a categoria.",vacina:"Febre amarela se vier de área de risco no Brasil.",passaporte:"Válido por toda a estadia."},
+    "NZ":{visto:"Precisa de autorização: NZeTA (isenção de visto) + taxa turística IVL, online antes de viajar.",vacina:"Nenhuma obrigatória.",passaporte:"Válido 3+ meses após a saída."}
   };
   return {BR:BR};
 })();
