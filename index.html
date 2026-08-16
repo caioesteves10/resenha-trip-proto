@@ -4158,8 +4158,8 @@ function renderCustos(){_sujo.delete("custos");
         <div class="t"><div class="n">${esc(it.desc)}</div>
         <div class="s">${g.length===PEOPLE.length?`todos · ${fmt(toBRL(it.valor,it.moeda)/g.length)} cada`:(g.length===1?"só "+esc(g[0]):g.map(esc).join(", ")+` · ${fmt(toBRL(it.valor,it.moeda)/g.length)} cada`)}${naMeta(it)?"":' · <span style="color:var(--warn)">fora da meta</span>'}</div></div>
         <div class="v money">${fmtIn(it.valor,it.moeda)}</div></div>`;}).join("")}`).join("");})()}
-    ${isAdmin()?'<button class="btn sec" id="goadm" style="margin-top:6px">Editar itens no admin</button>':
-      '<div class="note">Só o admin edita os itens compartilhados. Passeios com preço aparecem aqui automaticamente.</div>'}
+    ${isAdmin()?'<button class="btn sec" id="goadm" style="margin-top:6px">Editar no Padrão da viagem</button>':
+      '<div class="note">Só o dono edita os itens compartilhados. Passeios com preço aparecem aqui automaticamente.</div>'}
   </div>
 
   <div class="${custosView==="meus"?"":"hidden"}">
@@ -4482,9 +4482,8 @@ function renderRoteiro(){_sujo.delete("roteiro");
         Object.assign({},d,{itens:(d.itens||[]).map(a=>a.id===ai?novo:a)}));
       saveDoc("roteiro",{dias:dias});toast("Atividade atualizada");
     });});
-  $("#p-roteiro").querySelectorAll("[data-ddel]").forEach(b=>b.onclick=()=>{
-    if(!confirm("Excluir o dia inteiro?"))return;
-    saveDoc("roteiro",{dias:(STATE.roteiro.dias||[]).filter(d=>d.id!==b.dataset.ddel)});});
+  $("#p-roteiro").querySelectorAll("[data-ddel]").forEach(b=>b.onclick=()=>confirmModal("Excluir o dia inteiro?","Remove o dia e todas as atividades dele do roteiro.","Excluir",async()=>{
+    saveDoc("roteiro",{dias:(STATE.roteiro.dias||[]).filter(d=>d.id!==b.dataset.ddel)});$("#modal").innerHTML="";},true));
 }
 
 /* ---- 14. COMPRAS --------------------------------------- */
@@ -4607,7 +4606,7 @@ function renderCheck(){_sujo.delete("check");
       <div class="tick on" data-ktog="${i.id}" role="button" tabindex="0">✓</div>
       <div class="t"><div class="n">${esc(i.item)}</div></div>
       <button class="x" data-kdel="${i.id}" aria-label="Excluir">✕</button></div>`).join(""):""}
-  <div class="note">Sua lista é só sua — marcar, adicionar ou apagar itens aqui não mexe na de ninguém.${isAdmin()?" A lista master que todos puxam fica em ⚙ → Ferramentas.":""}</div>
+  <div class="note">Sua lista é só sua — marcar, adicionar ou apagar itens aqui não mexe na de ninguém.${isAdmin()?" A lista master que todos puxam fica em Ajustes → Padrão da viagem → Ferramentas.":""}</div>
 
   <div class="sect">Como está a família</div>
   <div class="card"><table class="tb"><thead><tr><th>Pessoa</th><th>Feitos</th><th>%</th></tr></thead><tbody>
@@ -5450,9 +5449,8 @@ function renderAdminPadrao(el){
     toast("Orçamento atualizado");});
   $("#citadd").onclick=()=>itemForm(null);
   el.querySelectorAll("[data-cite]").forEach(b=>b.onclick=()=>itemForm(itens.find(x=>x.id===b.dataset.cite)));
-  el.querySelectorAll("[data-citd]").forEach(b=>b.onclick=()=>{
-    if(!confirm("Excluir este item?"))return;
-    saveDoc("custos",{itens:itens.filter(x=>x.id!==b.dataset.citd)});});
+  el.querySelectorAll("[data-citd]").forEach(b=>b.onclick=()=>confirmModal("Excluir item?","Remove este item do orçamento do grupo.","Excluir",async()=>{
+    saveDoc("custos",{itens:itens.filter(x=>x.id!==b.dataset.citd)});$("#modal").innerHTML="";},true));
   const cs=$("#csave");
   if(cs)cs.onclick=()=>{
     saveDoc("config",{nome:$("#cnome").value.trim()||"Viagem",
@@ -5507,8 +5505,9 @@ function renderAdminPadrao(el){
   el.querySelectorAll("[data-cidel]").forEach(b=>b.onclick=()=>{
     const i=Number(b.dataset.cidel);const atual=lerCidades();
     if(atual.length<=1){toast("Deixe ao menos uma cidade");return;}
-    if(!confirm(`Remover ${atual[i].n} do topo?`))return;
-    atual.splice(i,1);saveDoc("config",{cidades:atual});toast("Cidade removida");});
+    confirmModal("Remover cidade?",`Remove <b>${esc(atual[i].n||"a cidade")}</b> do topo. Os dias já criados nela continuam.`,"Remover",async()=>{
+      atual.splice(i,1);saveDoc("config",{cidades:atual});toast("Cidade removida");$("#modal").innerHTML="";},true);
+  });
   /* ---- backup: baixar tudo / restaurar de um arquivo ---- */
   const bke=$("#bkexp");
   if(bke)bke.onclick=()=>{
@@ -5549,22 +5548,18 @@ function renderAdminPadrao(el){
   const ao=$("#aout");
   if(ao)ao.onclick=()=>{localStorage.removeItem(LS.admin);show("cofre");renderAll();toast("Modo admin desligado");};
   const rz=$("#rzerar");
-  if(rz)rz.onclick=()=>{if(confirm("Apagar TODAS as despesas e transferências?"))
-    {saveDoc("racha",{despesas:[],pagamentos:[]});toast("Racha zerado");}};
+  if(rz)rz.onclick=()=>confirmModal("Apagar o racha?","Apaga <b>todas</b> as despesas e transferências da rachadinha. Não dá pra desfazer.","Apagar tudo",async()=>{saveDoc("racha",{despesas:[],pagamentos:[]});toast("Racha zerado");$("#modal").innerHTML="";},true);
   const rr=$("#rroteiro");
-  if(rr)rr.onclick=()=>{if(confirm("Substituir o roteiro atual pelo sugerido?"))
-    {saveDoc("roteiro",JSON.parse(JSON.stringify(SEED.roteiro)));toast("Roteiro restaurado");}};
+  if(rr)rr.onclick=()=>confirmModal("Restaurar roteiro?","Substitui o roteiro atual pelo sugerido do app.","Restaurar",async()=>{saveDoc("roteiro",JSON.parse(JSON.stringify(SEED.roteiro)));toast("Roteiro restaurado");$("#modal").innerHTML="";},true);
   const rc=$("#rcustos");
-  if(rc)rc.onclick=()=>{if(confirm("Substituir o orçamento atual pelo sugerido?"))
-    {saveDoc("custos",JSON.parse(JSON.stringify(SEED.custos)));toast("Orçamento restaurado");}};
+  if(rc)rc.onclick=()=>confirmModal("Restaurar orçamento?","Substitui o orçamento do grupo pelo sugerido do app.","Restaurar",async()=>{saveDoc("custos",JSON.parse(JSON.stringify(SEED.custos)));toast("Orçamento restaurado");$("#modal").innerHTML="";},true);
   const ms=$("#mstrsave");
   if(ms)ms.onclick=()=>{
     const linhas=$("#mstr").value.split("\n").map(x=>x.trim()).filter(Boolean);
     if(!linhas.length){toast("A lista não pode ficar vazia");return;}
     saveDoc("config",{checklistMaster:linhas});toast("Lista master salva");};
   const mr=$("#mstrreset");
-  if(mr)mr.onclick=()=>{if(confirm("Voltar a lista master para a padrão do app?"))
-    {saveDoc("config",{checklistMaster:SEED.checklistModelo.slice()});toast("Lista master restaurada");}};
+  if(mr)mr.onclick=()=>confirmModal("Restaurar lista master?","Volta a lista master (que todos puxam) para a padrão do app.","Restaurar",async()=>{saveDoc("config",{checklistMaster:SEED.checklistModelo.slice()});toast("Lista master restaurada");$("#modal").innerHTML="";},true);
 }
 
 /* ---- 17. BOOT ------------------------------------------ */
