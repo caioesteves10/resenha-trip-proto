@@ -377,7 +377,7 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer;ma
 .deplist::-webkit-scrollbar{width:5px}
 .deplist::-webkit-scrollbar-thumb{background:var(--line2);border-radius:3px}
 
-/* botão "ver histórico e a família" (colapsa a parte densa do Cofre) */
+/* botão "ver histórico e o grupo" (colapsa a parte densa do Cofre) */
 .mais-btn{width:100%;margin:16px 0 4px;padding:11px 14px;display:flex;align-items:center;justify-content:center;gap:8px;
  background:transparent;border:1px dashed var(--line2);border-radius:12px;color:var(--muted);
  font:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:background .15s ease,color .15s ease,border-color .15s ease}
@@ -746,7 +746,7 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
   .cofre-top .cofre-month .card{margin-bottom:0;flex:1}
   .cofre-top .sect{margin-top:0}
   .chartwrap svg{height:270px}
-  /* A família (esquerda) + gráfico (direita) lado a lado */
+  /* Metas do grupo (esquerda) + gráfico (direita) lado a lado */
   .cofre-fam{display:grid;grid-template-columns:1fr 1.15fr;gap:16px;align-items:stretch;margin-top:22px}
   .cofre-mais .cofre-fam{margin-top:14px}
   .cofre-fam .dcol{display:flex;flex-direction:column;min-width:0}
@@ -1092,7 +1092,7 @@ const DATA={
       {id:"c00b",cat:"Passagens",desc:"Passagem aérea — Bê (saindo do Rio)",valor:7800,moeda:"BRL",quem:["Bê"],naMeta:false},
       {id:"c00c",cat:"Passagens",desc:"Passagem aérea — Ronaldo (saindo do Rio)",valor:7800,moeda:"BRL",quem:["Ronaldo"],naMeta:false},
       {id:"c00d",cat:"Passagens",desc:"Passagem aérea — Shirlei (saindo do Rio)",valor:7800,moeda:"BRL",quem:["Shirlei"],naMeta:false},
-      {id:"c01",cat:"Hospedagem",desc:"Paris — 5 noites (quarto família)",valor:1300,moeda:"EUR",quem:"todos"},
+      {id:"c01",cat:"Hospedagem",desc:"Paris — 5 noites (quarto amplo)",valor:1300,moeda:"EUR",quem:"todos"},
       {id:"c02",cat:"Hospedagem",desc:"Munique — 3 noites",valor:660,moeda:"EUR",quem:"todos"},
       {id:"c03",cat:"Hospedagem",desc:"Berlim — 4 noites",valor:760,moeda:"EUR",quem:"todos"},
       {id:"c04",cat:"Transporte",desc:"Paris → Munique (4 pessoas)",valor:480,moeda:"EUR",quem:"todos"},
@@ -2477,7 +2477,7 @@ async function abrirViagem(id){
 /* ---- criar viagem: assistente + gravação (Fase 4b) ------
    Monta a viagem a partir da CIDADES_DB (fuso/coords vêm dela), distribui
    as datas entre as cidades, gera um código e grava tudo já com o marcador
-   "seeded" para o ensureSeed NÃO despejar o conteúdo da família. */
+   "seeded" para o ensureSeed NÃO despejar o conteúdo do grupo. */
 function _iso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 function gerarCodigo(){const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let s="";for(let i=0;i<6;i++)s+=A[Math.floor(Math.random()*A.length)];return s;}
 function distribuirDatas(inicio,fim,n){
@@ -2797,7 +2797,8 @@ function applyTab(){
   if(mt){
     if(MONEY.includes(curTab)){
       mt.classList.remove("hidden");
-      mt.innerHTML=[["cofre","Cofre"],["custos","Custos"],["racha","Rachadinha"]].map(([k,l])=>`<button data-m="${k}" class="${k===curTab?'on':''}">${esc(l)}</button>`).join("");
+      const _mt=ehSolo()?[["cofre","Cofre"],["custos","Custos"]]:[["cofre","Cofre"],["custos","Custos"],["racha","Rachadinha"]];
+      mt.innerHTML=_mt.map(([k,l])=>`<button data-m="${k}" class="${k===curTab?'on':''}">${esc(l)}</button>`).join("");
       mt.querySelectorAll("button").forEach(b=>b.onclick=()=>show(b.dataset.m));
     }else{mt.classList.add("hidden");mt.innerHTML="";}
   }
@@ -2805,6 +2806,7 @@ function applyTab(){
 function show(t){
   if(t==="compras")t="custos";
   if(t==="dinheiro")t=moneySub;
+  if(t==="racha"&&ehSolo())t="cofre";
   if(MONEY.includes(t)){moneySub=t;try{localStorage.setItem("tr27_money",t);}catch(e){}}
   if(t!==curTab)window.scrollTo(0,0);
   const changed=t!==curTab;
@@ -3251,7 +3253,7 @@ function mesInfo(p){
 const CORPESSOA={};
 /* ---- pessoas por viagem (Fase 4a) ----------------------
    PEOPLE é uma cópia mutável: seu CONTEÚDO é sincronizado com as pessoas
-   da viagem aberta (config.pessoas), caindo na família da principal quando
+   da viagem aberta (config.pessoas), caindo no grupo da principal quando
    não houver. Como a referência do array não muda, os 65 pontos que usam
    PEOPLE passam a refletir a viagem atual sem precisar tocar em nenhum. */
 function recalcCores(){
@@ -3269,6 +3271,45 @@ function sincronizarPessoas(){
   recalcCores(); ensurePessoas();
 }
 function nomeConta(){return STATE.conta||STATE.me||"Você";}
+function ehSolo(){return PEOPLE.length<=1;}
+function blocoGrupoCofre(me){
+  return `<div class="cofre-fam">
+  <div class="dcol">
+  <div class="sect" style="margin-top:0">Metas do grupo<span class="r">${(()=>{const g=PEOPLE.reduce((a,p)=>a+guardado(p),0),m=PEOPLE.reduce((a,p)=>a+metaDe(p),0);return m?Math.round(g/m*100)+"% do total":"";})()}</span></div>
+  <div class="card">
+    <div class="rail" style="margin:2px 0 12px"><i style="width:${(()=>{const g=PEOPLE.reduce((a,p)=>a+guardado(p),0),m=PEOPLE.reduce((a,p)=>a+metaDe(p),0);return m?clamp(g/m*100,0,100):0;})()}%"></i></div>
+    <table class="tb"><thead><tr><th>Pessoa</th><th>Guardado</th><th>% da meta</th></tr></thead><tbody>
+    ${PEOPLE.map(p=>{const m=metaDe(p),g=guardado(p);
+      return `<tr class="${p===me?"me":""}"><td>${esc(p)}</td><td class="money">${fmt(g)}</td>
+      <td style="color:${m&&g>=m?"var(--ok)":"var(--muted)"}">${m?Math.round(g/m*100):0}%</td></tr>`;}).join("")}
+    </tbody><tfoot><tr><td>Total</td><td class="money">${fmt(PEOPLE.reduce((a,p)=>a+guardado(p),0))}</td><td></td></tr></tfoot></table>
+  </div>
+  </div>
+  ${grupoLinha()?`<div class="dcol">
+  <div class="sect" style="margin-top:0">Evolução do grupo<span class="r">acumulado</span></div>
+  ${grupoLinha()}
+  </div>`:""}
+  </div>`;
+}
+function blocoGrupoChecklist(me){
+  return `<div class="sect">Como está o grupo</div>
+  <div class="card"><table class="tb"><thead><tr><th>Pessoa</th><th>Feitos</th><th>%</th></tr></thead><tbody>
+    ${PEOPLE.map(p=>{const l=(STATE.pessoas[p]||{}).checklist||[],n=l.filter(x=>x.ok).length,pc=l.length?Math.round(n/l.length*100):0;
+    return `<tr class="${p===me?"me":""}"><td>${esc(p)}</td><td>${n}/${l.length}</td>
+      <td style="color:${pc===100&&l.length?"var(--ok)":"var(--muted)"}">${pc}%</td></tr>`;}).join("")}
+  </tbody></table></div>`;
+}
+function blocoGrupoCustos(me,tot,totPess){
+  return `<div class="sect" style="margin-top:2px">Total por pessoa<span class="r">o plano de cada um</span></div>
+    <div class="card">
+      <table class="tb"><thead><tr><th>Pessoa</th><th><span class="hint" data-hint="O que precisa estar guardado antes de embarcar.">Meta</span></th><th><span class="hint" data-hint="Passagem aérea — fica fora da meta porque vai parcelada no cartão.">Passagem</span></th><th><span class="hint" data-hint="Custo real total da viagem para essa pessoa (meta + passagem).">Total</span></th></tr></thead><tbody>
+      ${PEOPLE.map(p=>`<tr class="${p===me?"me":""}"><td>${esc(p)}</td><td class="money">${fmt(orcamentoDe(p))}</td>
+        <td class="money" style="color:var(--muted)">${fmt(foraDaMeta(p))}</td><td class="money"><b>${fmt(planoDe(p))}</b></td></tr>`).join("")}
+      </tbody><tfoot><tr><td>Total</td><td class="money">${fmt(totalMeta()+totPess)}</td>
+        <td class="money">${fmt(tot-totalMeta())}</td><td class="money">${fmt(tot+totPess)}</td></tr></tfoot></table>
+      <div class="note"><b>Meta</b> é o que precisa estar guardado antes de embarcar. <b>Passagem</b> fica de fora porque vai parcelada. <b>Total</b> é o custo real da viagem para cada um.</div>
+    </div>`;
+}
 async function salvarVinculo(nome){
   MEU_VINCULO[VIAGEM.id]=nome; STATE.me=nome; renderAll();
   try{if(UID)localStorage.setItem("tr27_vinc_"+UID,JSON.stringify(MEU_VINCULO));}catch(e){}
@@ -3851,7 +3892,7 @@ function renderInicio(){_sujo.delete("inicio");
   }
 
   $("#p-inicio").innerHTML=`
-  ${emV?`${roteiroCard}${gastoCard}${rachaCard}${cofreCard}`:`${cofreCard}${roteiroCard}${rachaCard}`}
+  ${emV?`${roteiroCard}${gastoCard}${ehSolo()?"":rachaCard}${cofreCard}`:`${cofreCard}${roteiroCard}${ehSolo()?"":rachaCard}`}
   <div class="note" style="text-align:center;margin-top:4px">Toque em qualquer cartão para abrir a aba completa.</div>`;
 
   // navegação: cada cartão abre a aba correspondente (menos ao tocar no (i) ou na verba)
@@ -4019,26 +4060,10 @@ function renderCofre(){_sujo.delete("cofre");
     '<div class="empty">Nada guardado ainda.<br>O primeiro depósito é o mais difícil.</div>'}
 
   <button class="mais-btn" id="cofre-mais-btn" aria-expanded="false" aria-controls="cofre-mais">
-    <span>Ver histórico e a família</span><span class="mais-ch">⌄</span></button>
+    <span>${ehSolo()?"Ver histórico":"Ver histórico e o grupo"}</span><span class="mais-ch">⌄</span></button>
   <div class="cofre-mais" id="cofre-mais" hidden>
   ${keys.length?`<div class="sect" style="margin-top:4px">Últimos meses</div>${mesesStrip(mm)}`:""}
-  <div class="cofre-fam">
-  <div class="dcol">
-  <div class="sect" style="margin-top:0">A família<span class="r">${(()=>{const g=PEOPLE.reduce((a,p)=>a+guardado(p),0),m=PEOPLE.reduce((a,p)=>a+metaDe(p),0);return m?Math.round(g/m*100)+"% do total":"";})()}</span></div>
-  <div class="card">
-    <div class="rail" style="margin:2px 0 12px"><i style="width:${(()=>{const g=PEOPLE.reduce((a,p)=>a+guardado(p),0),m=PEOPLE.reduce((a,p)=>a+metaDe(p),0);return m?clamp(g/m*100,0,100):0;})()}%"></i></div>
-    <table class="tb"><thead><tr><th>Pessoa</th><th>Guardado</th><th>% da meta</th></tr></thead><tbody>
-    ${PEOPLE.map(p=>{const m=metaDe(p),g=guardado(p);
-      return `<tr class="${p===me?"me":""}"><td>${esc(p)}</td><td class="money">${fmt(g)}</td>
-      <td style="color:${m&&g>=m?"var(--ok)":"var(--muted)"}">${m?Math.round(g/m*100):0}%</td></tr>`;}).join("")}
-    </tbody><tfoot><tr><td>Total</td><td class="money">${fmt(PEOPLE.reduce((a,p)=>a+guardado(p),0))}</td><td></td></tr></tfoot></table>
-  </div>
-  </div>
-  ${grupoLinha()?`<div class="dcol">
-  <div class="sect" style="margin-top:0">Evolução do grupo<span class="r">acumulado</span></div>
-  ${grupoLinha()}
-  </div>`:""}
-  </div>
+  ${ehSolo()?"":blocoGrupoCofre(me)}
   </div><!-- /cofre-mais -->
   ${fm>0?`<div class="note" style="text-align:center">A meta não inclui ${fmt(fm)} da sua passagem aérea, que vai parcelada no cartão. O plano completo está em Custos.</div>`:""}`;
 
@@ -4074,7 +4099,7 @@ function renderCofre(){_sujo.delete("cofre");
     toast(v.meta>0?"Meta salva":"Meta automática");},"Salvar");
   {const _ms=$("#metasetup");if(_ms)_ms.onclick=()=>$("#metaedit").click();}
 
-  // "Ver histórico e a família": começa recolhido; o gráfico só é desenhado
+  // "Ver histórico e o grupo": começa recolhido; o gráfico só é desenhado
   // depois de aparecer (SVG oculto mede largura 0 e sairia torto).
   const maisBtn=$("#cofre-mais-btn"),maisBox=$("#cofre-mais");
   if(maisBtn&&maisBox)maisBtn.onclick=()=>{
@@ -4082,7 +4107,7 @@ function renderCofre(){_sujo.delete("cofre");
     maisBox.hidden=!abrir;
     maisBtn.setAttribute("aria-expanded",abrir?"true":"false");
     maisBtn.classList.toggle("aberto",abrir);
-    maisBtn.querySelector("span").textContent=abrir?"Ocultar histórico e a família":"Ver histórico e a família";
+    maisBtn.querySelector("span").textContent=(abrir?"Ocultar histórico":"Ver histórico")+(ehSolo()?"":" e o grupo");
     if(abrir){wireChart();requestAnimationFrame(animarNumeros);}
   };
 
@@ -4147,7 +4172,7 @@ function renderCustos(){_sujo.delete("custos");
       <div class="row"><div class="note" style="margin:0">Já gastei <b>${fmt(c.real)}</b> de ${fmt(c.plan)}</div>
         <div class="note" style="margin:0 0 0 auto;color:${ac?"var(--danger)":"var(--ok)"}">${Math.abs(c.dif)<0.005?"em linha":(ac?fmt(c.dif)+" acima":fmt(-c.dif)+" abaixo")}</div></div>`;})():
       `<div class="kpis" style="margin-top:12px">
-      <div class="kpi"><div class="k">Total do grupo</div><div class="v money">${fmt(tot+totPess)}</div></div>
+      ${ehSolo()?"":`<div class="kpi"><div class="k">Total do grupo</div><div class="v money">${fmt(tot+totPess)}</div></div>`}
       <div class="kpi ok"><div class="k">Sua meta</div><div class="v money">${fmt(orcamentoDe(me))}</div></div>
     </div>`}
   </div>`;
@@ -4165,15 +4190,7 @@ function renderCustos(){_sujo.delete("custos");
   <div class="cseg-hint note">${({grupo:"Plano: quanto a viagem custa para cada um e por categoria.",itens:"Itens: os custos do grupo (hospedagem, transporte…) e como são rateados.",meus:"Meus gastos: suas compras e extras pessoais, que entram só na sua meta.",real:"Já gastei: o que você já pagou de verdade, comparado com o plano."})[custosView]||""}</div>
 
   <div class="${custosView==="grupo"?"":"hidden"}">
-    <div class="sect" style="margin-top:2px">Total por pessoa<span class="r">o plano de cada um</span></div>
-    <div class="card">
-      <table class="tb"><thead><tr><th>Pessoa</th><th><span class="hint" data-hint="O que precisa estar guardado antes de embarcar.">Meta</span></th><th><span class="hint" data-hint="Passagem aérea — fica fora da meta porque vai parcelada no cartão.">Passagem</span></th><th><span class="hint" data-hint="Custo real total da viagem para essa pessoa (meta + passagem).">Total</span></th></tr></thead><tbody>
-      ${PEOPLE.map(p=>`<tr class="${p===me?"me":""}"><td>${esc(p)}</td><td class="money">${fmt(orcamentoDe(p))}</td>
-        <td class="money" style="color:var(--muted)">${fmt(foraDaMeta(p))}</td><td class="money"><b>${fmt(planoDe(p))}</b></td></tr>`).join("")}
-      </tbody><tfoot><tr><td>Total</td><td class="money">${fmt(totalMeta()+totPess)}</td>
-        <td class="money">${fmt(tot-totalMeta())}</td><td class="money">${fmt(tot+totPess)}</td></tr></tfoot></table>
-      <div class="note"><b>Meta</b> é o que precisa estar guardado antes de embarcar. <b>Passagem</b> fica de fora porque vai parcelada. <b>Total</b> é o custo real da viagem para cada um.</div>
-    </div>
+    ${ehSolo()?"":blocoGrupoCustos(me,tot,totPess)}
     <button class="mais-btn" id="plano-mais-btn" aria-expanded="false" aria-controls="plano-mais"><span>Ver plano por categoria</span><span class="mais-ch">⌄</span></button>
     <div class="plano-mais" id="plano-mais" hidden>
     <div class="sect" style="margin-top:0">Por categoria<span class="r">sua parte</span></div>
@@ -4644,12 +4661,7 @@ function renderCheck(){_sujo.delete("check");
       <button class="x" data-kdel="${i.id}" aria-label="Excluir">✕</button></div>`).join(""):""}
   <div class="note">Sua lista é só sua — marcar, adicionar ou apagar itens aqui não mexe na de ninguém.${isAdmin()?" A lista master que todos puxam fica em Ajustes → Padrão da viagem → Ferramentas.":""}</div>
 
-  <div class="sect">Como está a família</div>
-  <div class="card"><table class="tb"><thead><tr><th>Pessoa</th><th>Feitos</th><th>%</th></tr></thead><tbody>
-    ${PEOPLE.map(p=>{const l=(STATE.pessoas[p]||{}).checklist||[],n=l.filter(x=>x.ok).length,pc=l.length?Math.round(n/l.length*100):0;
-    return `<tr class="${p===me?"me":""}"><td>${esc(p)}</td><td>${n}/${l.length}</td>
-      <td style="color:${pc===100&&l.length?"var(--ok)":"var(--muted)"}">${pc}%</td></tr>`;}).join("")}
-  </tbody></table></div>
+  ${ehSolo()?"":blocoGrupoChecklist(me)}
   </div>
 
   <div class="${checkView==="mala"?"":"hidden"}">
