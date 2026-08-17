@@ -914,6 +914,24 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
 .cvp-rm{background:none;border:none;color:var(--dim);font-size:18px;line-height:1;cursor:pointer;padding:2px 4px;flex:none}
 .cvp-conv{background:none;border:1px solid var(--line2);color:var(--navy);border-radius:9px;padding:6px 11px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer;flex:none}
 .cvp-kebab{background:none;border:none;color:var(--dim);font-size:20px;line-height:1;cursor:pointer;padding:0 6px;flex:none}
+.ob{grid-column:1/-1;background:var(--panel);border:1px solid var(--line2);border-radius:15px;padding:15px 15px 8px;margin-bottom:2px}
+.ob-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.ob-tt{font-size:15px;font-weight:800;flex:1}
+.ob-x{background:none;border:none;color:var(--dim);font-size:13px;cursor:pointer;font-family:inherit}
+.ob-bar{height:6px;background:var(--panel2);border-radius:4px;overflow:hidden;margin-bottom:3px}
+.ob-bar i{display:block;height:100%;background:var(--orange);border-radius:4px;transition:width .3s}
+.ob-cnt{font-size:11.5px;color:var(--muted);margin-bottom:8px}
+.ob-st{display:flex;align-items:center;gap:12px;padding:11px 2px;border-top:1px solid var(--line)}
+.ob-st[data-obgo]{cursor:pointer}
+.ob-ck{width:24px;height:24px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800}
+.ob-ck.done{background:var(--ok);color:#fff}
+.ob-ck.todo{background:var(--panel2);border:1.5px solid var(--line2);color:var(--dim)}
+.ob-st-meta{flex:1;min-width:0}
+.ob-st-tt{font-size:14px;font-weight:600}
+.ob-st.done .ob-st-tt{color:var(--dim);text-decoration:line-through}
+.ob-st-sub{font-size:11.5px;color:var(--dim);margin-top:1px}
+.ob-st-go{color:var(--orange);font-size:13px;font-weight:800;flex:none}
+.ob-done{grid-column:1/-1;background:#E8F5EE;border:1px solid #BFE4CF;border-radius:14px;padding:14px;text-align:center;font-size:13.5px;color:#1c6b47;font-weight:700}
 .cvp-hint{display:flex;gap:9px;align-items:flex-start;margin-top:12px;background:var(--panel2);border:1px solid var(--line2);border-radius:11px;padding:10px 12px}
 .cvp-hint svg{flex:none;margin-top:1px}
 .cvp-hint p{margin:0;font-size:12px;color:var(--muted);line-height:1.5}
@@ -4017,6 +4035,23 @@ function gastoVsPlano(me){
           verba,temVerba,cofre,disponivel,temDisponivel,ajustada,saldoReal,diasDepoisDeHoje,podeGastarDia};
 }
 
+function _obKey(){return "tr27_ob_"+VIAGEM.id;}
+function _obState(){try{return localStorage.getItem(_obKey())||"";}catch(e){return "";}}
+function _obSet(v){try{localStorage.setItem(_obKey(),v);}catch(e){}}
+/* card de onboarding pós-criação: 4 passos (3 no solo), some ao concluir ou ocultar */
+function onboardingCard(){
+  const st=_obState(); if(st==="hide"||st==="done")return "";
+  const c=STATE.config||{}, solo=ehSolo(), me=STATE.me;
+  const passos=[];
+  passos.push({k:"datas",done:!!(c.inicio&&c.fim),tt:"Definir as datas",sub:(c.inicio&&c.fim)?(fmtDate(c.inicio)+" – "+fmtDate(c.fim)):"quando é a viagem",go:null});
+  if(!solo)passos.push({k:"grupo",done:PEOPLE.length>=2,tt:"Adicionar o grupo",sub:PEOPLE.length>=2?(PEOPLE.length+" pessoas"):"quem vai com você",go:"grupo",rot:"Adicionar"});
+  passos.push({k:"meta",done:metaDe(me)>0,tt:"Definir a meta do cofre",sub:metaDe(me)>0?"meta definida":(solo?"quanto você quer juntar":"quanto vocês querem juntar"),go:"cofre",rot:"Definir"});
+  passos.push({k:"rot",done:(STATE.roteiro.dias||[]).some(d=>(d.itens||[]).length>0),tt:"Montar o 1º dia do roteiro",sub:(STATE.roteiro.dias||[]).some(d=>(d.itens||[]).length>0)?"1º dia montado":"o primeiro passeio",go:"roteiro",rot:"Montar"});
+  const feitos=passos.filter(p=>p.done).length, total=passos.length;
+  if(feitos>=total){_obSet("done");return '<div class="ob-done">✓ Viagem configurada — bom planejamento!</div>';}
+  const linhas=passos.map((p,i)=>`<div class="ob-st${p.done?' done':''}"${(!p.done&&p.go)?` data-obgo="${p.go}"`:''}><div class="ob-ck ${p.done?'done':'todo'}">${p.done?'✓':(i+1)}</div><div class="ob-st-meta"><div class="ob-st-tt">${esc(p.tt)}</div><div class="ob-st-sub">${esc(p.sub)}</div></div>${(!p.done&&p.go)?`<div class="ob-st-go">${esc(p.rot||"Abrir")} ›</div>`:''}</div>`).join("");
+  return `<div class="ob"><div class="ob-top"><div class="ob-tt">Deixar tudo pronto</div><button class="ob-x" data-obhide="1">ocultar</button></div><div class="ob-bar"><i style="width:${Math.round(feitos/total*100)}%"></i></div><div class="ob-cnt">${feitos} de ${total} concluídos</div>${linhas}</div>`;
+}
 function renderInicio(){_sujo.delete("inicio");
   const me=STATE.me, c=STATE.config;
   const dIni=daysTo(c.inicio), dFim=daysTo(c.fim), emV=emViagem();
@@ -4126,6 +4161,7 @@ function renderInicio(){_sujo.delete("inicio");
   }
 
   $("#p-inicio").innerHTML=`
+  ${onboardingCard()}
   ${emV?`${roteiroCard}${gastoCard}${ehSolo()?"":rachaCard}${cofreCard}`:`${cofreCard}${roteiroCard}${ehSolo()?"":rachaCard}`}
   <div class="note" style="text-align:center;margin-top:4px">Toque em qualquer cartão para abrir a aba completa.</div>`;
 
@@ -4135,6 +4171,8 @@ function renderInicio(){_sujo.delete("inicio");
     el.onclick=ir;
     el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();ir(e);}};
   });
+  $("#p-inicio").querySelectorAll("[data-obhide]").forEach(el=>el.onclick=e=>{e.stopPropagation();_obSet("hide");renderInicio();});
+  $("#p-inicio").querySelectorAll("[data-obgo]").forEach(el=>el.onclick=e=>{e.stopPropagation();const g=el.dataset.obgo;if(g==="grupo")abrirParticipantes();else show(g);});
   $("#p-inicio").querySelectorAll("[data-verba]").forEach(el=>el.onclick=e=>{e.stopPropagation();verbaModal();});
   $("#p-inicio").querySelectorAll("[data-quick]").forEach(el=>el.onclick=e=>{e.stopPropagation();quickGasto();});
   requestAnimationFrame(animarNumeros);
