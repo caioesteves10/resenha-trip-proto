@@ -898,6 +898,22 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
 .cv-chips:empty{margin-top:0}
 .cv-chip{display:inline-flex;align-items:center;gap:5px;background:var(--panel2);border:1px solid var(--line2);border-radius:99px;padding:6px 6px 6px 12px;font-size:13px;font-weight:600;color:var(--text)}
 .cv-chip button{background:none;border:none;color:var(--muted);font-size:18px;line-height:1;cursor:pointer;padding:0 4px}
+.cvp-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.cvp-row{display:flex;align-items:center;gap:11px;background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:9px 12px}
+.cvp-row.me{background:var(--panel2)}
+.cvp-av{width:34px;height:34px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff;background:var(--navy);overflow:hidden}
+.cvp-av.res{background:#B9C6DA}
+.cvp-av img{width:100%;height:100%;object-fit:cover;display:block}
+.cvp-meta{flex:1;min-width:0}
+.cvp-name{font-size:14px;font-weight:600;color:var(--text);line-height:1.2}
+.cvp-tag{font-size:11.5px;color:var(--dim);margin-top:3px;display:flex;align-items:center;gap:6px}
+.cvp-dot{width:5px;height:5px;border-radius:50%;background:var(--line2);flex:none}
+.cvp-badge{font-size:10px;font-weight:800;border-radius:6px;padding:1px 6px;border:1px solid var(--orange);color:var(--orange)}
+.cvp-rm{background:none;border:none;color:var(--dim);font-size:18px;line-height:1;cursor:pointer;padding:2px 4px;flex:none}
+.cvp-hint{display:flex;gap:9px;align-items:flex-start;margin-top:12px;background:var(--panel2);border:1px solid var(--line2);border-radius:11px;padding:10px 12px}
+.cvp-hint svg{flex:none;margin-top:1px}
+.cvp-hint p{margin:0;font-size:12px;color:var(--muted);line-height:1.5}
+.cvp-hint b{color:var(--navy)}
 .cv-results{margin-top:6px;background:var(--panel);border:1px solid var(--line2);border-radius:12px;max-height:210px;overflow:auto}
 .cv-results:empty{display:none}
 .cv-dropit{display:flex;align-items:center;gap:8px;padding:11px 12px;cursor:pointer;font-size:14px;border-bottom:1px solid var(--line)}
@@ -2499,7 +2515,8 @@ async function criarViagem(d){
   cds.forEach((c,i)=>{c.de=datas[i].de;c.ate=datas[i].ate;});
   const hoje=new Date(),mesAtual=hoje.getFullYear()+"-"+String(hoje.getMonth()+1).padStart(2,"0");
   const base=d.moeda||"BRL";const vista=(d.moedasVista&&d.moedasVista.length)?d.moedasVista.slice():[base];
-  const config={nome:d.nome,tagline:d.tagline||"Viagem",inicio:d.inicio,fim:d.fim,moeda:base,moedaViagem:base,moedasVista:vista,inicioPoupanca:mesAtual,fx:{EUR:6.20,USD:5.45},cidades:cds,pessoas:d.pessoas.slice(),codigo:code,nota:""};
+  const parts=(d.pessoas||[]).map(partClean);
+  const config={nome:d.nome,tagline:d.tagline||"Viagem",inicio:d.inicio,fim:d.fim,moeda:base,moedaViagem:base,moedasVista:vista,inicioPoupanca:mesAtual,fx:{EUR:6.20,USD:5.45},cidades:cds,pessoas:parts,codigo:code,nota:""};
   const ts=FB.serverTimestamp?FB.serverTimestamp():Date.now();
   const P=(...seg)=>FB.doc(db,"viagens",code,...seg);
   const b=FB.writeBatch(db);
@@ -2512,14 +2529,14 @@ async function criarViagem(d){
   b.set(P("dados","tarefas"),{itens:[]});
   b.set(P("dados","essenciais"),{itens:[]});
   b.set(P("dados","seeded"),{done:true,at:Date.now()});
-  d.pessoas.forEach(p=>b.set(P("viajantes",p),{meta:0,depositos:[],compras:[],checklist:[],pessoais:[],realizados:[],mala:[]}));
+  parts.forEach(p=>b.set(P("viajantes",p.nome),{meta:0,depositos:[],compras:[],checklist:[],pessoais:[],realizados:[],mala:[]}));
   await b.commit();
   return code;
 }
 const MOEDAS_DB=[["BRL","Real brasileiro"],["USD","Dólar americano"],["EUR","Euro"],["GBP","Libra esterlina"],["JPY","Iene japonês"],["CHF","Franco suíço"],["CAD","Dólar canadense"],["AUD","Dólar australiano"],["CNY","Yuan chinês"],["ARS","Peso argentino"],["CLP","Peso chileno"],["UYU","Peso uruguaio"],["MXN","Peso mexicano"],["COP","Peso colombiano"],["PEN","Sol peruano"],["PYG","Guarani paraguaio"],["BOB","Boliviano"],["PLN","Zloti polonês"],["CZK","Coroa tcheca"],["DKK","Coroa dinamarquesa"],["SEK","Coroa sueca"],["NOK","Coroa norueguesa"],["HUF","Florim húngaro"],["RON","Leu romeno"],["TRY","Lira turca"],["RUB","Rublo russo"],["INR","Rupia indiana"],["ZAR","Rand sul-africano"],["AED","Dirham dos Emirados"],["SAR","Rial saudita"],["ILS","Novo shekel israelense"],["EGP","Libra egípcia"],["MAD","Dirham marroquino"],["THB","Baht tailandês"],["SGD","Dólar de Singapura"],["HKD","Dólar de Hong Kong"],["KRW","Won sul-coreano"],["NZD","Dólar neozelandês"],["IDR","Rupia indonésia"],["MYR","Ringgit malaio"],["PHP","Peso filipino"],["VND","Dongue vietnamita"],["ISK","Coroa islandesa"]];
 function abrirCriarViagem(){
   if(MOCK){toast("Sem conexão — não dá pra criar viagem agora.");return;}
-  const cidsel=[],psel=STATE.me?[STATE.me]:[],pselEmail={};
+  const cidsel=[],psel=[{id:genPid(),nome:(STATE.conta||STATE.me||"Você"),uid:UID||undefined}];
   const chaves=Object.keys(CIDADES_DB.db),nomeBonito=k=>k.charAt(0).toUpperCase()+k.slice(1);
   const flagPais=cc=>{if(!cc||cc.length!==2)return "";const A=0x1F1E6;return String.fromCodePoint(A+cc.toUpperCase().charCodeAt(0)-65)+String.fromCodePoint(A+cc.toUpperCase().charCodeAt(1)-65);};
   const MESN=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -2542,10 +2559,11 @@ function abrirCriarViagem(){
       <div class="cal-grid"></div>
       <div class="cal-sum"></div>
     </div>
-    <label class="cv-l">Pessoas</label>
+    <label class="cv-l">Quem vai?</label>
+    <div class="mo-sub">Adicione os nomes — depois você pode convidar quem quiser usar o app.</div>
     <div class="cv-addrow"><input id="cv-pess" placeholder="Nome da pessoa" autocomplete="off"><button class="btn sec" id="cv-pessadd">Adicionar</button></div>
-    <input id="cv-pemail" class="cv-pemail" type="email" inputmode="email" placeholder="E-mail (opcional, pra convidar)" autocomplete="off">
-    <div id="cv-psel" class="cv-chips"></div>
+    <div id="cv-psel" class="cvp-list"></div>
+    <div class="cvp-hint"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.5h.01"/></svg><p>Cada nome vira um <b>lugar na rachadinha</b>, mesmo sem conta. Quando alguém entrar pelo convite, você liga a pessoa ao lugar dela.</p></div>
     <label class="cv-l">Sua moeda principal</label>
     <input id="cv-mp" placeholder="Buscar moeda (ex.: Real, Dólar, EUR)…" autocomplete="off">
     <div id="cv-mp-res" class="cv-results"></div>
@@ -2629,11 +2647,15 @@ function abrirCriarViagem(){
   renderCal();
 
   /* ---- pessoas ---- */
+  const avCV=(p,res)=>p&&p.foto?`<div class="cvp-av${res?' res':''}"><img src="${esc(p.foto)}" alt=""></div>`:`<div class="cvp-av${res?' res':''}">${esc(iniciais(p&&p.nome))}</div>`;
   const renderPess=()=>{
-    $("#cv-psel").innerHTML=psel.map((p,i)=>`<span class="cv-chip">${esc(p)}${pselEmail[p]?' ✉':''}<button data-i="${i}" aria-label="remover">×</button></span>`).join("");
-    $("#cv-psel").querySelectorAll("button").forEach(b=>b.onclick=()=>{psel.splice(+b.dataset.i,1);renderPess();});
+    $("#cv-psel").innerHTML=psel.map((p,i)=>{
+      if(p.uid)return `<div class="cvp-row me">${avCV(p,false)}<div class="cvp-meta"><div class="cvp-name">${esc(p.nome)}</div><div class="cvp-tag"><span class="cvp-badge">você</span> organizando</div></div></div>`;
+      return `<div class="cvp-row">${avCV(p,true)}<div class="cvp-meta"><div class="cvp-name">${esc(p.nome)}</div><div class="cvp-tag"><span class="cvp-dot"></span> sem conta registrada</div></div><button class="cvp-rm" data-i="${i}" aria-label="remover">×</button></div>`;
+    }).join("");
+    $("#cv-psel").querySelectorAll(".cvp-rm").forEach(b=>b.onclick=()=>{psel.splice(+b.dataset.i,1);renderPess();});
   };
-  const addPess=()=>{const v=$("#cv-pess").value.trim();if(!v)return;const em=($("#cv-pemail")?$("#cv-pemail").value.trim().toLowerCase():"");if(!psel.includes(v))psel.push(v);if(em)pselEmail[v]=em;$("#cv-pess").value="";if($("#cv-pemail"))$("#cv-pemail").value="";renderPess();$("#cv-pess").focus();};
+  const addPess=()=>{const v=$("#cv-pess").value.trim();if(!v)return;if(!psel.some(p=>normNome(p.nome)===normNome(v)))psel.push({id:genPid(),nome:v});$("#cv-pess").value="";renderPess();$("#cv-pess").focus();};
   $("#cv-pessadd").onclick=addPess;
   $("#cv-pess").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addPess();}});
   renderCid();renderPess();
@@ -2658,7 +2680,7 @@ function abrirCriarViagem(){
     if(!de||!ate){err.textContent="Toque no início e no fim no calendário.";return;}
     if(!psel.length){err.textContent="Adicione ao menos uma pessoa.";return;}
     const btn=$("#cv-criar");btn.disabled=true;btn.textContent="Criando…";
-    try{const code=await criarViagem({nome,tagline:tag,cidades:cidsel.slice(),inicio:de,fim:ate,pessoas:psel.slice(),moeda:moedaPrin,moedasVista:[moedaPrin].concat(moedasV.filter(m=>m!==moedaPrin))});close();if(code){for(const nm in pselEmail){await criarConvite(code,nome,nm,pselEmail[nm]);}mostrarCodigoViagem(code,nome,()=>abrirViagem(code));}}
+    try{const code=await criarViagem({nome,tagline:tag,cidades:cidsel.slice(),inicio:de,fim:ate,pessoas:psel.slice(),moeda:moedaPrin,moedasVista:[moedaPrin].concat(moedasV.filter(m=>m!==moedaPrin))});close();if(code){mostrarCodigoViagem(code,nome,()=>abrirViagem(code));}}
     catch(e){console.warn("criarViagem:",e);btn.disabled=false;btn.textContent="Criar viagem";err.textContent="Não deu pra criar agora. Tente de novo.";}
   };
 }
@@ -3290,6 +3312,8 @@ function avatarHTML(p,cls){
   if(p&&p.foto)return '<div class="av'+c+'"><img src="'+esc(p.foto)+'" alt=""></div>';
   return '<div class="av'+c+'">'+esc(iniciais(p&&p.nome))+'</div>';
 }
+/* devolve um objeto participante limpo pra gravar (sem campos undefined, que o Firestore rejeita) */
+function partClean(p){const o={id:(p&&p.id)||genPid(),nome:String((p&&p.nome)||"").trim()};if(p&&p.uid)o.uid=p.uid;if(p&&p.email)o.email=String(p.email).trim().toLowerCase();if(p&&p.foto)o.foto=p.foto;return o;}
 /* ---- pessoas por viagem (Fase 4a) ----------------------
    PEOPLE é uma cópia mutável: seu CONTEÚDO é sincronizado com as pessoas
    da viagem aberta (config.pessoas), caindo no grupo da principal quando
@@ -3395,8 +3419,7 @@ function perguntarQuemEhVoce(){
   $("#modal").querySelectorAll(".qv-item").forEach(b=>b.onclick=()=>{salvarVinculo(b.dataset.n);close();toast("Pronto, você é "+b.dataset.n+" aqui ✓");});
   $("#qv-novo").onclick=async()=>{
     const nome=nomeConta();
-    const atual=(STATE.config&&Array.isArray(STATE.config.pessoas)&&STATE.config.pessoas.length)?STATE.config.pessoas.slice():PEOPLE.slice();
-    if(!atual.some(p=>normNome(p)===normNome(nome))){atual.push(nome);saveDoc("config",{pessoas:atual});}
+    if(!partDe(nome)){const atual=PARTICIPANTES.map(partClean);atual.push(partClean({nome:nome,uid:UID||undefined}));saveDoc("config",{pessoas:atual});}
     salvarVinculo(nome);close();
   };
 }
@@ -3536,7 +3559,7 @@ function abrirSaudeGrupo(){
 }
 async function abrirParticipantes(){
   const cod=(STATE.config&&STATE.config.codigo)||"";
-  const pes=(STATE.config&&Array.isArray(STATE.config.pessoas)&&STATE.config.pessoas.length)?STATE.config.pessoas.slice():PEOPLE.slice();
+  const pes=PARTICIPANTES.map(partClean);
   let pend=[],vdata={};
   if(!MOCK&&db){
     try{const vs=await FB.getDoc(FB.doc(db,"viagens",VIAGEM.id));vdata=vs.data()||{};}catch(e){}
@@ -3546,7 +3569,7 @@ async function abrirParticipantes(){
   const membros=vdata.membros||[], mInfo=vdata.membrosInfo||{};
   const solic=vdata.pendentes||[], sInfo=vdata.pendentesInfo||{};
 
-  const linhaP=pes.map(p=>`<div class="pt-row"><span>${esc(p)}${MEU_VINCULO[VIAGEM.id]===p?' <span class="pt-eu">você</span>':''}</span><button class="pt-rm" data-rm="${esc(p)}">remover</button></div>`).join("")||'<div class="empty">Ninguém ainda.</div>';
+  const linhaP=pes.map(p=>`<div class="pt-row"><span>${esc(p.nome)}${temConta(p)?' <span class="pt-eu">com conta</span>':(MEU_VINCULO[VIAGEM.id]===p.nome?' <span class="pt-eu">você</span>':'')}</span><button class="pt-rm" data-rm="${esc(p.nome)}">remover</button></div>`).join("")||'<div class="empty">Ninguém ainda.</div>';
 
   const secSolic=(souDono&&solic.length)?('<div class="pt-lb">Solicitações de entrada</div>'+solic.map(u=>`<div class="pt-row"><span>${esc(sInfo[u]||"Alguém")}<br><span class="s">quer entrar</span></span><span class="pt-acts"><button class="pt-ap" data-ap="${esc(u)}" data-nm="${esc(sInfo[u]||"")}">aprovar</button><button class="pt-rm" data-rj="${esc(u)}">recusar</button></span></div>`).join("")):'';
 
@@ -3582,13 +3605,13 @@ async function abrirParticipantes(){
   $("#modal").querySelectorAll("[data-rj]").forEach(b=>b.onclick=()=>{const uid=b.dataset.rj;confirmModal("Recusar solicitação?","A pessoa não entra na viagem. Ela pode pedir de novo.","Recusar",()=>_recusarSolic(uid),true,abrirParticipantes);});
   $("#modal").querySelectorAll("[data-mrm]").forEach(b=>b.onclick=()=>{const uid=b.dataset.mrm;confirmModal("Remover acesso?","Essa pessoa perde o acesso à viagem. Ela pode pedir pra entrar de novo pelo código.","Remover acesso",()=>_removerMembro(uid),true,abrirParticipantes);});
   $("#modal").querySelectorAll("[data-cancel]").forEach(b=>b.onclick=async()=>{try{await FB.deleteDoc(FB.doc(db,"convites",b.dataset.cancel));toast("Convite cancelado");}catch(e){}abrirParticipantes();});
-  $("#modal").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{const nome=b.dataset.rm;confirmModal("Remover participante?",`<b>${esc(nome)}</b> sai da lista desta viagem.`,"Remover",()=>{const atual=pes.filter(p=>p!==nome);saveDoc("config",{pessoas:atual});if(MEU_VINCULO[VIAGEM.id]===nome){delete MEU_VINCULO[VIAGEM.id];try{if(UID)localStorage.setItem("tr27_vinc_"+UID,JSON.stringify(MEU_VINCULO));}catch(e){}}toast("Removido");abrirParticipantes();},true,abrirParticipantes);});
+  $("#modal").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{const nome=b.dataset.rm;confirmModal("Remover participante?",`<b>${esc(nome)}</b> sai da lista desta viagem.`,"Remover",()=>{const atual=pes.filter(p=>normNome(p.nome)!==normNome(nome));saveDoc("config",{pessoas:atual});if(MEU_VINCULO[VIAGEM.id]===nome){delete MEU_VINCULO[VIAGEM.id];try{if(UID)localStorage.setItem("tr27_vinc_"+UID,JSON.stringify(MEU_VINCULO));}catch(e){}}toast("Removido");abrirParticipantes();},true,abrirParticipantes);});
   $("#pt-add").onclick=async()=>{
     const nome=($("#pt-nome").value||"").trim();
     const email=String($("#pt-email").value||"").trim().toLowerCase();
     if(!nome){toast("Digite um nome.");return;}
     const atual=pes.slice();
-    if(!atual.some(p=>normNome(p)===normNome(nome))){atual.push(nome);saveDoc("config",{pessoas:atual});}
+    if(!atual.some(p=>normNome(p.nome)===normNome(nome))){atual.push(partClean({nome:nome}));saveDoc("config",{pessoas:atual});}
     if(email&&!MOCK&&db){
       const ok=await criarConvite(VIAGEM.id,(STATE.config&&STATE.config.nome)||"Viagem",nome,email);
       toast(ok?"Adicionado e convite criado ✓":"Adicionado. Convite falhou.");
