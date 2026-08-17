@@ -913,6 +913,7 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
 .cvp-badge.gray{border-color:var(--line2);color:var(--muted)}
 .cvp-rm{background:none;border:none;color:var(--dim);font-size:18px;line-height:1;cursor:pointer;padding:2px 4px;flex:none}
 .cvp-conv{background:none;border:1px solid var(--line2);color:var(--navy);border-radius:9px;padding:6px 11px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer;flex:none}
+.cvp-kebab{background:none;border:none;color:var(--dim);font-size:20px;line-height:1;cursor:pointer;padding:0 6px;flex:none}
 .cvp-hint{display:flex;gap:9px;align-items:flex-start;margin-top:12px;background:var(--panel2);border:1px solid var(--line2);border-radius:11px;padding:10px 12px}
 .cvp-hint svg{flex:none;margin-top:1px}
 .cvp-hint p{margin:0;font-size:12px;color:var(--muted);line-height:1.5}
@@ -3333,6 +3334,116 @@ async function convidarLugar(id,nome){
   const txt=(nome||"Você")+', entra na nossa viagem "'+((STATE.config&&STATE.config.nome)||"")+'" no Resenha Trip: '+link;
   try{if(navigator.share){await navigator.share({text:txt});}else{await navigator.clipboard.writeText(txt);toast("Convite de "+(nome||"")+" copiado ✓");}}catch(e){}
 }
+/* ---- Fundir / Renomear (item c3) -------------------------------------
+   O store financeiro é indexado por NOME. Renomear e Fundir movem/mesclam
+   os dados de um nome para outro e reescrevem todas as referências de nome
+   (custos, rachadinha, tarefas). Uma máquina só, usada pelos dois. */
+function transferirNome(de,para){
+  if(!de||!para||normNome(de)===normNome(para))return;
+  const S=STATE.pessoas||(STATE.pessoas={});
+  const src=S[de]||{}, dst=S[para]||{meta:0,verba:0,depositos:[],compras:[],checklist:[],pessoais:[],realizados:[],mala:[],malaTpls:[],saude:null};
+  ["depositos","compras","checklist","pessoais","realizados","mala","malaTpls"].forEach(k=>{dst[k]=(dst[k]||[]).concat(src[k]||[]);});
+  dst.meta=(Number(dst.meta)||0)+(Number(src.meta)||0);
+  dst.verba=(Number(dst.verba)||0)+(Number(src.verba)||0);
+  if(!dst.saude&&src.saude)dst.saude=src.saude;
+  S[para]=dst; delete S[de];
+  const eq=x=>normNome(x)===normNome(de);
+  const troca=arr=>Array.isArray(arr)?arr.map(x=>eq(x)?para:x).filter((v,i,a)=>a.indexOf(v)===i):arr;
+  ((STATE.custos&&STATE.custos.itens)||[]).forEach(it=>{if(Array.isArray(it.quem))it.quem=troca(it.quem);});
+  ((STATE.racha&&STATE.racha.despesas)||[]).forEach(d=>{if(eq(d.pagou))d.pagou=para;if(Array.isArray(d.entre))d.entre=troca(d.entre);});
+  ((STATE.racha&&STATE.racha.pagamentos)||[]).forEach(pg=>{if(eq(pg.de))pg.de=para;if(eq(pg.para))pg.para=para;});
+  ((STATE.tarefas&&STATE.tarefas.itens)||[]).forEach(t=>{if(Array.isArray(t.quem))t.quem=troca(t.quem);else if(t.quem&&eq(t.quem))t.quem=para;});
+}
+async function _persistPosTransfer(){
+  await saveDoc("custos",{itens:(STATE.custos&&STATE.custos.itens)||[]});
+  await saveDoc("racha",{despesas:(STATE.racha&&STATE.racha.despesas)||[],pagamentos:(STATE.racha&&STATE.racha.pagamentos)||[]});
+  await saveDoc("tarefas",{itens:(STATE.tarefas&&STATE.tarefas.itens)||[]});
+}
+async function fundirLugares(idDe,idPara){
+  const a=partById(idDe),b=partById(idPara);
+  if(!a||!b||a.id===b.id)return false;
+  const nomeDe=a.nome,nomePara=b.nome;
+  transferirNome(nomeDe,nomePara);
+  const atual=PARTICIPANTES.filter(x=>x.id!==idDe).map(partClean);
+  await saveDoc("config",{pessoas:atual}); sincronizarPessoas();
+  await savePessoa(nomePara,STATE.pessoas[nomePara]||{});
+  await _persistPosTransfer();
+  if(!MOCK&&db){try{await FB.deleteDoc(caminhoPessoa(nomeDe));}catch(e){}}
+  if(MEU_VINCULO[VIAGEM.id]===nomeDe){MEU_VINCULO[VIAGEM.id]=nomePara;STATE.me=nomePara;try{if(UID)localStorage.setItem("tr27_vinc_"+UID,JSON.stringify(MEU_VINCULO));}catch(e){}}
+  ensurePessoas(); renderAll(); return true;
+}
+async function renomearLugar(id,novo){
+  const p=partById(id); if(!p)return false;
+  novo=String(novo||"").trim(); if(!novo||normNome(novo)===normNome(p.nome))return false;
+  const existe=PARTICIPANTES.find(x=>x.id!==id&&normNome(x.nome)===normNome(novo));
+  if(existe)return fundirLugares(id,existe.id);
+  const antigo=p.nome;
+  transferirNome(antigo,novo);
+  const atual=PARTICIPANTES.map(x=>x.id===id?partClean(Object.assign({},x,{nome:novo})):partClean(x));
+  await saveDoc("config",{pessoas:atual}); sincronizarPessoas();
+  await savePessoa(novo,STATE.pessoas[novo]||{});
+  await _persistPosTransfer();
+  if(!MOCK&&db){try{await FB.deleteDoc(caminhoPessoa(antigo));}catch(e){}}
+  if(MEU_VINCULO[VIAGEM.id]===antigo){MEU_VINCULO[VIAGEM.id]=novo;STATE.me=novo;try{if(UID)localStorage.setItem("tr27_vinc_"+UID,JSON.stringify(MEU_VINCULO));}catch(e){}}
+  ensurePessoas(); renderAll(); return true;
+}
+function removerParticipante(nome){
+  confirmModal("Remover participante?",`<b>${esc(nome)}</b> sai da lista desta viagem.`,"Remover",()=>{
+    const atual=PARTICIPANTES.filter(x=>normNome(x.nome)!==normNome(nome)).map(partClean);
+    saveDoc("config",{pessoas:atual}); sincronizarPessoas();
+    if(MEU_VINCULO[VIAGEM.id]===nome){delete MEU_VINCULO[VIAGEM.id];try{if(UID)localStorage.setItem("tr27_vinc_"+UID,JSON.stringify(MEU_VINCULO));}catch(e){}}
+    toast("Removido"); abrirParticipantes();
+  },true,abrirParticipantes);
+}
+function menuParticipante(id){
+  const p=partById(id); if(!p)return;
+  const podeFundir=PARTICIPANTES.filter(x=>x.id!==id).length>0;
+  $("#modal").innerHTML=`<div class="modal"><div class="box">
+    <h3>${esc(p.nome)}</h3>
+    <p class="mo-sub">${temConta(p)?'Tem conta ligada nesta viagem.':'Lugar sem conta registrada.'}</p>
+    <div class="auth-form">
+      <button class="btn sec" id="mp-ren">Renomear</button>
+      ${podeFundir?'<button class="btn sec" id="mp-fun">Fundir com outra pessoa…</button>':''}
+      <button class="btn perigo" id="mp-rem">Remover da viagem</button>
+      <button class="btn gh" id="mp-c">Voltar</button>
+    </div>
+  </div></div>`;
+  $("#mp-c").onclick=abrirParticipantes;
+  $("#mp-ren").onclick=()=>renomearPrompt(id);
+  {const f=$("#mp-fun"); if(f)f.onclick=()=>fundirPrompt(id);}
+  $("#mp-rem").onclick=()=>removerParticipante(p.nome);
+}
+function renomearPrompt(id){
+  const p=partById(id); if(!p)return;
+  $("#modal").innerHTML=`<div class="modal"><div class="box">
+    <h3>Renomear</h3>
+    <p class="mo-sub">Muda o nome de <b>${esc(p.nome)}</b> em toda a viagem — rateio, cofre e checklist.</p>
+    <input id="rn-inp" class="au-inp" value="${esc(p.nome)}" autocomplete="off">
+    <div class="cv-acts"><button class="btn" id="rn-ok">Salvar</button><button class="btn gh" id="rn-c">Cancelar</button></div>
+  </div></div>`;
+  $("#rn-c").onclick=()=>menuParticipante(id);
+  $("#rn-ok").onclick=()=>{
+    const nv=($("#rn-inp").value||"").trim();
+    if(!nv){toast("Digite um nome.");return;}
+    const existe=PARTICIPANTES.find(x=>x.id!==id&&normNome(x.nome)===normNome(nv));
+    if(existe){confirmModal("Já existe "+nv,`Vai <b>fundir</b> ${esc(p.nome)} com ${esc(nv)} — gastos e cofre se juntam num só. Não dá pra desfazer.`,"Fundir",async()=>{await renomearLugar(id,nv);toast("Fundido ✓");abrirParticipantes();},true,()=>renomearPrompt(id));return;}
+    (async()=>{await renomearLugar(id,nv);toast("Renomeado ✓");abrirParticipantes();})();
+  };
+}
+function fundirPrompt(id){
+  const p=partById(id); if(!p)return;
+  const outros=PARTICIPANTES.filter(x=>x.id!==id);
+  const av=o=>o.foto?`<div class="cvp-av${temConta(o)?'':' res'}"><img src="${esc(o.foto)}" alt=""></div>`:`<div class="cvp-av${temConta(o)?'':' res'}">${esc(iniciais(o.nome))}</div>`;
+  const lista=outros.map(o=>`<button class="cvp-row qv-pick" data-id="${esc(o.id)}" style="width:100%;text-align:left;cursor:pointer">${av(o)}<div class="cvp-meta"><div class="cvp-name">${esc(o.nome)}</div><div class="cvp-tag">${temConta(o)?'<span class="cvp-badge ok">com conta</span>':'<span class="cvp-dot"></span> sem conta'}</div></div></button>`).join("");
+  $("#modal").innerHTML=`<div class="modal"><div class="box">
+    <h3>Fundir ${esc(p.nome)} com…</h3>
+    <p class="mo-sub">Escolha quem é a <b>mesma pessoa</b> que ${esc(p.nome)}. Gastos, cofre e checklist se juntam nela.</p>
+    <div class="cvp-list">${lista||'<div class="empty">Ninguém pra fundir.</div>'}</div>
+    <button class="btn gh" id="fu-c" style="margin-top:8px">Voltar</button>
+  </div></div>`;
+  $("#fu-c").onclick=()=>menuParticipante(id);
+  $("#modal").querySelectorAll(".qv-pick").forEach(b=>b.onclick=()=>{const alvo=partById(b.dataset.id);confirmModal("Fundir?",`<b>${esc(p.nome)}</b> vira <b>${esc(alvo.nome)}</b>. Gastos e cofre se juntam. Não dá pra desfazer.`,"Fundir",async()=>{await fundirLugares(id,alvo.id);toast("Fundido ✓");abrirParticipantes();},true,()=>fundirPrompt(id));});
+}
 /* ---- pessoas por viagem (Fase 4a) ----------------------
    PEOPLE é uma cópia mutável: seu CONTEÚDO é sincronizado com as pessoas
    da viagem aberta (config.pessoas), caindo no grupo da principal quando
@@ -3607,6 +3718,7 @@ async function abrirParticipantes(){
   const solic=vdata.pendentes||[], sInfo=vdata.pendentesInfo||{};
 
   const _meuNome=MEU_VINCULO[VIAGEM.id];
+  const partUids=new Set(pes.filter(p=>p.uid).map(p=>p.uid));
   const linhaP=pes.map(p=>{
     const eu=!!(_meuNome&&normNome(p.nome)===normNome(_meuNome));
     const dono=!!(p.uid&&vdata.dono&&p.uid===vdata.dono);
@@ -3616,22 +3728,23 @@ async function abrirParticipantes(){
     else tag=`<span class="cvp-dot"></span> sem conta registrada`;
     const av=p.foto?`<div class="cvp-av${temConta(p)?'':' res'}"><img src="${esc(p.foto)}" alt=""></div>`:`<div class="cvp-av${temConta(p)?'':' res'}">${esc(iniciais(p.nome))}</div>`;
     const conv=(!temConta(p))?`<button class="cvp-conv act-conv" data-cid="${esc(p.id)}" data-cn="${esc(p.nome)}">Convidar</button>`:'';
-    const rm=dono?'':`<button class="cvp-rm" data-rm="${esc(p.nome)}" aria-label="remover">×</button>`;
-    return `<div class="cvp-row${eu?' me':''}">${av}<div class="cvp-meta"><div class="cvp-name">${esc(p.nome)}</div><div class="cvp-tag">${tag}</div></div>${conv}${rm}</div>`;
-  }).join("")||'<div class="empty">Ninguém ainda.</div>';
+    const menu=dono?'':`<button class="cvp-kebab act-menu" data-mid="${esc(p.id)}" aria-label="opções">⋯</button>`;
+    return `<div class="cvp-row${eu?' me':''}">${av}<div class="cvp-meta"><div class="cvp-name">${esc(p.nome)}</div><div class="cvp-tag">${tag}</div></div>${conv}${menu}</div>`;
+  }).join("");
+  const orfaos=(souDono?membros:[]).filter(u=>!partUids.has(u));
+  const linhaOrf=orfaos.map(u=>`<div class="cvp-row"><div class="cvp-av">${esc((String(mInfo[u]||"M").trim()[0]||"M").toUpperCase())}</div><div class="cvp-meta"><div class="cvp-name">${esc(mInfo[u]||"Membro")}</div><div class="cvp-tag"><span class="cvp-badge ok">com conta</span>${u===vdata.dono?' dono':' sem lugar ligado'}</div></div>${(u!==vdata.dono&&u!==UID)?`<button class="cvp-rm" data-mrm="${esc(u)}" aria-label="remover acesso">×</button>`:''}</div>`).join("");
+  const listaFull=(linhaP+linhaOrf)||'<div class="empty">Ninguém ainda.</div>';
 
   const secSolic=(souDono&&solic.length)?('<div class="pt-lb">Solicitações de entrada</div>'+solic.map(u=>`<div class="pt-row"><span>${esc(sInfo[u]||"Alguém")}<br><span class="s">quer entrar</span></span><span class="pt-acts"><button class="pt-ap" data-ap="${esc(u)}" data-nm="${esc(sInfo[u]||"")}">aprovar</button><button class="pt-rm" data-rj="${esc(u)}">recusar</button></span></div>`).join("")):'';
 
-  const secMembros=souDono?('<div class="pt-lb">Membros com acesso</div>'+(membros.length?membros.map(u=>`<div class="pt-row"><span>${esc(mInfo[u]||"Membro")}${u===vdata.dono?' <span class="pt-eu">dono</span>':''}</span>${(u!==vdata.dono&&u!==UID)?`<button class="pt-rm" data-mrm="${esc(u)}">remover</button>`:''}</div>`).join(""):'<div class="empty">Só você.</div>')):'';
 
   const linhaC=pend.length?('<div class="pt-lb">Convites por e-mail (pendentes)</div>'+pend.map(c=>`<div class="pt-row"><span>${esc(c.nome||c.email)}<br><span class="s">${esc(c.email)}</span></span><button class="pt-rm" data-cancel="${esc(c._id)}">cancelar</button></div>`).join("")):'';
 
   $("#modal").innerHTML=`<div class="modal"><div class="box">
     <h3>Participantes</h3>
     ${secSolic}
-    ${secMembros}
     <div class="pt-lb">Nesta viagem</div>
-    <div class="pt-lista">${linhaP}</div>
+    <div class="pt-lista">${listaFull}</div>
     ${linhaC}
     <div class="pt-lb">Adicionar pessoa</div>
     <input id="pt-nome" class="au-inp" placeholder="Nome da pessoa">
@@ -3656,6 +3769,7 @@ async function abrirParticipantes(){
   $("#modal").querySelectorAll("[data-cancel]").forEach(b=>b.onclick=async()=>{try{await FB.deleteDoc(FB.doc(db,"convites",b.dataset.cancel));toast("Convite cancelado");}catch(e){}abrirParticipantes();});
   $("#modal").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{const nome=b.dataset.rm;confirmModal("Remover participante?",`<b>${esc(nome)}</b> sai da lista desta viagem.`,"Remover",()=>{const atual=pes.filter(p=>normNome(p.nome)!==normNome(nome));saveDoc("config",{pessoas:atual});if(MEU_VINCULO[VIAGEM.id]===nome){delete MEU_VINCULO[VIAGEM.id];try{if(UID)localStorage.setItem("tr27_vinc_"+UID,JSON.stringify(MEU_VINCULO));}catch(e){}}toast("Removido");abrirParticipantes();},true,abrirParticipantes);});
   $("#modal").querySelectorAll(".act-conv").forEach(b=>b.onclick=()=>convidarLugar(b.dataset.cid,b.dataset.cn));
+  $("#modal").querySelectorAll(".act-menu").forEach(b=>b.onclick=()=>menuParticipante(b.dataset.mid));
   $("#pt-add").onclick=async()=>{
     const nome=($("#pt-nome").value||"").trim();
     if(!nome){toast("Digite um nome.");return;}
