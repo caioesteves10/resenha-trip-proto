@@ -3251,6 +3251,43 @@ function mesInfo(p){
           ritmoFuturo:ritmoFuturo,proximo:proxMes(mk),faltaTotal:faltaTotal,acabou:faltaTotal<=0.005};
 }
 const CORPESSOA={};
+/* ---- modelo de participante (proto-v61, item 1a) --------------------
+   Participante deixa de ser só um nome e passa a ser um objeto
+   {id, nome, uid?, email?, foto?}. PARTICIPANTES e a fonte de identidade;
+   PEOPLE (nomes) continua sendo a interface usada pelo resto do app e e
+   DERIVADO daqui — nada downstream precisa mudar. Le tanto o formato
+   antigo (lista de strings) quanto o novo (lista de objetos). */
+const PARTICIPANTES=[];
+let _pidSeq=0;
+function genPid(){_pidSeq++;return "p"+Date.now().toString(36)+_pidSeq.toString(36);}
+function normParts(raw){
+  const arr=Array.isArray(raw)?raw:[];
+  const vistos=new Set(),out=[];
+  arr.forEach(x=>{
+    let o;
+    if(x&&typeof x==="object"){
+      const nome=String(x.nome||"").trim(); if(!nome)return;
+      o={id:x.id||genPid(),nome:nome};
+      if(x.uid)o.uid=x.uid;
+      if(x.email)o.email=String(x.email).trim().toLowerCase();
+      if(x.foto)o.foto=x.foto;
+    }else{
+      const nome=String(x||"").trim(); if(!nome)return;
+      o={id:genPid(),nome:nome};
+    }
+    const k=normNome(o.nome); if(vistos.has(k))return; vistos.add(k); out.push(o);
+  });
+  return out;
+}
+function partDe(nome){const k=normNome(nome||"");return PARTICIPANTES.find(p=>normNome(p.nome)===k)||null;}
+function temConta(p){return !!(p&&p.uid);}
+function iniciais(nome){return (String(nome||"").trim().charAt(0)||"?").toUpperCase();}
+/* avatar foto-ready: usa a foto do participante quando existir; senao, a inicial */
+function avatarHTML(p,cls){
+  const c=cls?(" "+cls):"";
+  if(p&&p.foto)return '<div class="av'+c+'"><img src="'+esc(p.foto)+'" alt=""></div>';
+  return '<div class="av'+c+'">'+esc(iniciais(p&&p.nome))+'</div>';
+}
 /* ---- pessoas por viagem (Fase 4a) ----------------------
    PEOPLE é uma cópia mutável: seu CONTEÚDO é sincronizado com as pessoas
    da viagem aberta (config.pessoas), caindo no grupo da principal quando
@@ -3267,7 +3304,9 @@ function ensurePessoas(){
 function sincronizarPessoas(){
   const c=STATE.config&&STATE.config.pessoas;
   const cfg=(Array.isArray(c)&&c.length)?c:(VIAGEM.id==="principal"?DATA.people:[]);
-  PEOPLE.length=0; cfg.forEach(p=>PEOPLE.push(p));
+  const parts=normParts(cfg);
+  PARTICIPANTES.length=0; parts.forEach(p=>PARTICIPANTES.push(p));
+  PEOPLE.length=0; PARTICIPANTES.forEach(p=>PEOPLE.push(p.nome));
   recalcCores(); ensurePessoas();
 }
 function nomeConta(){return STATE.conta||STATE.me||"Você";}
