@@ -912,6 +912,7 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
 .cvp-badge.ok{border-color:var(--ok);color:var(--ok)}
 .cvp-badge.gray{border-color:var(--line2);color:var(--muted)}
 .cvp-rm{background:none;border:none;color:var(--dim);font-size:18px;line-height:1;cursor:pointer;padding:2px 4px;flex:none}
+.cvp-conv{background:none;border:1px solid var(--line2);color:var(--navy);border-radius:9px;padding:6px 11px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer;flex:none}
 .cvp-hint{display:flex;gap:9px;align-items:flex-start;margin-top:12px;background:var(--panel2);border:1px solid var(--line2);border-radius:11px;padding:10px 12px}
 .cvp-hint svg{flex:none;margin-top:1px}
 .cvp-hint p{margin:0;font-size:12px;color:var(--muted);line-height:1.5}
@@ -1027,7 +1028,7 @@ let ADMIN_HASH="";
 let ADMIN_EMAILS=["caioesteves10@gmail.com"];
 let AUTH_APPLE=false;
 let DEV=false;
-let LINK_ENTRAR="";
+let LINK_ENTRAR="",LINK_LUGAR="";
 let CFG_OK=false;
 let APPCHECK_ST="desligado";
 
@@ -3316,6 +3317,22 @@ function avatarHTML(p,cls){
 }
 /* devolve um objeto participante limpo pra gravar (sem campos undefined, que o Firestore rejeita) */
 function partClean(p){const o={id:(p&&p.id)||genPid(),nome:String((p&&p.nome)||"").trim()};if(p&&p.uid)o.uid=p.uid;if(p&&p.email)o.email=String(p.email).trim().toLowerCase();if(p&&p.foto)o.foto=p.foto;return o;}
+function partById(id){return PARTICIPANTES.find(p=>p.id===id)||null;}
+/* liga a conta atual (UID) ao lugar de um participante — a "reivindicação" segura por id */
+async function vincularLugar(id){
+  const p=partById(id); if(!p)return false;
+  if(UID){const atual=PARTICIPANTES.map(x=>x.id===id?partClean(Object.assign({},x,{uid:UID})):partClean(x));await saveDoc("config",{pessoas:atual});sincronizarPessoas();}
+  await salvarVinculo(p.nome);
+  return true;
+}
+/* organizador convida uma pessoa sem conta: link direcionado com o id do lugar */
+async function convidarLugar(id,nome){
+  const cod=(STATE.config&&STATE.config.codigo)||"";
+  if(!cod){toast("Sem código de convite nesta viagem.");return;}
+  const link=location.origin+location.pathname+"?entrar="+encodeURIComponent(cod)+"&lugar="+encodeURIComponent(id);
+  const txt=(nome||"Você")+', entra na nossa viagem "'+((STATE.config&&STATE.config.nome)||"")+'" no Resenha Trip: '+link;
+  try{if(navigator.share){await navigator.share({text:txt});}else{await navigator.clipboard.writeText(txt);toast("Convite de "+(nome||"")+" copiado ✓");}}catch(e){}
+}
 /* ---- pessoas por viagem (Fase 4a) ----------------------
    PEOPLE é uma cópia mutável: seu CONTEÚDO é sincronizado com as pessoas
    da viagem aberta (config.pessoas), caindo no grupo da principal quando
@@ -3399,31 +3416,49 @@ function garantirVinculoPessoa(){
   let quem=MEU_VINCULO[tid];
   if(!quem&&UID){try{const m=JSON.parse(localStorage.getItem("tr27_vinc_"+UID)||"{}");if(m&&m[tid]){MEU_VINCULO=m;quem=m[tid];}}catch(e){}}
   if(quem&&PEOPLE.includes(quem)){ if(STATE.me!==quem){STATE.me=quem;renderAll();} return; }
-  const conta=nomeConta();
-  const match=PEOPLE.find(p=>normNome(p)===normNome(conta));
-  if(match){ salvarVinculo(match); return; }
+  const meuPart=(UID?PARTICIPANTES.find(p=>p.uid&&p.uid===UID):null);
+  if(meuPart){ salvarVinculo(meuPart.nome); return; }
   if(_vinculoPend)return;
   perguntarQuemEhVoce();
 }
+function _avPick(p){return p&&p.foto?`<div class="cvp-av res"><img src="${esc(p.foto)}" alt=""></div>`:`<div class="cvp-av res">${esc(iniciais(p&&p.nome))}</div>`;}
+async function _entrarComoNovo(close){
+  const nome=nomeConta();
+  if(!partDe(nome)){const atual=PARTICIPANTES.map(partClean);atual.push(partClean({nome:nome,uid:UID||undefined}));await saveDoc("config",{pessoas:atual});sincronizarPessoas();}
+  await salvarVinculo(nome);close();
+}
 function perguntarQuemEhVoce(){
   _vinculoPend=true;
-  const atualB=MEU_VINCULO[VIAGEM.id];
-  const lista=PEOPLE.map(p=>`<button class="btn sec qv-item ${p===atualB?'on':''}" data-n="${esc(p)}">${esc(p)}${p===atualB?' ✓':''}</button>`).join("");
+  const close=()=>{_vinculoPend=false;$("#modal").innerHTML="";};
+  const semConta=PARTICIPANTES.filter(p=>!temConta(p));
+  const comConta=PARTICIPANTES.filter(p=>temConta(p));
+  // Tela B — convite direcionado: o link trouxe um lugar específico
+  const alvo=LINK_LUGAR?partById(LINK_LUGAR):null; LINK_LUGAR="";
+  if(alvo&&!temConta(alvo)){
+    $("#modal").innerHTML=`<div class="modal"><div class="box">
+      <h3>${esc((STATE.config&&STATE.config.nome)||"Entrar na viagem")}</h3>
+      <p class="mo-sub">Você foi convidado pra este lugar.</p>
+      <div class="cvp-row" style="justify-content:center;flex-direction:column;gap:10px;text-align:center;padding:18px">${_avPick(alvo)}<div class="cvp-name" style="font-size:16px">Entrar como <b>${esc(alvo.nome)}</b></div></div>
+      <button class="btn" id="qb-sim">Sou eu, entrar como ${esc(alvo.nome)}</button>
+      <button class="btn gh" id="qb-nao">Não sou ${esc(alvo.nome)}</button>
+    </div></div>`;
+    $("#qb-sim").onclick=async()=>{await vincularLugar(alvo.id);close();toast("Pronto, você é "+alvo.nome+" aqui ✓");};
+    $("#qb-nao").onclick=()=>perguntarQuemEhVoce();
+    return;
+  }
+  // Tela C — seleção explícita
+  const linhas=semConta.map(p=>`<button class="cvp-row qv-pick" data-id="${esc(p.id)}" style="width:100%;text-align:left;cursor:pointer">${_avPick(p)}<div class="cvp-meta"><div class="cvp-name">${esc(p.nome)}</div><div class="cvp-tag"><span class="cvp-dot"></span> lugar sem conta</div></div></button>`).join("");
+  const jaTem=comConta.length?`<div class="mo-sub" style="margin-top:10px">Já com conta: ${comConta.map(p=>esc(p.nome)).join(", ")}.</div>`:"";
   $("#modal").innerHTML=`<div class="modal"><div class="box">
     <h3>Quem é você nesta viagem?</h3>
-    <p class="mo-sub">Liga sua conta ao participante certo no cofre, na rachadinha e no checklist.</p>
-    <div class="auth-form">${lista}
-      <div class="au-ou"><span>ou</span></div>
-      <button class="btn" id="qv-novo">Me adicionar como “${esc(nomeConta())}”</button>
-    </div>
+    <p class="mo-sub">Escolha seu nome pra ligar sua conta ao cofre, à rachadinha e ao checklist. Ou entre como novo.</p>
+    <div class="cvp-list">${linhas||'<div class="empty">Nenhum lugar reservado ainda.</div>'}</div>
+    ${jaTem}
+    <div class="au-ou"><span>ou</span></div>
+    <button class="btn" id="qv-novo">Entrar como novo — “${esc(nomeConta())}”</button>
   </div></div>`;
-  const close=()=>{_vinculoPend=false;$("#modal").innerHTML="";};
-  $("#modal").querySelectorAll(".qv-item").forEach(b=>b.onclick=()=>{salvarVinculo(b.dataset.n);close();toast("Pronto, você é "+b.dataset.n+" aqui ✓");});
-  $("#qv-novo").onclick=async()=>{
-    const nome=nomeConta();
-    if(!partDe(nome)){const atual=PARTICIPANTES.map(partClean);atual.push(partClean({nome:nome,uid:UID||undefined}));saveDoc("config",{pessoas:atual});}
-    salvarVinculo(nome);close();
-  };
+  $("#modal").querySelectorAll(".qv-pick").forEach(b=>b.onclick=async()=>{const id=b.dataset.id,p=partById(id);await vincularLugar(id);close();toast("Pronto, você é "+(p?p.nome:"você")+" aqui ✓");});
+  $("#qv-novo").onclick=()=>_entrarComoNovo(close);
 }
 async function checarConvites(){
   if(MOCK||!db||!UID||!auth||!auth.currentUser)return;
@@ -3580,8 +3615,9 @@ async function abrirParticipantes(){
     else if(temConta(p))tag=`<span class="cvp-badge ok">com conta</span>${dono?' dono':' já entrou'}`;
     else tag=`<span class="cvp-dot"></span> sem conta registrada`;
     const av=p.foto?`<div class="cvp-av${temConta(p)?'':' res'}"><img src="${esc(p.foto)}" alt=""></div>`:`<div class="cvp-av${temConta(p)?'':' res'}">${esc(iniciais(p.nome))}</div>`;
+    const conv=(!temConta(p))?`<button class="cvp-conv act-conv" data-cid="${esc(p.id)}" data-cn="${esc(p.nome)}">Convidar</button>`:'';
     const rm=dono?'':`<button class="cvp-rm" data-rm="${esc(p.nome)}" aria-label="remover">×</button>`;
-    return `<div class="cvp-row${eu?' me':''}">${av}<div class="cvp-meta"><div class="cvp-name">${esc(p.nome)}</div><div class="cvp-tag">${tag}</div></div>${rm}</div>`;
+    return `<div class="cvp-row${eu?' me':''}">${av}<div class="cvp-meta"><div class="cvp-name">${esc(p.nome)}</div><div class="cvp-tag">${tag}</div></div>${conv}${rm}</div>`;
   }).join("")||'<div class="empty">Ninguém ainda.</div>';
 
   const secSolic=(souDono&&solic.length)?('<div class="pt-lb">Solicitações de entrada</div>'+solic.map(u=>`<div class="pt-row"><span>${esc(sInfo[u]||"Alguém")}<br><span class="s">quer entrar</span></span><span class="pt-acts"><button class="pt-ap" data-ap="${esc(u)}" data-nm="${esc(sInfo[u]||"")}">aprovar</button><button class="pt-rm" data-rj="${esc(u)}">recusar</button></span></div>`).join("")):'';
@@ -3597,10 +3633,10 @@ async function abrirParticipantes(){
     <div class="pt-lb">Nesta viagem</div>
     <div class="pt-lista">${linhaP}</div>
     ${linhaC}
-    <div class="pt-lb">Adicionar / convidar</div>
-    <input id="pt-nome" class="au-inp" placeholder="Nome">
-    <input id="pt-email" class="au-inp" type="email" inputmode="email" placeholder="E-mail (opcional, pra convidar)" style="margin-top:8px">
+    <div class="pt-lb">Adicionar pessoa</div>
+    <input id="pt-nome" class="au-inp" placeholder="Nome da pessoa">
     <button class="btn" id="pt-add" style="margin-top:10px">Adicionar</button>
+    <div class="note" style="margin-top:6px">Adicione o nome agora; depois toque em <b>Convidar</b> na pessoa pra ela usar o app.</div>
     <button class="btn sec" id="pt-saude" style="margin-top:12px">Saúde & emergência do grupo</button>
     ${cod?`<div class="pt-lb">Código de convite</div>
     <div class="pt-cod"><span class="pt-cod-val">${esc(cod)}</span><button class="btn sec" id="pt-copcod">Copiar</button></div>
@@ -3619,16 +3655,13 @@ async function abrirParticipantes(){
   $("#modal").querySelectorAll("[data-mrm]").forEach(b=>b.onclick=()=>{const uid=b.dataset.mrm;confirmModal("Remover acesso?","Essa pessoa perde o acesso à viagem. Ela pode pedir pra entrar de novo pelo código.","Remover acesso",()=>_removerMembro(uid),true,abrirParticipantes);});
   $("#modal").querySelectorAll("[data-cancel]").forEach(b=>b.onclick=async()=>{try{await FB.deleteDoc(FB.doc(db,"convites",b.dataset.cancel));toast("Convite cancelado");}catch(e){}abrirParticipantes();});
   $("#modal").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{const nome=b.dataset.rm;confirmModal("Remover participante?",`<b>${esc(nome)}</b> sai da lista desta viagem.`,"Remover",()=>{const atual=pes.filter(p=>normNome(p.nome)!==normNome(nome));saveDoc("config",{pessoas:atual});if(MEU_VINCULO[VIAGEM.id]===nome){delete MEU_VINCULO[VIAGEM.id];try{if(UID)localStorage.setItem("tr27_vinc_"+UID,JSON.stringify(MEU_VINCULO));}catch(e){}}toast("Removido");abrirParticipantes();},true,abrirParticipantes);});
+  $("#modal").querySelectorAll(".act-conv").forEach(b=>b.onclick=()=>convidarLugar(b.dataset.cid,b.dataset.cn));
   $("#pt-add").onclick=async()=>{
     const nome=($("#pt-nome").value||"").trim();
-    const email=String($("#pt-email").value||"").trim().toLowerCase();
     if(!nome){toast("Digite um nome.");return;}
     const atual=pes.slice();
-    if(!atual.some(p=>normNome(p.nome)===normNome(nome))){atual.push(partClean({nome:nome}));saveDoc("config",{pessoas:atual});}
-    if(email&&!MOCK&&db){
-      const ok=await criarConvite(VIAGEM.id,(STATE.config&&STATE.config.nome)||"Viagem",nome,email);
-      toast(ok?"Adicionado e convite criado ✓":"Adicionado. Convite falhou.");
-    }else{toast("Participante adicionado ✓");}
+    if(!atual.some(p=>normNome(p.nome)===normNome(nome))){atual.push(partClean({nome:nome}));await saveDoc("config",{pessoas:atual});}
+    toast("Participante adicionado ✓");
     abrirParticipantes();
   };
 }
@@ -5762,8 +5795,8 @@ try{const _q=new URLSearchParams(location.search);
   if(_q.get("dev")==="1")localStorage.setItem("tr27_dev","1");
   if(_q.get("dev")==="0")localStorage.removeItem("tr27_dev");
   DEV=localStorage.getItem("tr27_dev")==="1";
-  const _ent=_q.get("entrar");
-  if(_ent){LINK_ENTRAR=_ent;try{history.replaceState(null,"",location.pathname);}catch(e){}}
+  const _ent=_q.get("entrar"),_lug=_q.get("lugar");
+  if(_ent){LINK_ENTRAR=_ent;if(_lug)LINK_LUGAR=_lug;try{history.replaceState(null,"",location.pathname);}catch(e){}}
 }catch(e){}
 if(DEV){MOCK=true;STATE.me=STATE.me||"Dev";loadLocal();_bootResolve&&_bootResolve();showViagens();}
 else{loginSplash();initFB();}
