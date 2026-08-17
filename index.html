@@ -121,6 +121,8 @@ a{color:var(--mun)}
 .right{margin-left:auto}
 .empty{color:var(--dim);text-align:center;padding:22px 14px;border:1px dashed var(--line);border-radius:14px;font-size:13.5px;line-height:1.6}
 .note{color:var(--dim);font-size:11.5px;line-height:1.6;margin-top:8px}
+.guia{font-size:12.5px;color:var(--muted);line-height:1.45;margin:0 2px 12px;padding:8px 12px;background:var(--panel2);border-left:3px solid var(--orange);border-radius:8px}
+.guia b{color:var(--navy);font-weight:700}
 .foot{color:var(--dim);text-align:center;font-size:11.5px;margin:22px 8px 4px;line-height:1.7}
 .warnbox{background:#FDF3E4;border:1px solid #F0D5A8;color:#9A6512;border-radius:12px;padding:10px 12px;font-size:12px;margin:0 0 12px;line-height:1.5}
 .okbox{background:#E4F5EE;border:1px solid #A9DCC9;color:#137A57;border-radius:12px;padding:10px 12px;font-size:12px;margin:0 0 12px;line-height:1.5}
@@ -4030,6 +4032,7 @@ function malaTplCarregar(){
   });
 }
 
+function guiaDinheiro(txt){return '<div class="guia">'+txt+'</div>';}
 function renderCofre(){_sujo.delete("cofre");
   const me=STATE.me,d=meDoc();
   const meta=metaDe(me),sav=guardado(me),falta=Math.max(0,meta-sav);
@@ -4045,6 +4048,7 @@ function renderCofre(){_sujo.delete("cofre");
 
   $("#p-cofre").innerHTML=`
   ${bannerVinculo()}
+  ${guiaDinheiro('Aqui você <b>junta</b> o dinheiro pra viagem.')}
   <div class="cofre-top">
   <div class="hero ${done?"done":""}">
     <div class="row">
@@ -4230,6 +4234,7 @@ function renderCustos(){_sujo.delete("custos");
 
   $("#p-custos").innerHTML=`
   ${bannerVinculo()}
+  ${guiaDinheiro('Aqui você vê <b>quanto a viagem custa</b> — do plano ao gasto real.')}
   ${topCard}
 
   <div class="seg" id="cseg">
@@ -5321,6 +5326,7 @@ function renderRacha(){_sujo.delete("racha");
   const maxAbs=Math.max(1,...PEOPLE.map(p=>Math.abs(bal[p]||0)));
 
   $("#p-racha").innerHTML=`
+  ${guiaDinheiro('Aqui vocês <b>acertam as contas</b> da viagem.')}
   <div class="card tight"><div class="row">
     <div class="grow"><div class="lbl">Gasto do grupo</div>
       <div class="disp money" style="font-size:28px">${fmtMO(totalG)}</div></div>
