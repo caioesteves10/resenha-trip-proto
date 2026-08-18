@@ -541,6 +541,11 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer;ma
 /* passeio marcado como feito durante a viagem */
 .act.act-done{opacity:.55}
 .act.act-done .b .n{text-decoration:line-through;text-decoration-color:var(--dim)}
+.act-grip{flex:none;width:24px;align-self:stretch;display:flex;align-items:center;justify-content:center;color:var(--dim);cursor:grab;touch-action:none;margin:-10px 4px -10px -6px;border-radius:11px 0 0 11px}
+.act-grip:active{cursor:grabbing;background:var(--panel2)}
+.act-grip svg{width:16px;height:16px;pointer-events:none}
+.act.dragging{opacity:.95;box-shadow:var(--shadowlg);border-color:var(--line2);position:relative;z-index:6}
+.act.dragging .b{border-left-color:var(--line2)}
 .actcheck{flex:0 0 24px;width:24px;height:24px;border-radius:50%;border:2px solid var(--line2);
  background:var(--panel);color:#fff;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;
  padding:0;transition:background .15s,border-color .15s,transform .1s;margin-top:1px}
@@ -1685,7 +1690,7 @@ function parseMoney(s){
   else if(t.indexOf(",")>-1)t=t.replace(",",".");
   const n=parseFloat(t);return isNaN(n)?0:n;
 }
-function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.remove("comacao");t.classList.add("show");clearTimeout(toast._i);toast._i=setTimeout(()=>t.classList.remove("show"),2100);}
+function toast(msg,ms){const t=$("#toast");t.textContent=msg;t.classList.remove("comacao");t.classList.add("show");clearTimeout(toast._i);toast._i=setTimeout(()=>t.classList.remove("show"),ms||2100);}
 
 /* ---- (i) explicações dos "números mágicos" ------------------------
    Um botão (i) pequeno e discreto ao lado de valores calculados. No
@@ -4821,13 +4826,18 @@ function renderRoteiro(){_sujo.delete("roteiro");
     const c=cityOf(d.cidade);
     const dpast=emV&&String(d.data).slice(0,10)<hojeKey;
     const horaVal=h=>(!h||h==="—")?"00:00":String(h);
-    const itensOrd=(d.itens||[]).slice().sort((a,b)=>horaVal(a.hora).localeCompare(horaVal(b.hora)));
+    const _its=(d.itens||[]);
+    const _anyOrd=_its.some(a=>typeof a.ord==="number");
+    const itensOrd=_its.slice().sort(_anyOrd
+      ? (a,b)=>((typeof a.ord==="number"?a.ord:9999)-(typeof b.ord==="number"?b.ord:9999))||horaVal(a.hora).localeCompare(horaVal(b.hora))
+      : (a,b)=>horaVal(a.hora).localeCompare(horaVal(b.hora)));
     return `<div class="day ${esc(d.cidade)} ${dpast?"day-past":""}"><div class="dot"></div>
       <div class="dh"><div class="d">${fmtDate(d.data)}</div><div class="c">${esc(c.n)}</div>
         <div class="grow" style="font-size:13px;color:var(--muted);font-weight:600">${esc(d.titulo||"")}</div>
         ${itensOrd.length?`<span class="day-count">${itensOrd.length}</span>`:""}
         ${adm?`<button class="x" data-ddel="${d.id}" aria-label="Excluir dia">✕</button>`:""}</div>
       ${itensOrd.map(a=>`<div class="act ${feitoDe(a)?"act-done":""}">
+        ${adm?`<div class="act-grip" data-drag data-dd="${d.id}" data-ai="${a.id}" aria-label="Arrastar para reordenar" title="Arrastar para reordenar"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></div>`:""}
         ${emV?`<button class="actcheck ${feitoDe(a)?"on":""}" data-adone="${d.id}|${a.id}" aria-label="${feitoDe(a)?"Desmarcar":"Marcar como feito"}">${feitoDe(a)?"✓":""}</button>`:`<div class="h">${a.hora&&a.hora!=="—"?esc(a.hora):`<span class="h-livre">livre</span>`}</div>`}
         <div class="b"><div class="n">${emV&&a.hora&&a.hora!=="—"?`<span style="color:var(--dim);font-weight:700">${esc(a.hora)}</span> `:""}${esc(a.titulo)}</div>${a.nota?`<div class="s">${esc(a.nota)}</div>`:""}${a.local?`<div class="s">${mapBtn(a.local,d.cidade)}</div>`:""}
           ${Number(a.valor)>0?`<div class="s"><b style="color:var(--ber)">${fmtIn(a.valor,a.moeda||"EUR")}</b> · ${(!Array.isArray(a.quem)||a.quem.length>=PEOPLE.length)?"todos":a.quem.map(esc).join(", ")} · ${fmt(toBRL(a.valor,a.moeda||"EUR")/((Array.isArray(a.quem)&&a.quem.length)?a.quem.length:PEOPLE.length))} cada</div>`:""}</div>
@@ -4913,6 +4923,55 @@ function renderRoteiro(){_sujo.delete("roteiro");
     });});
   $("#p-roteiro").querySelectorAll("[data-ddel]").forEach(b=>b.onclick=()=>confirmModal("Excluir o dia inteiro?","Remove o dia e todas as atividades dele do roteiro.","Excluir",async()=>{
     saveDoc("roteiro",{dias:(STATE.roteiro.dias||[]).filter(d=>d.id!==b.dataset.ddel)});$("#modal").innerHTML="";},true));
+  $("#p-roteiro").querySelectorAll("[data-drag]").forEach(h=>h.addEventListener("pointerdown",e=>iniciarDragAtiv(e,h)));
+}
+/* Reordenar atividades arrastando (toque + mouse via Pointer Events).
+   A ordem manual passa a valer (campo ord); enquanto ninguém arrasta um dia, ele segue ordenado por hora. */
+function iniciarDragAtiv(e,handle){
+  if(e.button!=null&&e.button!==0)return;
+  e.preventDefault();
+  const row=handle.closest(".act"),day=handle.closest(".day");
+  if(!row||!day)return;
+  const dayId=handle.dataset.dd;
+  const rows=()=>[...day.querySelectorAll(".act")];
+  row.classList.add("dragging");
+  try{handle.setPointerCapture(e.pointerId);}catch(_){}
+  const onMove=ev=>{
+    ev.preventDefault();
+    const y=ev.clientY;
+    let ref=null;
+    for(const r of rows()){if(r===row)continue;const b=r.getBoundingClientRect();if(y<b.top+b.height/2){ref=r;break;}}
+    if(ref){if(ref!==row.nextElementSibling)day.insertBefore(row,ref);}
+    else{const add=day.querySelector("[data-aadd]");if(add){if(add.previousElementSibling!==row)day.insertBefore(row,add);}else if(day.lastElementChild!==row)day.appendChild(row);}
+  };
+  const fim=ev=>{
+    try{handle.releasePointerCapture(e.pointerId);}catch(_){}
+    document.removeEventListener("pointermove",onMove);
+    document.removeEventListener("pointerup",fim);
+    document.removeEventListener("pointercancel",fim);
+    row.classList.remove("dragging");
+    const ordem=rows().map(r=>{const g=r.querySelector("[data-drag]");return g?g.dataset.ai:null;}).filter(Boolean);
+    persistirOrdemDia(dayId,ordem);
+  };
+  document.addEventListener("pointermove",onMove);
+  document.addEventListener("pointerup",fim);
+  document.addEventListener("pointercancel",fim);
+}
+function persistirOrdemDia(dayId,ordemIds){
+  let mudou=false;
+  const dias=(STATE.roteiro.dias||[]).map(d=>{
+    if(d.id!==dayId)return d;
+    const byId={};(d.itens||[]).forEach(a=>byId[a.id]=a);
+    const novos=[];
+    ordemIds.forEach((id,i)=>{if(byId[id]){novos.push(Object.assign({},byId[id],{ord:i}));delete byId[id];}});
+    Object.keys(byId).forEach(id=>novos.push(Object.assign({},byId[id],{ord:novos.length})));
+    const antes=(d.itens||[]).map(a=>a.id).join("|"),depois=novos.map(a=>a.id).join("|");
+    if(antes!==depois)mudou=true;
+    return Object.assign({},d,{itens:novos});
+  });
+  if(!mudou)return;
+  saveDoc("roteiro",{dias});
+  toast("Ordem atualizada — confira o horário desta atividade, ele pode ter mudado.",5000);
 }
 
 /* ---- 14. COMPRAS --------------------------------------- */
