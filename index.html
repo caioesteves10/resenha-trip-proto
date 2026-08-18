@@ -858,6 +858,8 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
 .avs{display:inline-flex;align-items:center}
 .av{width:24px;height:24px;border-radius:50%;background:var(--navy);color:#fff;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;margin-right:-7px;border:2px solid var(--panel)}
 .av-mais{margin-left:12px;color:var(--dim);font-size:12px;font-weight:600}
+.av-anon{background:var(--panel2);color:var(--dim)}
+.av-anon .ico{width:14px;height:14px;stroke-width:2.2}
 .vg-top .hamb{margin-right:2px}
 .pill-concl{display:inline-flex;align-items:center;gap:3px;background:#3f7d54;color:#fff;font-weight:800;font-size:10.5px;border-radius:7px;padding:2px 7px;margin-left:6px;vertical-align:middle}
 .pasta-acoes{position:absolute;top:40px;right:0;bottom:0;display:flex;opacity:0;transition:opacity .12s;z-index:0}
@@ -2384,11 +2386,16 @@ function statusViagem(v){
   return{t:"Planejando",c:"st-planej"};
 }
 function _avatares(v){
-  const nomes=(v.membrosInfo&&Object.values(v.membrosInfo).filter(Boolean))||[];
-  const n=(v.membros&&v.membros.length)||nomes.length||1;
-  if(!nomes.length)return `<span class="pe-quem">${n===1?"1 pessoa":n+" pessoas"}</span>`;
-  const max=4,mostra=nomes.slice(0,max),extra=nomes.length-mostra.length;
-  const chips=mostra.map(nm=>`<span class="av" title="${esc(nm)}">${esc((nm.trim()[0]||"?").toUpperCase())}</span>`).join("");
+  // Consistente em TODA viagem: sempre avatares. Nome -> inicial; sem nome -> ícone neutro.
+  const info=v.membrosInfo||{};
+  const membros=(v.membros&&v.membros.slice())||[];
+  let base=membros.length?membros.map(u=>info[u]||""):Object.values(info).filter(Boolean);
+  if(!base.length)base=[""];
+  const max=4,mostra=base.slice(0,max),extra=base.length-mostra.length;
+  const chips=mostra.map(nm=>{
+    const ini=(String(nm).trim()[0]||"").toUpperCase();
+    return ini?`<span class="av" title="${esc(nm)}">${esc(ini)}</span>`:`<span class="av av-anon" aria-label="pessoa">${ICO("eu")}</span>`;
+  }).join("");
   return `<span class="avs">${chips}${extra>0?`<span class="av-mais">+${extra}</span>`:""}</span>`;
 }
 function _cardViagem(v,arq){
@@ -3413,6 +3420,27 @@ function removerParticipante(nome){
     toast("Removido"); abrirParticipantes();
   },true,abrirParticipantes);
 }
+async function associarConta(id,uid){
+  const p=partById(id); if(!p||!uid)return false;
+  const atual=PARTICIPANTES.map(x=>x.id===id?partClean(Object.assign({},x,{uid:uid})):partClean(x));
+  await saveDoc("config",{pessoas:atual}); sincronizarPessoas();
+  return true;
+}
+/* dono liga uma conta-com-acesso (órfã) a um lugar sem conta — resolve pelo lado do organizador */
+function ligarContaPrompt(uid,nome){
+  const vagos=PARTICIPANTES.filter(p=>!p.uid);
+  if(!vagos.length){toast("Nenhum lugar sem conta pra ligar.");return;}
+  const av=o=>o.foto?`<div class="cvp-av res"><img src="${esc(o.foto)}" alt=""></div>`:`<div class="cvp-av res">${esc(iniciais(o.nome))}</div>`;
+  const lista=vagos.map(o=>`<button class="cvp-row qv-pick" data-id="${esc(o.id)}" style="width:100%;text-align:left;cursor:pointer">${av(o)}<div class="cvp-meta"><div class="cvp-name">${esc(o.nome)}</div><div class="cvp-tag"><span class="cvp-dot"></span> sem conta</div></div></button>`).join("");
+  $("#modal").innerHTML=`<div class="modal"><div class="box">
+    <h3>Ligar conta a um participante</h3>
+    <p class="mo-sub">A conta de <b>${esc(nome||"esta pessoa")}</b> \u00e9 qual participante? O acesso passa a valer pro lugar escolhido.</p>
+    <div class="cvp-list">${lista}</div>
+    <button class="btn gh" id="lg-c" style="margin-top:8px">Voltar</button>
+  </div></div>`;
+  $("#lg-c").onclick=abrirParticipantes;
+  $("#modal").querySelectorAll(".qv-pick").forEach(b=>b.onclick=async()=>{const id=b.dataset.id,p=partById(id);await associarConta(id,uid);toast("Ligado a "+(p?p.nome:"participante")+" \u2713");abrirParticipantes();});
+}
 function menuParticipante(id){
   const p=partById(id); if(!p)return;
   const podeFundir=PARTICIPANTES.filter(x=>x.id!==id).length>0;
@@ -3765,7 +3793,13 @@ async function abrirParticipantes(){
     return `<div class="cvp-row${eu?' me':''}">${av}<div class="cvp-meta"><div class="cvp-name">${esc(p.nome)}</div><div class="cvp-tag">${tag}</div></div>${conv}${menu}</div>`;
   }).join("");
   const orfaos=(souDono?membros:[]).filter(u=>!partUids.has(u)&&mInfo[u]&&!_gener(mInfo[u]));
-  const linhaOrf=orfaos.map(u=>`<div class="cvp-row"><div class="cvp-av">${esc((String(mInfo[u]||"M").trim()[0]||"M").toUpperCase())}</div><div class="cvp-meta"><div class="cvp-name">${esc(mInfo[u]||"Membro")}</div><div class="cvp-tag"><span class="cvp-badge ok">com conta</span>${u===vdata.dono?' dono':' sem lugar ligado'}</div></div>${(u!==vdata.dono&&u!==UID)?`<button class="cvp-rm" data-mrm="${esc(u)}" aria-label="remover acesso">×</button>`:''}</div>`).join("");
+  const _temVago=pes.some(p=>!p.uid);
+  const linhaOrf=orfaos.map(u=>{
+    const nm=mInfo[u]||"Membro";
+    const lig=(u!==vdata.dono&&_temVago)?`<button class="cvp-conv act-orf" data-orf="${esc(u)}" data-on="${esc(nm)}">Ligar</button>`:'';
+    const rm=(u!==vdata.dono&&u!==UID)?`<button class="cvp-rm" data-mrm="${esc(u)}" aria-label="remover acesso">×</button>`:'';
+    return `<div class="cvp-row"><div class="cvp-av">${esc((String(nm).trim()[0]||"M").toUpperCase())}</div><div class="cvp-meta"><div class="cvp-name">${esc(nm)}</div><div class="cvp-tag"><span class="cvp-badge ok">com conta</span>${u===vdata.dono?' dono':' sem lugar ligado'}</div></div>${lig}${rm}</div>`;
+  }).join("");
   const listaFull=(linhaP+linhaOrf)||'<div class="empty">Ninguém ainda.</div>';
 
   const secSolic=(souDono&&solic.length)?('<div class="pt-lb">Solicitações de entrada</div>'+solic.map(u=>`<div class="pt-row"><span>${esc(sInfo[u]||"Alguém")}<br><span class="s">quer entrar</span></span><span class="pt-acts"><button class="pt-ap" data-ap="${esc(u)}" data-nm="${esc(sInfo[u]||"")}">aprovar</button><button class="pt-rm" data-rj="${esc(u)}">recusar</button></span></div>`).join("")):'';
@@ -3803,6 +3837,7 @@ async function abrirParticipantes(){
   $("#modal").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{const nome=b.dataset.rm;confirmModal("Remover participante?",`<b>${esc(nome)}</b> sai da lista desta viagem.`,"Remover",()=>{const atual=pes.filter(p=>normNome(p.nome)!==normNome(nome));saveDoc("config",{pessoas:atual});if(MEU_VINCULO[VIAGEM.id]===nome){delete MEU_VINCULO[VIAGEM.id];try{if(UID)localStorage.setItem("tr27_vinc_"+UID,JSON.stringify(MEU_VINCULO));}catch(e){}}toast("Removido");abrirParticipantes();},true,abrirParticipantes);});
   $("#modal").querySelectorAll(".act-conv").forEach(b=>b.onclick=()=>convidarLugar(b.dataset.cid,b.dataset.cn));
   $("#modal").querySelectorAll(".act-menu").forEach(b=>b.onclick=()=>menuParticipante(b.dataset.mid));
+  $("#modal").querySelectorAll(".act-orf").forEach(b=>b.onclick=()=>ligarContaPrompt(b.dataset.orf,b.dataset.on));
   $("#pt-add").onclick=async()=>{
     const nome=($("#pt-nome").value||"").trim();
     if(!nome){toast("Digite um nome.");return;}
