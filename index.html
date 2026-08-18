@@ -3736,20 +3736,35 @@ async function abrirParticipantes(){
   const solic=vdata.pendentes||[], sInfo=vdata.pendentesInfo||{};
 
   const _meuNome=MEU_VINCULO[VIAGEM.id];
+  // --- cura de contas: viagens criadas antes do modelo de participante não tinham uid.
+  //     Casa cada membro (uid com acesso) ao participante por nome e carimba o uid,
+  //     pra você/dono deixarem de aparecer como "sem conta" e sumirem os "Membro" fantasma. ---
+  const _gener=n=>{const t=normNome(n);return !t||t==="membro"||t==="alguem";};
+  const _acha=nome=>pes.find(p=>normNome(p.nome)===normNome(nome));
+  let _curou=false;
+  const _carimba=(p,uid)=>{if(p&&uid&&!p.uid){p.uid=uid;_curou=true;}};
+  if(_meuNome&&UID)_carimba(_acha(_meuNome),UID);
+  if(vdata.dono){let dn=mInfo[vdata.dono];if((!dn||_gener(dn))&&souDono)dn=_meuNome;if(dn&&!_gener(dn))_carimba(_acha(dn),vdata.dono);}
+  membros.forEach(u=>{const n=mInfo[u];if(n&&!_gener(n))_carimba(_acha(n),u);});
+  if(_curou){
+    pes.forEach(p=>{const alvo=PARTICIPANTES.find(x=>normNome(x.nome)===normNome(p.nome));if(alvo&&p.uid&&!alvo.uid)alvo.uid=p.uid;});
+    if(souDono||MOCK){saveDoc("config",{pessoas:pes.map(partClean)});sincronizarPessoas();}
+  }
   const partUids=new Set(pes.filter(p=>p.uid).map(p=>p.uid));
   const linhaP=pes.map(p=>{
     const eu=!!(_meuNome&&normNome(p.nome)===normNome(_meuNome));
     const dono=!!(p.uid&&vdata.dono&&p.uid===vdata.dono);
+    const conta=temConta(p)||eu||dono;
     let tag;
     if(eu)tag=`<span class="cvp-badge">você</span>${dono?' dono':''}`;
-    else if(temConta(p))tag=`<span class="cvp-badge ok">com conta</span>${dono?' dono':' já entrou'}`;
+    else if(conta)tag=`<span class="cvp-badge ok">com conta</span>${dono?' dono':' já entrou'}`;
     else tag=`<span class="cvp-dot"></span> sem conta registrada`;
-    const av=p.foto?`<div class="cvp-av${temConta(p)?'':' res'}"><img src="${esc(p.foto)}" alt=""></div>`:`<div class="cvp-av${temConta(p)?'':' res'}">${esc(iniciais(p.nome))}</div>`;
-    const conv=(!temConta(p))?`<button class="cvp-conv act-conv" data-cid="${esc(p.id)}" data-cn="${esc(p.nome)}">Convidar</button>`:'';
+    const av=p.foto?`<div class="cvp-av${conta?'':' res'}"><img src="${esc(p.foto)}" alt=""></div>`:`<div class="cvp-av${conta?'':' res'}">${esc(iniciais(p.nome))}</div>`;
+    const conv=(!conta)?`<button class="cvp-conv act-conv" data-cid="${esc(p.id)}" data-cn="${esc(p.nome)}">Convidar</button>`:'';
     const menu=dono?'':`<button class="cvp-kebab act-menu" data-mid="${esc(p.id)}" aria-label="opções">⋯</button>`;
     return `<div class="cvp-row${eu?' me':''}">${av}<div class="cvp-meta"><div class="cvp-name">${esc(p.nome)}</div><div class="cvp-tag">${tag}</div></div>${conv}${menu}</div>`;
   }).join("");
-  const orfaos=(souDono?membros:[]).filter(u=>!partUids.has(u));
+  const orfaos=(souDono?membros:[]).filter(u=>!partUids.has(u)&&mInfo[u]&&!_gener(mInfo[u]));
   const linhaOrf=orfaos.map(u=>`<div class="cvp-row"><div class="cvp-av">${esc((String(mInfo[u]||"M").trim()[0]||"M").toUpperCase())}</div><div class="cvp-meta"><div class="cvp-name">${esc(mInfo[u]||"Membro")}</div><div class="cvp-tag"><span class="cvp-badge ok">com conta</span>${u===vdata.dono?' dono':' sem lugar ligado'}</div></div>${(u!==vdata.dono&&u!==UID)?`<button class="cvp-rm" data-mrm="${esc(u)}" aria-label="remover acesso">×</button>`:''}</div>`).join("");
   const listaFull=(linhaP+linhaOrf)||'<div class="empty">Ninguém ainda.</div>';
 
