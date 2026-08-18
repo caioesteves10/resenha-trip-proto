@@ -514,11 +514,14 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer;ma
 .day-count{font-size:10.5px;font-weight:800;color:var(--muted);background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:1px 8px;flex:0 0 auto}
 .day-past{opacity:.62}
 .day-past .dot{background:var(--muted)!important;opacity:.6}
-.act{position:relative;display:flex;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:7px}
+.act{position:relative;display:flex;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:7px;transition:box-shadow .12s ease,transform .12s ease}
 .act .h{font-size:12.5px;font-weight:800;color:var(--navy);flex:0 0 46px;padding-top:1px;text-align:right;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .act .h .h-livre{color:var(--dim);font-weight:700;font-size:11px}
-.act .b{flex:1;min-width:0;border-left:1px solid var(--line);padding-left:11px}
+.act .b{flex:1;min-width:0}
 .act .b .n{font-size:14.5px;font-weight:600}
+.act-t{display:inline-block;font-size:11.5px;font-weight:800;color:var(--navy);background:var(--panel2);border-radius:6px;padding:1px 7px;margin-right:7px;vertical-align:1px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.act-t.livre{color:var(--dim);font-weight:700;background:transparent;padding:0;margin-right:5px}
+.act.act-done .act-t{background:transparent}
 .act .b .s{font-size:12px;color:var(--dim);margin-top:3px;line-height:1.5}
 .act .b .s a{word-break:break-all}
 /* link "abrir no mapa" (roteiro, próximo passeio, início) */
@@ -544,7 +547,11 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer;ma
 .act-grip{flex:none;width:24px;align-self:stretch;display:flex;align-items:center;justify-content:center;color:var(--dim);cursor:grab;touch-action:none;margin:-10px 4px -10px -6px;border-radius:11px 0 0 11px}
 .act-grip:active{cursor:grabbing;background:var(--panel2)}
 .act-grip svg{width:16px;height:16px;pointer-events:none}
-.act.dragging{opacity:.95;box-shadow:var(--shadowlg);border-color:var(--line2);position:relative;z-index:6}
+.rot-ordbar{display:flex;justify-content:flex-end;margin:0 2px 8px}
+.rot-ord{display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line2);border-radius:20px;padding:6px 13px;font:inherit;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer}
+.rot-ord:active{background:var(--panel2)}
+.rot-ord svg{width:14px;height:14px}
+.act.dragging{opacity:.98;box-shadow:0 14px 30px rgba(18,41,79,.30);border-color:var(--navy);transform:scale(1.035);position:relative;z-index:6}
 .act.dragging .b{border-left-color:var(--line2)}
 .actcheck{flex:0 0 24px;width:24px;height:24px;border-radius:50%;border:2px solid var(--line2);
  background:var(--panel);color:#fff;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;
@@ -4713,6 +4720,10 @@ function openModal(title,fields,onSave,saveLabel){
         <select id="m_${f.id}">${cats.map(o=>`<option value="${esc(o)}" ${o===val?"selected":""}>${esc(o)}</option>`).join("")}<option value="__nova__">+ Nova categoria…</option></select>
         <input id="m_${f.id}_nova" placeholder="Nome da nova categoria" style="margin-top:7px;display:none"></div>`;
     }
+    if(f.type==="geo"){
+      return `<div class="fld"><label class="f">${esc(f.label)}</label>
+        <div class="au-wrap"><input id="m_${f.id}" type="text" value="${esc(f.value==null?"":f.value)}" placeholder="${esc(f.placeholder||"")}" autocomplete="off"><div id="m_${f.id}_sug" class="geo-sug"></div></div></div>`;
+    }
     const t=f.type==="money"?"text":(f.type||"text");
     return `<div class="fld"><label class="f">${esc(f.label)}</label><input id="m_${f.id}" type="${t}" ${f.type==="money"?'inputmode="decimal"':""} value="${esc(f.value==null?"":f.value)}" placeholder="${esc(f.placeholder||"")}"></div>`;
   }).join("");
@@ -4728,6 +4739,21 @@ function openModal(title,fields,onSave,saveLabel){
   fields.filter(f=>f.type==="cat").forEach(f=>{
     const sel=$("#m_"+f.id),inp=$("#m_"+f.id+"_nova");
     sel.onchange=()=>{const nova=sel.value==="__nova__";inp.style.display=nova?"block":"none";if(nova)inp.focus();};});
+  fields.filter(f=>f.type==="geo").forEach(f=>{
+    const inp=$("#m_"+f.id),sug=$("#m_"+f.id+"_sug");if(!inp||!sug)return;
+    let t;
+    const run=async()=>{const q=inp.value.trim();
+      if(q.length<2){sug.innerHTML="";return;}
+      sug.innerHTML='<div class="geo-load">buscando…</div>';
+      let res=[];try{res=await sugestoesCidade(q);}catch(e){}
+      if(inp.value.trim()!==q)return;
+      if(!res.length){sug.innerHTML='<div class="geo-empty">nada encontrado — pode digitar livre</div>';return;}
+      sug.innerHTML=res.map(r=>`<div class="geo-item" data-pick="${esc(r.nome)}">${r.iso?bandeiraISO(r.iso):"📍"} ${esc(r.nome)}${r.paisNome?` · ${esc(r.paisNome)}`:""}${r.admin?` <span class="geo-adm">${esc(r.admin)}</span>`:""}</div>`).join("");
+    };
+    inp.addEventListener("input",()=>{clearTimeout(t);t=setTimeout(run,280);});
+    sug.addEventListener("mousedown",e=>{const it=e.target.closest("[data-pick]");if(!it)return;e.preventDefault();inp.value=it.dataset.pick;sug.innerHTML="";});
+    inp.addEventListener("blur",()=>setTimeout(()=>{sug.innerHTML="";},150));
+  });
   $("#mok").onclick=()=>{
     const out={};
     fields.forEach(f=>{
@@ -4751,6 +4777,7 @@ function openModal(title,fields,onSave,saveLabel){
 /* ---- 13. ROTEIRO --------------------------------------- */
 let roteiroBusca="";
 let roteiroCidade="";  // filtro de cidade ("" = todas)
+let roteiroOrdem=localStorage.getItem("tr27_rotord")||"asc";  // asc=mais antigos primeiro
 /* "feito" agora vive num mapa roteiro.feitos[idAtividade], gravado com merge:
    dois marcando passeios diferentes ao mesmo tempo não se apagam. Ainda lê o
    formato antigo (feito dentro do item) para não perder o que já foi marcado. */
@@ -4796,7 +4823,8 @@ function renderRoteiro(){_sujo.delete("roteiro");
   // filtro por cidade
   const cidExiste=(STATE.config.cidades||[]).some(c=>c.k===roteiroCidade);
   if(!cidExiste)roteiroCidade="";
-  const diasView=roteiroCidade?dias.filter(d=>d.cidade===roteiroCidade):dias;
+  let diasView=roteiroCidade?dias.filter(d=>d.cidade===roteiroCidade):dias;
+  if(roteiroOrdem==="desc")diasView=diasView.slice().reverse();
   const emV=emViagem();
   const prox=emV?proximosPasseios(dias):[];
 
@@ -4821,6 +4849,7 @@ function renderRoteiro(){_sujo.delete("roteiro");
     ${(diaHoje.itens||[]).length?(diaHoje.itens||[]).map(a=>`<div class="hoje-act ${feitoDe(a)?"done":""}"><b>${esc(a.hora||"—")}</b> ${esc(a.titulo)}</div>`).join(""):'<div class="hoje-act" style="opacity:.8">Dia livre — aproveitem!</div>'}
   </div>`:""}
   <div class="searchbar"><input id="rotbusca" placeholder="Buscar no roteiro…" value="${esc(roteiroBusca)}">${roteiroBusca?`<button id="rotlimpa" aria-label="Limpar">✕</button>`:""}</div>
+  ${diasView.length>1?`<div class="rot-ordbar"><button class="rot-ord" id="rotord" aria-label="Trocar ordem do roteiro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M7 20l-3-3M7 4l3 3M17 20V4M17 4l3 3M17 20l-3-3"/></svg>${roteiroOrdem==="asc"?"Mais antigos primeiro":"Mais recentes primeiro"}</button></div>`:""}
   <div class="daygrid">
   ${diasView.length?diasView.map(d=>{
     const c=cityOf(d.cidade);
@@ -4836,12 +4865,12 @@ function renderRoteiro(){_sujo.delete("roteiro");
         <div class="grow" style="font-size:13px;color:var(--muted);font-weight:600">${esc(d.titulo||"")}</div>
         ${itensOrd.length?`<span class="day-count">${itensOrd.length}</span>`:""}
         ${adm?`<button class="x" data-ddel="${d.id}" aria-label="Excluir dia">✕</button>`:""}</div>
-      ${itensOrd.map(a=>`<div class="act ${feitoDe(a)?"act-done":""}">
+      ${itensOrd.map(a=>{const _pill=(a.hora&&a.hora!=="—")?`<span class="act-t">${esc(a.hora)}</span>`:`<span class="act-t livre">livre</span>`;return `<div class="act ${feitoDe(a)?"act-done":""}">
         ${adm?`<div class="act-grip" data-drag data-dd="${d.id}" data-ai="${a.id}" aria-label="Arrastar para reordenar" title="Arrastar para reordenar"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></div>`:""}
-        ${emV?`<button class="actcheck ${feitoDe(a)?"on":""}" data-adone="${d.id}|${a.id}" aria-label="${feitoDe(a)?"Desmarcar":"Marcar como feito"}">${feitoDe(a)?"✓":""}</button>`:`<div class="h">${a.hora&&a.hora!=="—"?esc(a.hora):`<span class="h-livre">livre</span>`}</div>`}
-        <div class="b"><div class="n">${emV&&a.hora&&a.hora!=="—"?`<span style="color:var(--dim);font-weight:700">${esc(a.hora)}</span> `:""}${esc(a.titulo)}</div>${a.nota?`<div class="s">${esc(a.nota)}</div>`:""}${a.local?`<div class="s">${mapBtn(a.local,d.cidade)}</div>`:""}
+        ${emV?`<button class="actcheck ${feitoDe(a)?"on":""}" data-adone="${d.id}|${a.id}" aria-label="${feitoDe(a)?"Desmarcar":"Marcar como feito"}">${feitoDe(a)?"✓":""}</button>`:""}
+        <div class="b"><div class="n">${_pill}${esc(a.titulo)}</div>${a.nota?`<div class="s">${esc(a.nota)}</div>`:""}${a.local?`<div class="s">${mapBtn(a.local,d.cidade)}</div>`:""}
           ${Number(a.valor)>0?`<div class="s"><b style="color:var(--ber)">${fmtIn(a.valor,a.moeda||"EUR")}</b> · ${(!Array.isArray(a.quem)||a.quem.length>=PEOPLE.length)?"todos":a.quem.map(esc).join(", ")} · ${fmt(toBRL(a.valor,a.moeda||"EUR")/((Array.isArray(a.quem)&&a.quem.length)?a.quem.length:PEOPLE.length))} cada</div>`:""}</div>
-        ${adm?`<button class="x" data-aedit="${d.id}|${a.id}" aria-label="Editar atividade">✎</button><button class="x" data-adel="${d.id}|${a.id}" aria-label="Excluir">✕</button>`:""}</div>`).join("")}
+        ${adm?`<button class="x" data-aedit="${d.id}|${a.id}" aria-label="Editar atividade">✎</button><button class="x" data-adel="${d.id}|${a.id}" aria-label="Excluir">✕</button>`:""}</div>`;}).join("")}
       ${adm?`<button class="btn gh sm" data-aadd="${d.id}" style="margin:2px 0 4px">+ atividade</button>`:""}
     </div>`;}).join(""):`<div class="empty">${roteiroCidade?"Nada em "+esc(cityOf(roteiroCidade).n)+" ainda.<br>Os dias e passeios aparecem aqui quando forem montados.":"Roteiro vazio.<br>Os dias e passeios da viagem são montados por aqui."}</div>`}
   </div>
@@ -4866,6 +4895,7 @@ function renderRoteiro(){_sujo.delete("roteiro");
   const sb=$("#rotbusca");
   if(sb){sb.oninput=()=>{roteiroBusca=sb.value;const p=sb.selectionStart;renderRoteiro();const n=$("#rotbusca");if(n){n.focus();try{n.setSelectionRange(p,p);}catch(e){}}};}
   const rl=$("#rotlimpa");if(rl)rl.onclick=()=>{roteiroBusca="";renderRoteiro();};
+  const ro=$("#rotord");if(ro)ro.onclick=()=>{roteiroOrdem=roteiroOrdem==="asc"?"desc":"asc";localStorage.setItem("tr27_rotord",roteiroOrdem);renderRoteiro();};
   const ie=$("#icsexp");if(ie)ie.onclick=exportarICS;
   if(!adm)return;
   const da=$("#dayadd");
@@ -4880,7 +4910,7 @@ function renderRoteiro(){_sujo.delete("roteiro");
   $("#p-roteiro").querySelectorAll("[data-aadd]").forEach(b=>b.onclick=()=>openModal("Nova atividade",[
     {id:"hora",label:"Hora",placeholder:"10:00"},
     {id:"titulo",label:"O que é",placeholder:"Ex.: Tour na Allianz Arena"},
-    {id:"local",label:"Local (abre no mapa)",type:"text",placeholder:"Ex.: Museu do Louvre"},
+    {id:"local",label:"Local (abre no mapa)",type:"geo",placeholder:"Ex.: Museu do Louvre"},
     {id:"nota",label:"Observação",type:"area",placeholder:"opcional"},
     {id:"valor",label:"Custo total (opcional)",type:"money",placeholder:"0,00"},
     {id:"moeda",label:"Moeda",type:"select",options:moedasVista(),value:moedaPadrao()},
@@ -4906,7 +4936,7 @@ function renderRoteiro(){_sujo.delete("roteiro");
     openModal("Editar atividade",[
       {id:"hora",label:"Hora",placeholder:"10:00",value:(at.hora&&at.hora!=="—")?at.hora:""},
       {id:"titulo",label:"O que é",value:at.titulo||""},
-      {id:"local",label:"Local (abre no mapa)",type:"text",placeholder:"Ex.: Museu do Louvre",value:at.local||""},
+      {id:"local",label:"Local (abre no mapa)",type:"geo",placeholder:"Ex.: Museu do Louvre",value:at.local||""},
       {id:"nota",label:"Observação",type:"area",placeholder:"opcional",value:at.nota||""},
       {id:"valor",label:"Custo total (opcional)",type:"money",placeholder:"0,00",value:Number(at.valor)>0?at.valor:""},
       {id:"moeda",label:"Moeda",type:"select",options:moedasForm(at.moeda||moedaPrincipal()),value:at.moeda||moedaPadrao()},
@@ -4935,6 +4965,7 @@ function iniciarDragAtiv(e,handle){
   const dayId=handle.dataset.dd;
   const rows=()=>[...day.querySelectorAll(".act")];
   row.classList.add("dragging");
+  vibrar(18);
   try{handle.setPointerCapture(e.pointerId);}catch(_){}
   const onMove=ev=>{
     ev.preventDefault();
@@ -4951,7 +4982,8 @@ function iniciarDragAtiv(e,handle){
     document.removeEventListener("pointercancel",fim);
     row.classList.remove("dragging");
     const ordem=rows().map(r=>{const g=r.querySelector("[data-drag]");return g?g.dataset.ai:null;}).filter(Boolean);
-    persistirOrdemDia(dayId,ordem);
+    const mudou=persistirOrdemDia(dayId,ordem);
+    if(mudou)confirmarHoraAtiv(dayId,handle.dataset.ai);
   };
   document.addEventListener("pointermove",onMove);
   document.addEventListener("pointerup",fim);
@@ -4969,9 +5001,22 @@ function persistirOrdemDia(dayId,ordemIds){
     if(antes!==depois)mudou=true;
     return Object.assign({},d,{itens:novos});
   });
-  if(!mudou)return;
+  if(!mudou)return false;
   saveDoc("roteiro",{dias});
-  toast("Ordem atualizada — confira o horário desta atividade, ele pode ter mudado.",5000);
+  return true;
+}
+function confirmarHoraAtiv(dayId,actId){
+  const dia=(STATE.roteiro.dias||[]).find(d=>d.id===dayId);
+  const at=dia&&(dia.itens||[]).find(a=>a.id===actId);
+  if(!at)return;
+  if(!at.hora||at.hora==="—"){toast("Ordem atualizada");return;}
+  openModal("Confirmar horário",[
+    {id:"hora",label:`Novo horário de "${at.titulo}"`,placeholder:"10:00",value:at.hora}
+  ],v=>{
+    const nova=(v.hora||"").trim()||at.hora;
+    const dias=(STATE.roteiro.dias||[]).map(d=>d.id!==dayId?d:Object.assign({},d,{itens:(d.itens||[]).map(a=>a.id===actId?Object.assign({},a,{hora:nova}):a)}));
+    saveDoc("roteiro",{dias});toast("Horário atualizado");
+  },"Salvar");
 }
 
 /* ---- 14. COMPRAS --------------------------------------- */
