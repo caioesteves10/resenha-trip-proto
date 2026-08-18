@@ -163,6 +163,8 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 .vs-lb.doc{color:var(--orange)}
 .geo-sug:empty{display:none}
 .geo-sug{margin-top:-1px;border-radius:0 0 10px 10px;overflow:hidden;border:1px solid var(--line2);border-top:0}
+.au-wrap{position:relative}
+.au-wrap .geo-sug{position:absolute;left:0;right:0;top:100%;z-index:20;border-radius:10px;border-top:1px solid var(--line2);box-shadow:var(--shadowlg);max-height:260px;overflow:auto}
 .geo-item,.geo-load,.geo-empty{font-size:13.5px;padding:9px 12px;background:var(--panel)}
 .geo-item{cursor:pointer;border-top:1px solid var(--line)}
 .geo-item:first-child{border-top:0}
@@ -2874,7 +2876,7 @@ function applyTab(){
   if(mt){
     if(MONEY.includes(curTab)){
       mt.classList.remove("hidden");
-      const _mt=ehSolo()?[["cofre","Cofre"],["custos","Custos"]]:[["cofre","Cofre"],["custos","Custos"],["racha","Rachadinha"]];
+      const _mt=ehSolo()?[["cofre","Cofre"],["custos","Custos"]]:[["cofre","Cofre"],["custos","Custos"],["racha","Ratatá"]];
       mt.innerHTML=_mt.map(([k,l])=>`<button data-m="${k}" class="${k===curTab?'on':''}">${esc(l)}</button>`).join("");
       mt.querySelectorAll("button").forEach(b=>b.onclick=()=>show(b.dataset.m));
     }else{mt.classList.add("hidden");mt.innerHTML="";}
@@ -3671,6 +3673,26 @@ async function aceitarConvite(inv){
     toast("Você entrou na viagem ✓");
   }catch(e){toast("Não consegui aceitar: "+((e&&e.code)||""));}
 }
+function _maskData(v){const d=String(v).replace(/\D/g,"").slice(0,8);let o=d.slice(0,2);if(d.length>2)o+="/"+d.slice(2,4);if(d.length>4)o+="/"+d.slice(4,8);return o;}
+function _isoToBR(iso){if(!/^\d{4}-\d{2}-\d{2}$/.test(iso||""))return "";const [a,m,d]=iso.split("-");return d+"/"+m+"/"+a;}
+function _brToISO(v){const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(v||"").trim());if(!m)return "";const d=+m[1],mo=+m[2];if(mo<1||mo>12||d<1||d>31)return "";return m[3]+"-"+m[2]+"-"+m[1];}
+function _paisMatches(q){
+  const nq=normNome(q);if(!nq)return [];
+  const out=[],seen={};
+  Object.values(PAISES.byIso).forEach(r=>{if(normNome(r.nome).includes(nq)&&!seen[r.iso]){seen[r.iso]=1;out.push(r);}});
+  Object.keys(PAISES.byName).forEach(al=>{if(al.includes(nq)){const r=PAISES.byName[al];if(!seen[r.iso]){seen[r.iso]=1;out.push(r);}}});
+  return out.sort((a,b)=>a.nome.localeCompare(b.nome)).slice(0,8);
+}
+function montarAutoPais(inp,sug){
+  if(!inp||!sug)return;
+  const render=()=>{const q=inp.value,res=q.trim()?_paisMatches(q):[];
+    if(!res.length||(res.length===1&&normNome(res[0].nome)===normNome(q))){sug.innerHTML="";return;}
+    sug.innerHTML=res.map(r=>`<div class="geo-item" data-pais="${esc(r.nome)}">${bandeiraISO(r.iso)} ${esc(r.nome)}</div>`).join("");};
+  inp.addEventListener("input",render);
+  inp.addEventListener("focus",render);
+  sug.addEventListener("mousedown",e=>{const it=e.target.closest("[data-pais]");if(!it)return;e.preventDefault();inp.value=it.dataset.pais;sug.innerHTML="";});
+  inp.addEventListener("blur",()=>setTimeout(()=>{sug.innerHTML="";},120));
+}
 function _alertaPassaporte(validade){
   const fim=(STATE.config&&STATE.config.fim)||"";
   if(!validade||!fim)return "";
@@ -3692,11 +3714,11 @@ async function abrirPerfilUsuario(){
     <label class="mo-lb">Moeda base (padrão ao criar viagem)</label>
     <select id="pu-moeda" class="au-inp">${_optsMoeda(mb)}</select>
     <label class="mo-lb">Nacionalidade / país</label>
-    <input id="pu-nac" class="au-inp" value="${esc(p.nacionalidade||"")}" placeholder="Ex.: Brasil" autocomplete="off">
+    <div class="au-wrap"><input id="pu-nac" class="au-inp" value="${esc(p.nacionalidade||"")}" placeholder="Ex.: Brasil" autocomplete="off"><div id="pu-nac-sug" class="geo-sug"></div></div>
     <label class="mo-lb">Passaporte — número</label>
     <input id="pu-passn" class="au-inp" value="${esc(p.passaporteNum||"")}" placeholder="Número" autocomplete="off">
     <label class="mo-lb">Passaporte — validade</label>
-    <input id="pu-passv" class="au-inp" type="date" value="${esc(p.passaporteValidade||"")}">
+    <input id="pu-passv" class="au-inp" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" value="${esc(_isoToBR(p.passaporteValidade||""))}">
     <div id="pu-passalert">${_alertaPassaporte(p.passaporteValidade||"")}</div>
     <label class="mo-lb">Contato de emergência</label>
     <input id="pu-emn" class="au-inp" value="${esc(p.emergNome||"")}" placeholder="Nome" autocomplete="off">
@@ -3709,13 +3731,14 @@ async function abrirPerfilUsuario(){
   const close=()=>{$("#modal").innerHTML="";};
   $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};
   $("#pu-cancel").onclick=close;
-  {const _pv=$("#pu-passv");if(_pv)_pv.onchange=()=>{const el=$("#pu-passalert");if(el)el.innerHTML=_alertaPassaporte(_pv.value);};}
+  montarAutoPais($("#pu-nac"),$("#pu-nac-sug"));
+  {const _pv=$("#pu-passv");if(_pv)_pv.addEventListener("input",()=>{_pv.value=_maskData(_pv.value);const el=$("#pu-passalert");if(el)el.innerHTML=_alertaPassaporte(_brToISO(_pv.value));});}
   $("#pu-save").onclick=async()=>{
     const dados={
       moedaBase:$("#pu-moeda").value,
       nacionalidade:($("#pu-nac").value||"").trim(),
       passaporteNum:($("#pu-passn").value||"").trim(),
-      passaporteValidade:$("#pu-passv").value||"",
+      passaporteValidade:_brToISO($("#pu-passv").value)||"",
       emergNome:($("#pu-emn").value||"").trim(),
       emergTel:($("#pu-emt").value||"").trim(),
       restricoes:($("#pu-rest").value||"").trim()
