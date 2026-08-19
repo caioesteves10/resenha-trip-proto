@@ -553,6 +553,42 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer;ma
 .act-grip svg{width:16px;height:16px;pointer-events:none}
 .rot-ordbar{display:flex;justify-content:flex-end;margin:0 2px 8px}
 .csv-bar{margin-top:20px;padding-top:6px}
+.rot-resv{display:flex;flex-direction:column;gap:6px;margin:0 0 8px}
+.rr-item{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:#EAF1FB;border:1px solid #D3E0F2;border-radius:10px;padding:8px 10px;font:inherit;cursor:pointer}
+.rr-item:active{background:#dfeaf8}
+.rr-ic{width:22px;height:22px;display:flex;align-items:center;justify-content:center;color:var(--navy);flex:none}
+.rr-ic svg{width:15px;height:15px}
+.rr-kind{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:var(--ber);flex:none}
+.rr-txt{font-size:12.5px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.restipos{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:4px 0 2px}
+.restipo{display:flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--line2);border-radius:11px;padding:12px;font:inherit;font-size:13.5px;font-weight:700;color:var(--text);cursor:pointer;text-align:left}
+.restipo:active{background:var(--panel2)}
+.restipo-ic{width:30px;height:30px;border-radius:8px;background:var(--panel2);display:flex;align-items:center;justify-content:center;color:var(--navy);flex:none}
+.restipo-ic svg{width:17px;height:17px}
+.rescard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px 14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.res-head{display:flex;align-items:center;gap:10px}
+.res-ic{width:34px;height:34px;border-radius:9px;background:var(--panel2);display:flex;align-items:center;justify-content:center;color:var(--navy);flex:none}
+.res-ic svg{width:18px;height:18px}
+.res-hg{min-width:0;flex:1}
+.res-kind{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.res-title{font-size:14.5px;font-weight:700;margin-top:1px}
+.resv-loc{font-size:11px;font-weight:800;color:var(--ber);background:#EAF1FB;border:none;border-radius:6px;padding:4px 8px;white-space:nowrap;cursor:pointer;font-family:inherit}
+.res-acts{display:flex;flex:none}
+.res-route{display:flex;align-items:center;gap:10px;margin:9px 0 8px}
+.res-route .ap{text-align:center}
+.res-route .code{font-size:19px;font-weight:800}
+.res-route .cty{font-size:10.5px;color:var(--dim);margin-top:1px}
+.res-route .mid{flex:1;position:relative;height:18px;color:var(--navy)}
+.res-route .mid::before{content:"";position:absolute;left:0;right:16px;top:50%;border-top:1.5px dashed var(--line2)}
+.res-route .mid svg{position:absolute;right:0;top:50%;transform:translateY(-50%);width:16px;height:16px;background:var(--panel)}
+.res-meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted);margin-top:8px}
+.res-meta b{color:var(--text);font-weight:700}
+.res-foot{display:flex;align-items:center;gap:8px;margin-top:9px;padding-top:9px;border-top:1px solid var(--line);font-size:11.5px}
+.res-foot .maplink{color:var(--orange);font-weight:700;display:inline-flex;align-items:center;gap:3px;min-width:0}
+.res-foot .maplink svg{width:13px;height:13px;flex:none}
+.res-foot .maplink span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.resv-who2{margin-left:auto;display:flex;flex:none}
+.resv-av{width:22px;height:22px;border-radius:50%;background:var(--navy);color:#fff;font-size:9.5px;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid var(--panel);margin-left:-6px}
 .rot-ord{display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line2);border-radius:20px;padding:6px 13px;font:inherit;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer}
 .rot-ord:active{background:var(--panel2)}
 .rot-ord svg{width:14px;height:14px}
@@ -4941,6 +4977,7 @@ function renderRoteiro(){_sujo.delete("roteiro");
         <div class="grow" style="font-size:13px;color:var(--muted);font-weight:600">${esc(d.titulo||"")}</div>
         ${itensOrd.length?`<span class="day-count">${itensOrd.length}</span>`:""}
         ${adm?`<button class="x" data-ddel="${d.id}" aria-label="Excluir dia">✕</button>`:""}</div>
+      ${reservasDoDia(d.data)}
       ${itensOrd.map(a=>{const _pill=(a.hora&&a.hora!=="—")?`<span class="act-t">${esc(a.hora)}</span>`:`<span class="act-t livre">livre</span>`;return `<div class="act ${feitoDe(a)?"act-done":""}${adm?" act-int":""}"${adm?` data-act="${d.id}|${a.id}"`:""}>
         ${emV?`<button class="actcheck ${feitoDe(a)?"on":""}" data-adone="${d.id}|${a.id}" aria-label="${feitoDe(a)?"Desmarcar":"Marcar como feito"}">${feitoDe(a)?"✓":""}</button>`:""}
         <div class="b"><div class="n">${_pill}${esc(a.titulo)}</div>${a.nota?`<div class="s">${esc(a.nota)}</div>`:""}${a.local?`<div class="s">${mapBtn(a.local,d.cidade)}</div>`:""}
@@ -4999,6 +5036,7 @@ function renderRoteiro(){_sujo.delete("roteiro");
       Object.assign({},d,{itens:(d.itens||[]).concat([at])}):d);
     saveDoc("roteiro",{dias:dias});toast("Atividade adicionada");}));
   $("#p-roteiro").querySelectorAll("[data-act]").forEach(el=>ligarGestoAtiv(el));
+  $("#p-roteiro").querySelectorAll("[data-rrgo]").forEach(b=>b.onclick=()=>{const it=resvItens().find(x=>x.id===b.dataset.rrgo);if(it)abrirFormReserva(it);});
   $("#p-roteiro").querySelectorAll("[data-ddel]").forEach(b=>b.onclick=()=>confirmModal("Excluir o dia inteiro?","Remove o dia e todas as atividades dele do roteiro.","Excluir",async()=>{
     saveDoc("roteiro",{dias:(STATE.roteiro.dias||[]).filter(d=>d.id!==b.dataset.ddel)});$("#modal").innerHTML="";},true));
 }
@@ -5408,39 +5446,66 @@ function resvCategorias(){
 }
 function resvItens(){return ((STATE.reservas&&STATE.reservas.itens)||[]).slice();}
 function abrirFormReserva(at){
-  const NOVA="➕ Nova categoria…";
-  const cats=resvCategorias().slice();
-  if(at&&at.tipo&&!cats.includes(at.tipo))cats.unshift(at.tipo);
-  openModal(at?"Editar documento":"Novo documento",[
-    {id:"tipo",label:"Categoria",type:"select",options:cats.concat([NOVA]),value:at?at.tipo:"Hotel"},
-    {id:"titulo",label:"Título",placeholder:"Ex.: Hotel Paris — 5 noites",value:at?at.titulo:""},
-    {id:"quando",label:"Data (opcional)",type:"date",value:at?(at.quando||""):""},
-    {id:"codigo",label:"Localizador / confirmação (opcional)",placeholder:"Ex.: 6-QK2P9",value:at?(at.codigo||""):""},
-    {id:"link",label:"Link (opcional)",placeholder:"https://…",value:at?(at.link||""):""},
-    {id:"local",label:"Endereço / local — abre no mapa (opcional)",placeholder:"Ex.: 10 Rue de Rivoli, Paris",value:at?(at.local||""):""},
-    {id:"quem",label:"De quem é",type:"chips",value:(at&&Array.isArray(at.quem)&&at.quem.length)?at.quem.slice():PEOPLE.slice()},
-    {id:"nota",label:"Observação (opcional)",type:"area",placeholder:"opcional",value:at?(at.nota||""):""}
-  ],v=>{
-    if(!v.titulo){toast("Dê um título");return false;}
-    const salvar=(tipo)=>{
-      const item={id:at?at.id:uid(),tipo:tipo||"Documento",titulo:v.titulo};
-      if(v.quando)item.quando=v.quando;
-      if(v.codigo)item.codigo=v.codigo;
-      if(v.link)item.link=v.link;
-      if(v.local)item.local=v.local;
-      if(v.nota)item.nota=v.nota;
-      item.quem=(v.quem.length&&v.quem.length<PEOPLE.length)?v.quem:"todos";
-      if(at){saveDoc("reservas",{itens:resvItens().map(x=>x.id===at.id?item:x)});toast("Documento atualizado");}
-      else{addArr("reservas","itens",item);toast("Documento adicionado");}
-    };
-    if(v.tipo===NOVA){
-      setTimeout(()=>openModal("Nova categoria",[
-        {id:"nome",label:"Nome da categoria",placeholder:"Ex.: Ingressos"}
-      ],vc=>{ if(!vc.nome){toast("Dê um nome à categoria");return false;} salvar(vc.nome.trim()); }),40);
-      return;
-    }
-    salvar(v.tipo);
-  });
+  if(at){formReservaTipo(at.tipo||"Documento",at);return;}
+  const tipos=["Voo","Hotel","Trem","Transfer","Passeio","Seguro","Documento"];
+  $("#modal").innerHTML=`<div class="modal"><div class="box">
+    <h3>Nova reserva</h3>
+    <p class="mo-sub">Que tipo é? Os campos se ajustam ao que você escolher.</p>
+    <div class="restipos">${tipos.map(t=>`<button class="restipo" data-rt="${t}"><span class="restipo-ic">${ICORES[t]||ICODOC}</span>${t}</button>`).join("")}</div>
+    <button class="btn gh" id="rt-cancel" style="margin-top:8px">Cancelar</button>
+  </div></div>`;
+  $("#rt-cancel").onclick=()=>{$("#modal").innerHTML="";};
+  $("#modal").querySelectorAll("[data-rt]").forEach(b=>b.onclick=()=>{const t=b.dataset.rt;$("#modal").innerHTML="";setTimeout(()=>formReservaTipo(t,null),30);});
+}
+function camposReserva(tipo,at){
+  at=at||{};
+  const quem={id:"quem",label:"De quem é",type:"chips",value:(Array.isArray(at.quem)&&at.quem.length)?at.quem.slice():PEOPLE.slice()};
+  const nota={id:"nota",label:"Observação (opcional)",type:"area",placeholder:"opcional",value:at.nota||""};
+  const cod=(ph)=>({id:"codigo",label:"Localizador / confirmação (opcional)",placeholder:ph||"Ex.: 6QK2P9",value:at.codigo||""});
+  if(tipo==="Voo")return [
+    {id:"companhia",label:"Companhia",placeholder:"Ex.: Air France",value:at.companhia||""},
+    {id:"voonum",label:"Nº do voo",placeholder:"Ex.: AF 459",value:at.voonum||""},
+    {id:"origem",label:"Origem (código / cidade)",placeholder:"Ex.: GRU / São Paulo",value:at.origem||""},
+    {id:"destino",label:"Destino (código / cidade)",placeholder:"Ex.: CDG / Paris",value:at.destino||""},
+    {id:"data",label:"Data da partida",type:"date",value:at.data||""},
+    {id:"hpart",label:"Hora de partida",placeholder:"22:10",value:at.hpart||""},
+    {id:"hcheg",label:"Hora de chegada",placeholder:"13:30",value:at.hcheg||""},
+    cod(),{id:"assento",label:"Assento (opcional)",placeholder:"24A",value:at.assento||""},quem,nota
+  ];
+  if(tipo==="Hotel")return [
+    {id:"titulo",label:"Nome do hotel",placeholder:"Ex.: Hôtel des Archives",value:at.titulo||""},
+    {id:"local",label:"Endereço — abre no mapa",type:"geo",placeholder:"Ex.: 10 Rue des Archives, Paris",value:at.local||""},
+    {id:"checkin",label:"Check-in",type:"date",value:at.checkin||at.quando||""},
+    {id:"checkout",label:"Check-out",type:"date",value:at.checkout||""},
+    cod("Ex.: HDA-8821"),{id:"quarto",label:"Quarto (opcional)",placeholder:"Ex.: Duplo",value:at.quarto||""},quem,nota
+  ];
+  if(tipo==="Trem"||tipo==="Transfer")return [
+    {id:"origem",label:"Origem",placeholder:"Ex.: München Hbf",value:at.origem||""},
+    {id:"destino",label:"Destino",placeholder:"Ex.: Berlin Hbf",value:at.destino||""},
+    {id:"data",label:"Data",type:"date",value:at.data||at.quando||""},
+    {id:"hpart",label:"Hora de partida",placeholder:"09:55",value:at.hpart||""},
+    {id:"hcheg",label:"Hora de chegada",placeholder:"14:20",value:at.hcheg||""},
+    cod("Ex.: DB-77Q"),{id:"assento",label:"Vagão / assento (opcional)",placeholder:"7 · 41–42",value:at.assento||""},quem,nota
+  ];
+  return [
+    {id:"titulo",label:"Título",placeholder:"Ex.: Seguro viagem",value:at.titulo||""},
+    {id:"quando",label:"Data (opcional)",type:"date",value:at.quando||""},
+    cod(),{id:"link",label:"Link (opcional)",placeholder:"https://…",value:at.link||""},
+    {id:"local",label:"Endereço / local — abre no mapa (opcional)",type:"geo",placeholder:"Ex.: 10 Rue de Rivoli, Paris",value:at.local||""},quem,nota
+  ];
+}
+function formReservaTipo(tipo,at){
+  openModal((at?"Editar ":"Nova ")+(tipo==="Documento"?"documento":tipo.toLowerCase()),camposReserva(tipo,at),v=>{
+    let titulo=v.titulo;
+    if(tipo==="Voo")titulo=(v.voonum||v.companhia||((v.origem&&v.destino)?(v.origem+" → "+v.destino):"Voo"));
+    if(tipo==="Trem"||tipo==="Transfer")titulo=(((v.origem||"")+" → "+(v.destino||"")).trim())||tipo;
+    if((tipo==="Hotel"||tipo==="Passeio"||tipo==="Seguro"||tipo==="Documento")&&!v.titulo){toast("Dê um título");return false;}
+    const item={id:at?at.id:uid(),tipo:tipo,titulo:titulo||tipo};
+    ["companhia","voonum","origem","destino","data","hpart","hcheg","assento","checkin","checkout","quarto","quando","codigo","link","local","nota"].forEach(k=>{if(v[k]!=null&&v[k]!=="")item[k]=v[k];});
+    item.quem=(v.quem&&v.quem.length&&v.quem.length<PEOPLE.length)?v.quem:"todos";
+    if(at){saveDoc("reservas",{itens:resvItens().map(x=>x.id===at.id?item:x)});toast("Reserva atualizada");}
+    else{addArr("reservas","itens",item);toast("Reserva adicionada");}
+  },"Salvar");
 }
 /* ---- Tarefas do grupo (checklist compartilhado com responsável) ---- */
 function tarefasItens(){return ((STATE.tarefas&&STATE.tarefas.itens)||[]).slice();}
@@ -5615,28 +5680,70 @@ function wireSos(){
     delArr("essenciais","itens",it);toastUndo("Item excluído",()=>addArr("essenciais","itens",it));});
 }
 
+const ARROW='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+const ICORES={
+  Voo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M2 16l9-3 3-9 2 1-1 8 6 2v2l-7-1-3 4-2-1 1-4-5-1z"/></svg>',
+  Hotel:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M3 21V7l9-4 9 4v14M3 21h18M9 21v-5h6v5"/></svg>',
+  Trem:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="5" y="4" width="14" height="13" rx="2"/><path d="M5 11h14M9 17l-2 3M15 17l2 3"/></svg>',
+  Transfer:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M3 13l2-5h14l2 5v5h-3M6 18H3v-5M7 18a2 2 0 1 0 4 0 2 2 0 0 0-4 0zM15 18a2 2 0 1 0 4 0 2 2 0 0 0-4 0z"/></svg>'
+};
+const ICODOC='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M7 3h7l4 4v14H7zM14 3v4h4"/></svg>';
+function _ap(x){return String(x||"").split("/")[0].trim();}
+function _cty(x){const p=String(x||"").split("/");return p[1]?p[1].trim():"";}
+function _padHora(h){const m=/^(\d{1,2}):(\d{2})$/.exec(String(h||""));return m?(("0"+m[1]).slice(-2)+":"+m[2]):String(h||"");}
+function _noites(a,b){if(!a||!b)return 0;const d1=new Date(a+"T00:00:00"),d2=new Date(b+"T00:00:00");if(isNaN(d1)||isNaN(d2))return 0;return Math.max(0,Math.round((d2-d1)/86400000));}
+function reservasDoDia(dataISO){
+  if(!dataISO)return "";
+  const d=String(dataISO).slice(0,10);
+  const its=resvItens().filter(x=>{
+    if(x.tipo==="Voo"||x.tipo==="Trem"||x.tipo==="Transfer")return String(x.data||"").slice(0,10)===d;
+    if(x.tipo==="Hotel")return String(x.checkin||"").slice(0,10)===d||String(x.checkout||"").slice(0,10)===d;
+    return false;
+  });
+  if(!its.length)return "";
+  const linha=x=>{
+    let txt="";
+    if(x.tipo==="Voo")txt=(x.hpart?_padHora(x.hpart)+" · ":"")+(_ap(x.origem)||"?")+" → "+(_ap(x.destino)||"?");
+    else if(x.tipo==="Trem"||x.tipo==="Transfer")txt=(x.hpart?_padHora(x.hpart)+" · ":"")+((x.origem||"")+" → "+(x.destino||""));
+    else if(x.tipo==="Hotel"){const ci=String(x.checkin||"").slice(0,10)===d;txt=(ci?"check-in":"check-out")+" · "+(x.titulo||"Hotel");}
+    return `<button class="rr-item" data-rrgo="${x.id}"><span class="rr-ic">${ICORES[x.tipo]||ICODOC}</span><span class="rr-kind">${esc(x.tipo)}</span><span class="rr-txt">${esc(txt)}</span></button>`;
+  };
+  return `<div class="rot-resv">${its.map(linha).join("")}</div>`;
+}
+function cardReserva(it){
+  const quemArr=(Array.isArray(it.quem)&&it.quem.length&&it.quem.length<PEOPLE.length)?it.quem:PEOPLE;
+  const avs=quemArr.map(p=>`<span class="resv-av">${esc(iniciais(p))}</span>`).join("");
+  const loc=it.codigo?`<button class="resv-loc" data-rescopy="${esc(it.codigo)}" title="Copiar localizador">${esc(it.codigo)}</button>`:"";
+  const acts=`<button class="x" data-resedit="${it.id}" aria-label="Editar">✎</button><button class="x" data-resdel="${it.id}" aria-label="Excluir">✕</button>`;
+  const foot=(txt)=>`<div class="res-foot">${it.local?`<a class="maplink" href="${esc(mapsUrl(it.local))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${PIN}<span>${esc(txt||it.local)}</span></a>`:(it.link?`<a class="maplink" href="${esc(it.link)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${PIN}<span>abrir link</span></a>`:"<span></span>")}<span class="resv-who2">${avs}</span></div>`;
+  const head=(kind,title)=>`<div class="res-head"><span class="res-ic">${ICORES[it.tipo]||ICODOC}</span><div class="res-hg"><div class="res-kind">${esc(kind)}</div><div class="res-title">${esc(title)}</div></div>${loc}<div class="res-acts">${acts}</div></div>`;
+  if(it.tipo==="Voo"){
+    return `<div class="rescard">${head("Voo"+(it.companhia?" · "+it.companhia:""),it.voonum||it.titulo||"Voo")}
+      <div class="res-route"><div class="ap"><div class="code">${esc(_ap(it.origem)||"—")}</div>${_cty(it.origem)?`<div class="cty">${esc(_cty(it.origem))}</div>`:""}</div><div class="mid">${ARROW}</div><div class="ap"><div class="code">${esc(_ap(it.destino)||"—")}</div>${_cty(it.destino)?`<div class="cty">${esc(_cty(it.destino))}</div>`:""}</div></div>
+      <div class="res-meta">${it.data?`<span><b>${esc(fmtDate(it.data))}</b>${it.hpart?" · "+esc(_padHora(it.hpart)):""}</span>`:""}${it.hcheg?`<span>chega ${esc(_padHora(it.hcheg))}</span>`:""}${it.assento?`<span>assento ${esc(it.assento)}</span>`:""}</div>
+      ${foot("Terminal / mapa")}</div>`;
+  }
+  if(it.tipo==="Hotel"){
+    const n=_noites(it.checkin,it.checkout);
+    return `<div class="rescard">${head("Hotel",it.titulo||"Hotel")}
+      <div class="res-meta">${it.checkin?`<span><b>${esc(fmtDate(it.checkin))}${it.checkout?" – "+esc(fmtDate(it.checkout)):""}</b>${n?" · "+n+(n===1?" noite":" noites"):""}</span>`:""}${it.quarto?`<span>${esc(it.quarto)}</span>`:""}</div>
+      ${foot()}</div>`;
+  }
+  if(it.tipo==="Trem"||it.tipo==="Transfer"){
+    return `<div class="rescard">${head(it.tipo,(it.origem||"")+" → "+(it.destino||""))}
+      <div class="res-meta">${it.data?`<span><b>${esc(fmtDate(it.data))}</b>${it.hpart?" · "+esc(_padHora(it.hpart)):""}${it.hcheg?" → "+esc(_padHora(it.hcheg)):""}</span>`:""}${it.assento?`<span>${esc(it.assento)}</span>`:""}</div>
+      ${foot()}</div>`;
+  }
+  return `<div class="rescard">${head(it.tipo||"Documento",it.titulo||"")}
+    ${(it.quando||it.nota)?`<div class="res-meta">${it.quando?`<span><b>${esc(fmtDate(it.quando))}</b></span>`:""}${it.nota?`<span>${esc(it.nota)}</span>`:""}</div>`:""}
+    ${foot()}</div>`;
+}
 function renderReservas(){_sujo.delete("reservas");
   const itens=resvItens();
   const cats=resvCategorias();
   const ordTipo=t=>{const i=cats.indexOf(t);return i<0?98:i;};
   itens.sort((a,b)=>ordTipo(a.tipo)-ordTipo(b.tipo)||String(a.quando||"9999").localeCompare(String(b.quando||"9999")));
-  const cardItem=it=>{
-    const quem=(!Array.isArray(it.quem)||it.quem.length>=PEOPLE.length)?"":it.quem.map(esc).join(", ");
-    return `<div class="card resv">
-      <div class="row">
-        <div class="grow">
-          <div class="resv-top"><span class="pill">${esc(it.tipo||"Outro")}</span>${quem?`<span class="resv-who">${quem}</span>`:""}</div>
-          <div class="resv-t">${esc(it.titulo)}</div>
-          ${it.quando?`<div class="s">Data: <b>${esc(fmtDate(it.quando))}</b></div>`:""}
-          ${it.codigo?`<div class="s">Localizador: <b>${esc(it.codigo)}</b><button class="resv-copy" data-rescopy="${esc(it.codigo)}">copiar</button></div>`:""}
-          ${it.nota?`<div class="s">${esc(it.nota)}</div>`:""}
-          ${(it.link||it.local)?`<div class="resv-links">${linkBtn(it.link)}${mapBtn(it.local)}</div>`:""}
-        </div>
-        <button class="x" data-resedit="${it.id}" aria-label="Editar reserva">✎</button>
-        <button class="x" data-resdel="${it.id}" aria-label="Excluir reserva">✕</button>
-      </div>
-    </div>`;
-  };
+  const cardItem=cardReserva;
   let corpo;
   if(!itens.length){
     corpo=`<div class="empty">Nada guardado ainda.<br>Adicione a primeira reserva ou documento — fica disponível offline na viagem.</div>`;
