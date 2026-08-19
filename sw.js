@@ -5,7 +5,7 @@
    - NUNCA intercepta o tráfego do Firestore: ele tem o próprio mecanismo offline
    Ao publicar uma versão nova, troque o número em VERSAO abaixo.            */
 
-const VERSAO = "proto-v77";
+const VERSAO = "proto-v78";
 const CACHE_APP = "app-" + VERSAO;
 const CACHE_EXT = "ext-" + VERSAO;
 
@@ -20,7 +20,7 @@ const EXTERNOS = ["fonts.googleapis.com", "fonts.gstatic.com", "www.gstatic.com"
 const NUNCA = ["firestore.googleapis.com", "firebaseinstallations.googleapis.com",
                "identitytoolkit.googleapis.com", "securetoken.googleapis.com",
                "firebaseappcheck.googleapis.com", "recaptcha.net", "www.google.com",
-               "geocoding-api.open-meteo.com", "api.open-meteo.com", "photon.komoot.io",
+               "geocoding-api.open-meteo.com", "api.open-meteo.com", "photon.komoot.io", "nominatim.openstreetmap.org",
                "open.er-api.com", "api.frankfurter.app",
                "economia.awesomeapi.com.br", "api.exchangerate", "open.er-api.com"];
 
