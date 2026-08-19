@@ -555,7 +555,7 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer;ma
 .rot-ord{display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line2);border-radius:20px;padding:6px 13px;font:inherit;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer}
 .rot-ord:active{background:var(--panel2)}
 .rot-ord svg{width:14px;height:14px}
-.act.dragging{opacity:.98;box-shadow:0 14px 30px rgba(18,41,79,.30);border-color:var(--navy);transform:scale(1.035);position:relative;z-index:6}
+.act.dragging{opacity:.98;box-shadow:0 16px 32px rgba(18,41,79,.32);border-color:var(--navy);position:relative;z-index:6;transition:none}
 .act.dragging .b{border-left-color:var(--line2)}
 .actcheck{flex:0 0 24px;width:24px;height:24px;border-radius:50%;border:2px solid var(--line2);
  background:var(--panel);color:#fff;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;
@@ -1786,6 +1786,21 @@ function cityOf(k){return (STATE.config.cidades||[]).find(c=>c.k===k)||{k:k,n:"�
    na lista NUNCA), então abre direto no Maps do celular. */
 const PIN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6-5.4-6-10a6 6 0 1 1 12 0c0 4.6-6 10-6 10Z"/><circle cx="12" cy="11" r="2.1"/></svg>';
 const IS_IOS=(()=>{try{return /iPad|iPhone|iPod/.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&(navigator.maxTouchPoints||0)>1);}catch(e){return false;}})();
+async function sugestoesLocal(q,cityKey){
+  q=(q||"").trim(); if(q.length<3)return [];
+  const cn=(cityOf(cityKey)||{}).n||"";
+  let bias="";
+  try{const L=resolverLocal(cn); if(L&&L.lat!=null&&L.lng!=null)bias=`&lat=${L.lat}&lon=${L.lng}`;}catch(e){}
+  const qq=bias?q:(cn?(q+" "+cn):q);
+  const url="https://photon.komoot.io/api/?lang=pt&limit=6&q="+encodeURIComponent(qq)+bias;
+  let j; try{const r=await fetch(url); j=await r.json();}catch(e){return [];}
+  return ((j&&j.features)||[]).map(f=>{
+    const p=f.properties||{};
+    const nome=p.name||[p.street,p.housenumber].filter(Boolean).join(" ")||p.city||"";
+    const ctx=[p.city||p.county||p.state,p.country].filter(Boolean).join(", ");
+    return {nome,ctx};
+  }).filter(x=>x.nome);
+}
 function mapsUrl(local,cidKey){
   const cid=cityOf(cidKey);
   const q=[local,(cid&&cid.n&&cid.n!=="—")?cid.n:""].filter(Boolean).join(", ");
@@ -4747,16 +4762,16 @@ function openModal(title,fields,onSave,saveLabel){
     const inp=$("#m_"+f.id),sug=$("#m_"+f.id+"_sug");if(!inp||!sug)return;
     let t;
     const run=async()=>{const q=inp.value.trim();
-      if(q.length<2){sug.innerHTML="";return;}
+      if(q.length<3){sug.innerHTML="";return;}
       sug.innerHTML='<div class="geo-load">buscando…</div>';
-      let res=[];try{res=await sugestoesCidade(q);}catch(e){}
+      let res=[];try{res=await sugestoesLocal(q,f.cityKey);}catch(e){}
       if(inp.value.trim()!==q)return;
       if(!res.length){sug.innerHTML='<div class="geo-empty">nada encontrado — pode digitar livre</div>';return;}
-      sug.innerHTML=res.map(r=>`<div class="geo-item" data-pick="${esc(r.nome)}">${r.iso?bandeiraISO(r.iso):"📍"} ${esc(r.nome)}${r.paisNome?` · ${esc(r.paisNome)}`:""}${r.admin?` <span class="geo-adm">${esc(r.admin)}</span>`:""}</div>`).join("");
+      sug.innerHTML=res.map(r=>`<div class="geo-item" data-pick="${esc(r.nome)}">${esc(r.nome)}${r.ctx?` <span class="geo-adm">${esc(r.ctx)}</span>`:""}</div>`).join("");
     };
-    inp.addEventListener("input",()=>{clearTimeout(t);t=setTimeout(run,280);});
+    inp.addEventListener("input",()=>{clearTimeout(t);t=setTimeout(run,320);});
     sug.addEventListener("mousedown",e=>{const it=e.target.closest("[data-pick]");if(!it)return;e.preventDefault();inp.value=it.dataset.pick;sug.innerHTML="";});
-    inp.addEventListener("blur",()=>setTimeout(()=>{sug.innerHTML="";},150));
+    inp.addEventListener("blur",()=>setTimeout(()=>{sug.innerHTML="";},160));
   });
   $("#mok").onclick=()=>{
     const out={};
@@ -4912,7 +4927,7 @@ function renderRoteiro(){_sujo.delete("roteiro");
   $("#p-roteiro").querySelectorAll("[data-aadd]").forEach(b=>b.onclick=()=>openModal("Nova atividade",[
     {id:"hora",label:"Hora",placeholder:"10:00"},
     {id:"titulo",label:"O que é",placeholder:"Ex.: Tour na Allianz Arena"},
-    {id:"local",label:"Local (abre no mapa)",type:"text",placeholder:"Ex.: Museu do Louvre"},
+    {id:"local",label:"Local (abre no mapa)",type:"geo",cityKey:(((STATE.roteiro.dias||[]).find(d=>d.id===b.dataset.aadd)||{}).cidade),placeholder:"Ex.: Museu do Louvre"},
     {id:"nota",label:"Observação",type:"area",placeholder:"opcional"},
     {id:"valor",label:"Custo total (opcional)",type:"money",placeholder:"0,00"},
     {id:"moeda",label:"Moeda",type:"select",options:moedasVista(),value:moedaPadrao()},
@@ -4938,7 +4953,7 @@ function editarAtividade(di,ai){
   openModal("Editar atividade",[
     {id:"hora",label:"Hora",placeholder:"10:00",value:(at.hora&&at.hora!=="—")?at.hora:""},
     {id:"titulo",label:"O que é",value:at.titulo||""},
-    {id:"local",label:"Local (abre no mapa)",type:"text",placeholder:"Ex.: Museu do Louvre",value:at.local||""},
+    {id:"local",label:"Local (abre no mapa)",type:"geo",cityKey:dia&&dia.cidade,placeholder:"Ex.: Museu do Louvre",value:at.local||""},
     {id:"nota",label:"Observação",type:"area",placeholder:"opcional",value:at.nota||""},
     {id:"valor",label:"Custo total (opcional)",type:"money",placeholder:"0,00",value:Number(at.valor)>0?at.valor:""},
     {id:"moeda",label:"Moeda",type:"select",options:moedasForm(at.moeda||moedaPrincipal()),value:at.moeda||moedaPadrao()},
@@ -4966,21 +4981,28 @@ function ligarGestoAtiv(el){
   const parts=(el.dataset.act||"").split("|"),di=parts[0],ai=parts[1];
   const day=el.closest(".day"); if(!day)return;
   const rows=()=>[...day.querySelectorAll(".act")];
-  let x0=0,y0=0,t0=0,pid=null,mode="idle",lp=null,tmBlock=null;
+  let x0=0,y0=0,t0=0,pid=null,mode="idle",lp=null,tmBlock=null,lastY=0,grabY=0;
   const setX=v=>{el.style.transform=v?`translateX(${v}px)`:"";};
   const block=()=>{if(tmBlock)return;tmBlock=ev=>ev.preventDefault();document.addEventListener("touchmove",tmBlock,{passive:false});};
   const unblock=()=>{if(tmBlock){document.removeEventListener("touchmove",tmBlock,{passive:false});tmBlock=null;}};
   const capture=()=>{try{el.setPointerCapture(pid);}catch(_){}};
-  const startDrag=()=>{mode="drag";el.classList.add("dragging");vibrar(18);capture();block();};
-  const reorder=y=>{let ref=null;for(const r of rows()){if(r===el)continue;const b=r.getBoundingClientRect();if(y<b.top+b.height/2){ref=r;break;}}if(ref){if(ref!==el.nextElementSibling)day.insertBefore(el,ref);}else{const add=day.querySelector("[data-aadd]");if(add){if(add.previousElementSibling!==el)day.insertBefore(el,add);}else if(day.lastElementChild!==el)day.appendChild(el);}};
+  const startDrag=()=>{mode="drag";grabY=lastY;el.classList.add("dragging");el.style.transform="translateY(0px) scale(1.03)";vibrar(16);capture();block();};
+  const reorder=y=>{let ref=null,moved=false;for(const r of rows()){if(r===el)continue;const b=r.getBoundingClientRect();if(y<b.top+b.height/2){ref=r;break;}}
+    if(ref){if(ref!==el.nextElementSibling){day.insertBefore(el,ref);moved=true;}}
+    else{const add=day.querySelector("[data-aadd]");if(add){if(add.previousElementSibling!==el){day.insertBefore(el,add);moved=true;}}else if(day.lastElementChild!==el){day.appendChild(el);moved=true;}}
+    return moved;};
   const move=e=>{
+    lastY=e.clientY;
     const dx=e.clientX-x0,dy=e.clientY-y0;
     if(mode==="pending"){
       if(Math.abs(dx)>10&&Math.abs(dx)>Math.abs(dy)+4){mode="swipe";clearTimeout(lp);capture();block();}
       else if(Math.abs(dy)>10){mode="scroll";clearTimeout(lp);}
     }
     if(mode==="swipe"){e.preventDefault();let d=dx;if(d>0)d=0;if(d<-170)d=-170;setX(d);el.classList.add("swiping");el.classList.toggle("will-del",d<-70);}
-    else if(mode==="drag"){e.preventDefault();reorder(e.clientY);}
+    else if(mode==="drag"){e.preventDefault();
+      el.style.transform=`translateY(${e.clientY-grabY}px) scale(1.03)`;
+      if(reorder(e.clientY)){grabY=e.clientY;el.style.transform="translateY(0px) scale(1.03)";}
+    }
   };
   const up=e=>{
     clearTimeout(lp);
@@ -4991,7 +5013,7 @@ function ligarGestoAtiv(el){
     unblock();
     const dx=e.clientX-x0,dy=e.clientY-y0,dt=Date.now()-t0;
     if(mode==="drag"){
-      el.classList.remove("dragging");setX(0);
+      el.classList.remove("dragging");el.style.transform="";
       const ordem=rows().map(r=>r.dataset.act?r.dataset.act.split("|")[1]:null).filter(Boolean);
       const mudou=persistirOrdemDia(di,ordem);
       if(mudou)confirmarHoraAtiv(di,ai);
@@ -5006,8 +5028,8 @@ function ligarGestoAtiv(el){
   el.addEventListener("pointerdown",e=>{
     if(e.target.closest(".maplink,.actcheck,a,button"))return;
     if(e.button!=null&&e.button!==0)return;
-    x0=e.clientX;y0=e.clientY;t0=Date.now();pid=e.pointerId;mode="pending";
-    lp=setTimeout(()=>{if(mode==="pending")startDrag();},300);
+    x0=e.clientX;y0=e.clientY;lastY=e.clientY;t0=Date.now();pid=e.pointerId;mode="pending";
+    lp=setTimeout(()=>{if(mode==="pending")startDrag();},230);
     document.addEventListener("pointermove",move);
     document.addEventListener("pointerup",up);
     document.addEventListener("pointercancel",up);
@@ -6268,7 +6290,7 @@ setInterval(()=>{const k=monthKey(new Date());if(k!==ULT_MES){ULT_MES=k;renderAl
     }
     // arrasto lateral: o painel segue o dedo (com resistência nas bordas)
     if(hor){
-      const alvo=e.target.closest&&e.target.closest(".seg, .deplist, table, input, textarea, select, .chartwrap");
+      const alvo=e.target.closest&&e.target.closest(".seg, .act[data-act], .deplist, table, input, textarea, select, .chartwrap");
       if(!alvo){
         const o=ordem(),i=o.indexOf(curTab);
         const borda=(dx>0&&i<=0)||(dx<0&&i>=o.length-1);
@@ -6288,7 +6310,7 @@ setInterval(()=>{const k=monthKey(new Date());if(k!==ULT_MES){ULT_MES=k;renderAl
     }else{bar.classList.remove("ready");bar.style.transform="";bar.style.opacity="0";}
     // swipe horizontal concluído?
     if(hor){
-      const alvo=e.target.closest&&e.target.closest(".seg, .deplist, table, input, textarea, select, .chartwrap");
+      const alvo=e.target.closest&&e.target.closest(".seg, .act[data-act], .deplist, table, input, textarea, select, .chartwrap");
       const disparou=Math.abs(dx)>70&&dt<700;
       if(!alvo&&disparou)irLado(dx<0?1:-1);
       else limpaDrag(); // não passou do limite: volta o painel pro lugar
