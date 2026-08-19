@@ -512,6 +512,13 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer;ma
 .day .dh .c{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
 .day.par .dh .c{color:var(--par)} .day.mun .dh .c{color:var(--mun)} .day.ber .dh .c{color:var(--ber)}
 .day-count{font-size:10.5px;font-weight:800;color:var(--muted);background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:1px 8px;flex:0 0 auto}
+.day-clima{display:inline-flex;align-items:center;gap:4px;margin-left:auto;align-self:center;font-weight:800;font-size:13px;color:var(--text);white-space:nowrap;flex:0 0 auto}
+.day-clima svg{width:18px;height:18px;flex:none}
+.day-clima .sol{color:var(--orange)} .day-clima .nuv{color:var(--muted)} .day-clima .chuva{color:var(--ber)} .day-clima .neve{color:#7FB2E0} .day-clima .trov{color:var(--warn)}
+.day-clima:empty{display:none}
+.unit{display:flex;gap:6px;background:var(--panel2);border-radius:10px;padding:4px;max-width:180px}
+.unit button{flex:1;border:0;background:transparent;padding:9px 0;border-radius:7px;font-weight:800;font-size:14px;color:var(--dim);cursor:pointer}
+.unit button.on{background:var(--navy);color:#fff}
 .day-past{opacity:.62}
 .day-past .dot{background:var(--muted)!important;opacity:.6}
 .act{position:relative;display:flex;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:7px;transition:box-shadow .12s ease,transform .12s ease;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:pan-y}
@@ -1714,6 +1721,79 @@ function exportarPdfCustos(){
 }
 function mesViagem(){const x=(STATE.config&&STATE.config.inicio)||"2027-10-01";return Math.max(0,Math.min(11,Number(x.slice(5,7))-1));}
 function climaCidade(nome){const d=dbCidade(nome);if(!d||!d.clima)return null;const m=d.clima[mesViagem()];return m?{min:m[0],max:m[1]}:null;}
+
+/* ===== Clima ao vivo (Open-Meteo forecast, janela de ~16 dias) =====
+   16+ dias: nada no roteiro (a média histórica segue no card da cidade).
+   <=16 dias: ícone + temperatura por dia, ao lado do cabeçalho do dia. */
+function tempUnit(){return localStorage.getItem("tr27_tempUnit")==="F"?"F":"C";}
+function convTemp(c){c=Number(c);if(!isFinite(c))return null;return tempUnit()==="F"?Math.round(c*9/5+32):Math.round(c);}
+function fmtTemp(c){const v=convTemp(c);return v==null?"":v+"\u00b0"+tempUnit();}
+/* o dia do roteiro cai na janela em que a previsão existe? (hoje .. hoje+15) */
+function climaNaJanela(dataISO){
+  const hoje=new Date();hoje.setHours(0,0,0,0);
+  const alvo=ymd(dataISO);alvo.setHours(0,0,0,0);
+  const diff=Math.round((alvo-hoje)/86400000);
+  return diff>=0&&diff<=15;
+}
+/* ícone WMO -> SVG stroke (nunca emoji) */
+function climaIco(code){
+  code=Number(code);
+  const S=(p,cls,alt)=>({svg:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`,cls:cls,alt:alt});
+  if(code===0||code===1) return S('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',"sol","Sol");
+  if(code>=71&&code<=77||code===85||code===86) return S('<path d="M17 16a4 4 0 000-8 6 6 0 00-11.3-1A4.5 4.5 0 006 16z"/><path d="M8 20h.01M12 21h.01M16 20h.01"/>',"neve","Neve");
+  if(code>=95) return S('<path d="M17 14a4 4 0 000-8 6 6 0 00-11.3-1A4.5 4.5 0 006 14z"/><path d="M13 12l-3 5h4l-3 5"/>',"trov","Tempestade");
+  if((code>=51&&code<=67)||(code>=80&&code<=82)) return S('<path d="M17 15a4 4 0 000-8 6 6 0 00-11.3-1A4.5 4.5 0 006 15z"/><path d="M8 19l-1 2M12 19l-1 2M16 19l-1 2"/>',"chuva","Chuva");
+  return S('<path d="M18 17a4 4 0 000-8 6 6 0 00-11.6-1.6A4.5 4.5 0 007 17z"/>',"nuv","Nublado"); /* 2,3,45,48 -> nublado */
+}
+function climaChip(code,tmax){
+  const t=fmtTemp(tmax);if(!t)return "";
+  const ic=climaIco(code);
+  return `<span class="${ic.cls}" title="${esc(ic.alt)}">${ic.svg}</span>${t}`;
+}
+/* cache curto por coordenada (3h) */
+function climaCacheGet(k){
+  try{const all=JSON.parse(localStorage.getItem("tr27_clima")||"{}");const e=all[k];if(e&&(Date.now()-e.ts)<3*3600*1000)return e.d;}catch(e){}
+  return null;
+}
+function climaCacheSet(k,d){
+  try{const all=JSON.parse(localStorage.getItem("tr27_clima")||"{}");all[k]={ts:Date.now(),d:d};localStorage.setItem("tr27_clima",JSON.stringify(all));}catch(e){}
+}
+async function climaBuscar(lat,lng,tz){
+  try{
+    const u=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}`+
+      `&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=${encodeURIComponent(tz||"auto")}&forecast_days=16`;
+    const ctl=("AbortController" in self)?new AbortController():null;
+    const to=ctl?setTimeout(()=>{try{ctl.abort();}catch(e){}},8000):null;
+    const r=await fetch(u,ctl?{signal:ctl.signal}:undefined);
+    if(to)clearTimeout(to);
+    if(!r.ok)return null;
+    const j=await r.json();
+    const t=j&&j.daily&&j.daily.time;if(!t)return null;
+    const out={};
+    t.forEach((d,i)=>{out[d]={code:j.daily.weather_code[i],tmax:j.daily.temperature_2m_max[i],tmin:j.daily.temperature_2m_min[i]};});
+    return out;
+  }catch(e){return null;}
+}
+/* percorre os dias na janela, agrupa por coordenada (1 fetch/cidade) e injeta o chip */
+async function hidratarClimaRoteiro(){
+  const spans=[...document.querySelectorAll("#p-roteiro [data-clima]")];
+  if(!spans.length)return;
+  const grupos={};
+  spans.forEach(sp=>{
+    const parts=(sp.dataset.clima||"").split("|");
+    const lat=parts[0],lng=parts[1],dataISO=parts[2],tz=parts[3]||"";
+    if(!lat||!lng||!dataISO)return;
+    const k=lat+","+lng;
+    (grupos[k]=grupos[k]||{lat,lng,tz,itens:[]}).itens.push({sp,dataISO});
+  });
+  for(const k in grupos){
+    const g=grupos[k];
+    let dados=climaCacheGet(k);
+    if(!dados){dados=await climaBuscar(g.lat,g.lng,g.tz);if(dados)climaCacheSet(k,dados);}
+    if(!dados)continue; // sem rede: deixa vazio, nada quebra
+    g.itens.forEach(({sp,dataISO})=>{const d=dados[dataISO];if(d)sp.innerHTML=climaChip(d.code,d.tmax);});
+  }
+}
 function fmtDateLong(s){const d=ymd(s);return `${d.getDate()} de ${["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"][d.getMonth()]} de ${d.getFullYear()}`;}
 function monthKey(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;}
 function monthLabel(k){const[y,m]=k.split("-").map(Number);return `${MESES[m-1]}/${String(y).slice(2)}`;}
@@ -2053,7 +2133,7 @@ async function garantirPerfil(){
     const dados={ultimoAcesso:ts};
     if(STATE.me)dados.nome=STATE.me;
     try{if(auth&&auth.currentUser){dados.email=auth.currentUser.email||"";dados.emailVerificado=!!auth.currentUser.emailVerified;}}catch(e){}
-    if(FB.getDoc){try{const s=await FB.getDoc(ref);if(!s.exists())dados.criadoEm=ts;else{const dd=s.data();if(dd){PERFIL=dd;if(dd.moedas)MINHAS_MOEDAS=dd.moedas;if(dd.arquivadas)ARQUIVADAS=dd.arquivadas;if(dd.euSou)MEU_VINCULO=dd.euSou;}}}catch(e){}}
+    if(FB.getDoc){try{const s=await FB.getDoc(ref);if(!s.exists())dados.criadoEm=ts;else{const dd=s.data();if(dd){PERFIL=dd;if(dd.moedas)MINHAS_MOEDAS=dd.moedas;if(dd.arquivadas)ARQUIVADAS=dd.arquivadas;if(dd.euSou)MEU_VINCULO=dd.euSou;if(dd.tempUnit==="C"||dd.tempUnit==="F")localStorage.setItem("tr27_tempUnit",dd.tempUnit);}}}catch(e){}}
     await FB.setDoc(ref,dados,{merge:true});
   }catch(e){console.warn("perfil:",e&&e.code);}
 }
@@ -3942,6 +4022,12 @@ async function abrirPerfilUsuario(){
     <input id="pu-emt" class="au-inp" value="${esc(p.emergTel||"")}" placeholder="Telefone" inputmode="tel" autocomplete="off" style="margin-top:8px">
     <label class="mo-lb">Restrições alimentares / alergias</label>
     <input id="pu-rest" class="au-inp" value="${esc(p.restricoes||"")}" placeholder="Ex.: vegetariano, sem glúten" autocomplete="off">
+    <label class="mo-lb">Unidade de temperatura</label>
+    <div class="unit" id="pu-unit">
+      <button type="button" data-u="C" class="${tempUnit()==="C"?"on":""}">\u00b0C</button>
+      <button type="button" data-u="F" class="${tempUnit()==="F"?"on":""}">\u00b0F</button>
+    </div>
+    <div class="note" style="margin-top:7px">Vale só pra você, neste aparelho. Muda como a temperatura aparece no roteiro.</div>
     <button class="btn" id="pu-save" style="margin-top:14px">Salvar</button>
     <button class="btn gh" id="pu-cancel">Fechar</button>
   </div></div>`;
@@ -3949,6 +4035,11 @@ async function abrirPerfilUsuario(){
   $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};
   $("#pu-cancel").onclick=close;
   montarAutoPais($("#pu-nac"),$("#pu-nac-sug"));
+  {const _u=$("#pu-unit");if(_u)_u.querySelectorAll("[data-u]").forEach(bt=>bt.onclick=()=>{
+    localStorage.setItem("tr27_tempUnit",bt.dataset.u);
+    _u.querySelectorAll("[data-u]").forEach(x=>x.classList.toggle("on",x===bt));
+    try{if(document.querySelector("#p-roteiro [data-clima]"))hidratarClimaRoteiro();}catch(e){}
+  });}
   {const _pv=$("#pu-passv");if(_pv)_pv.addEventListener("input",()=>{_pv.value=_maskData(_pv.value);const el=$("#pu-passalert");if(el)el.innerHTML=_alertaPassaporte(_brToISO(_pv.value));});}
   $("#pu-save").onclick=async()=>{
     const dados={
@@ -3958,7 +4049,8 @@ async function abrirPerfilUsuario(){
       passaporteValidade:_brToISO($("#pu-passv").value)||"",
       emergNome:($("#pu-emn").value||"").trim(),
       emergTel:($("#pu-emt").value||"").trim(),
-      restricoes:($("#pu-rest").value||"").trim()
+      restricoes:($("#pu-rest").value||"").trim(),
+      tempUnit:(localStorage.getItem("tr27_tempUnit")==="F"?"F":"C")
     };
     PERFIL=Object.assign({},PERFIL,dados);
     close();toast("Perfil salvo ✓");
@@ -5144,6 +5236,7 @@ function renderRoteiro(){_sujo.delete("roteiro");
     return `<div class="day ${esc(d.cidade)} ${dpast?"day-past":""}"><div class="dot"></div>
       <div class="dh"><div class="d">${fmtDate(d.data)}</div><div class="c">${esc(c.n)}</div>
         <div class="grow" style="font-size:13px;color:var(--muted);font-weight:600">${esc(d.titulo||"")}</div>
+        ${climaNaJanela(d.data)?`<span class="day-clima" data-clima="${(()=>{const L=resolverLocal(c.n);return (L&&L.lat!=null&&L.lng!=null)?`${L.lat}|${L.lng}|${String(d.data).slice(0,10)}|${esc(L.fuso||"")}`:"";})()}"></span>`:""}
         ${itensOrd.length?`<span class="day-count">${itensOrd.length}</span>`:""}
         ${adm?`<button class="x" data-ddel="${d.id}" aria-label="Excluir dia">✕</button>`:""}</div>
       ${reservasDoDia(d.data)}
@@ -5209,6 +5302,7 @@ function renderRoteiro(){_sujo.delete("roteiro");
   $("#p-roteiro").querySelectorAll("[data-rrgo]").forEach(b=>b.onclick=()=>{const it=resvItens().find(x=>x.id===b.dataset.rrgo);if(it)abrirFormReserva(it);});
   $("#p-roteiro").querySelectorAll("[data-ddel]").forEach(b=>b.onclick=()=>confirmModal("Excluir o dia inteiro?","Remove o dia e todas as atividades dele do roteiro.","Excluir",async()=>{
     saveDoc("roteiro",{dias:(STATE.roteiro.dias||[]).filter(d=>d.id!==b.dataset.ddel)});$("#modal").innerHTML="";},true));
+  try{hidratarClimaRoteiro();}catch(e){}
 }
 function editarAtividade(di,ai){
   const dia=(STATE.roteiro.dias||[]).find(d=>d.id===di);
