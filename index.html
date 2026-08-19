@@ -514,7 +514,11 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer;ma
 .day-count{font-size:10.5px;font-weight:800;color:var(--muted);background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:1px 8px;flex:0 0 auto}
 .day-past{opacity:.62}
 .day-past .dot{background:var(--muted)!important;opacity:.6}
-.act{position:relative;display:flex;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:7px;transition:box-shadow .12s ease,transform .12s ease}
+.act{position:relative;display:flex;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:7px;transition:box-shadow .12s ease,transform .12s ease;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:pan-y}
+.act.act-int{cursor:pointer}
+.act.swiping{transition:none}
+.act.will-del{border-color:var(--danger);box-shadow:inset 4px 0 0 var(--danger)}
+.act.will-del::after{content:"Excluir";position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--danger);font-weight:800;font-size:13px}
 .act .h{font-size:12.5px;font-weight:800;color:var(--navy);flex:0 0 46px;padding-top:1px;text-align:right;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .act .h .h-livre{color:var(--dim);font-weight:700;font-size:11px}
 .act .b{flex:1;min-width:0}
@@ -4865,12 +4869,10 @@ function renderRoteiro(){_sujo.delete("roteiro");
         <div class="grow" style="font-size:13px;color:var(--muted);font-weight:600">${esc(d.titulo||"")}</div>
         ${itensOrd.length?`<span class="day-count">${itensOrd.length}</span>`:""}
         ${adm?`<button class="x" data-ddel="${d.id}" aria-label="Excluir dia">✕</button>`:""}</div>
-      ${itensOrd.map(a=>{const _pill=(a.hora&&a.hora!=="—")?`<span class="act-t">${esc(a.hora)}</span>`:`<span class="act-t livre">livre</span>`;return `<div class="act ${feitoDe(a)?"act-done":""}">
-        ${adm?`<div class="act-grip" data-drag data-dd="${d.id}" data-ai="${a.id}" aria-label="Arrastar para reordenar" title="Arrastar para reordenar"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></div>`:""}
+      ${itensOrd.map(a=>{const _pill=(a.hora&&a.hora!=="—")?`<span class="act-t">${esc(a.hora)}</span>`:`<span class="act-t livre">livre</span>`;return `<div class="act ${feitoDe(a)?"act-done":""}${adm?" act-int":""}"${adm?` data-act="${d.id}|${a.id}"`:""}>
         ${emV?`<button class="actcheck ${feitoDe(a)?"on":""}" data-adone="${d.id}|${a.id}" aria-label="${feitoDe(a)?"Desmarcar":"Marcar como feito"}">${feitoDe(a)?"✓":""}</button>`:""}
         <div class="b"><div class="n">${_pill}${esc(a.titulo)}</div>${a.nota?`<div class="s">${esc(a.nota)}</div>`:""}${a.local?`<div class="s">${mapBtn(a.local,d.cidade)}</div>`:""}
-          ${Number(a.valor)>0?`<div class="s"><b style="color:var(--ber)">${fmtIn(a.valor,a.moeda||"EUR")}</b> · ${(!Array.isArray(a.quem)||a.quem.length>=PEOPLE.length)?"todos":a.quem.map(esc).join(", ")} · ${fmt(toBRL(a.valor,a.moeda||"EUR")/((Array.isArray(a.quem)&&a.quem.length)?a.quem.length:PEOPLE.length))} cada</div>`:""}</div>
-        ${adm?`<button class="x" data-aedit="${d.id}|${a.id}" aria-label="Editar atividade">✎</button><button class="x" data-adel="${d.id}|${a.id}" aria-label="Excluir">✕</button>`:""}</div>`;}).join("")}
+          ${Number(a.valor)>0?`<div class="s"><b style="color:var(--ber)">${fmtIn(a.valor,a.moeda||"EUR")}</b> · ${(!Array.isArray(a.quem)||a.quem.length>=PEOPLE.length)?"todos":a.quem.map(esc).join(", ")} · ${fmt(toBRL(a.valor,a.moeda||"EUR")/((Array.isArray(a.quem)&&a.quem.length)?a.quem.length:PEOPLE.length))} cada</div>`:""}</div></div>`;}).join("")}
       ${adm?`<button class="btn gh sm" data-aadd="${d.id}" style="margin:2px 0 4px">+ atividade</button>`:""}
     </div>`;}).join(""):`<div class="empty">${roteiroCidade?"Nada em "+esc(cityOf(roteiroCidade).n)+" ainda.<br>Os dias e passeios aparecem aqui quando forem montados.":"Roteiro vazio.<br>Os dias e passeios da viagem são montados por aqui."}</div>`}
   </div>
@@ -4910,7 +4912,7 @@ function renderRoteiro(){_sujo.delete("roteiro");
   $("#p-roteiro").querySelectorAll("[data-aadd]").forEach(b=>b.onclick=()=>openModal("Nova atividade",[
     {id:"hora",label:"Hora",placeholder:"10:00"},
     {id:"titulo",label:"O que é",placeholder:"Ex.: Tour na Allianz Arena"},
-    {id:"local",label:"Local (abre no mapa)",type:"geo",placeholder:"Ex.: Museu do Louvre"},
+    {id:"local",label:"Local (abre no mapa)",type:"text",placeholder:"Ex.: Museu do Louvre"},
     {id:"nota",label:"Observação",type:"area",placeholder:"opcional"},
     {id:"valor",label:"Custo total (opcional)",type:"money",placeholder:"0,00"},
     {id:"moeda",label:"Moeda",type:"select",options:moedasVista(),value:moedaPadrao()},
@@ -4924,70 +4926,92 @@ function renderRoteiro(){_sujo.delete("roteiro");
     const dias=(STATE.roteiro.dias||[]).map(d=>d.id===b.dataset.aadd?
       Object.assign({},d,{itens:(d.itens||[]).concat([at])}):d);
     saveDoc("roteiro",{dias:dias});toast("Atividade adicionada");}));
-  $("#p-roteiro").querySelectorAll("[data-adel]").forEach(b=>b.onclick=()=>{
-    const[di,ai]=b.dataset.adel.split("|");
-    saveDoc("roteiro",{dias:(STATE.roteiro.dias||[]).map(d=>d.id===di?Object.assign({},d,{itens:(d.itens||[]).filter(a=>a.id!==ai)}):d)});});
-  $("#p-roteiro").querySelectorAll("[data-aedit]").forEach(b=>b.onclick=()=>{
-    const[di,ai]=b.dataset.aedit.split("|");
-    const dia=(STATE.roteiro.dias||[]).find(d=>d.id===di);
-    const at=dia&&(dia.itens||[]).find(a=>a.id===ai);
-    if(!at)return;
-    const quemAtual=(Array.isArray(at.quem)&&at.quem.length)?at.quem.slice():PEOPLE.slice();
-    openModal("Editar atividade",[
-      {id:"hora",label:"Hora",placeholder:"10:00",value:(at.hora&&at.hora!=="—")?at.hora:""},
-      {id:"titulo",label:"O que é",value:at.titulo||""},
-      {id:"local",label:"Local (abre no mapa)",type:"geo",placeholder:"Ex.: Museu do Louvre",value:at.local||""},
-      {id:"nota",label:"Observação",type:"area",placeholder:"opcional",value:at.nota||""},
-      {id:"valor",label:"Custo total (opcional)",type:"money",placeholder:"0,00",value:Number(at.valor)>0?at.valor:""},
-      {id:"moeda",label:"Moeda",type:"select",options:moedasForm(at.moeda||moedaPrincipal()),value:at.moeda||moedaPadrao()},
-      {id:"quem",label:"Quem vai (e divide o custo)",type:"chips",value:quemAtual}
-    ],v=>{
-      if(!v.titulo){toast("Dê um nome à atividade");return false;}
-      const novo=Object.assign({},at,{hora:v.hora||"—",titulo:v.titulo,nota:v.nota,local:v.local||""});
-      delete novo.valor;delete novo.moeda;delete novo.quem;
-      if(v.valor>0){novo.valor=v.valor;novo.moeda=v.moeda;
-        novo.quem=(v.quem.length&&v.quem.length<PEOPLE.length)?v.quem:"todos";}
-      const dias=(STATE.roteiro.dias||[]).map(d=>d.id!==di?d:
-        Object.assign({},d,{itens:(d.itens||[]).map(a=>a.id===ai?novo:a)}));
-      saveDoc("roteiro",{dias:dias});toast("Atividade atualizada");
-    });});
+  $("#p-roteiro").querySelectorAll("[data-act]").forEach(el=>ligarGestoAtiv(el));
   $("#p-roteiro").querySelectorAll("[data-ddel]").forEach(b=>b.onclick=()=>confirmModal("Excluir o dia inteiro?","Remove o dia e todas as atividades dele do roteiro.","Excluir",async()=>{
     saveDoc("roteiro",{dias:(STATE.roteiro.dias||[]).filter(d=>d.id!==b.dataset.ddel)});$("#modal").innerHTML="";},true));
-  $("#p-roteiro").querySelectorAll("[data-drag]").forEach(h=>h.addEventListener("pointerdown",e=>iniciarDragAtiv(e,h)));
 }
-/* Reordenar atividades arrastando (toque + mouse via Pointer Events).
-   A ordem manual passa a valer (campo ord); enquanto ninguém arrasta um dia, ele segue ordenado por hora. */
-function iniciarDragAtiv(e,handle){
-  if(e.button!=null&&e.button!==0)return;
-  e.preventDefault();
-  const row=handle.closest(".act"),day=handle.closest(".day");
-  if(!row||!day)return;
-  const dayId=handle.dataset.dd;
+function editarAtividade(di,ai){
+  const dia=(STATE.roteiro.dias||[]).find(d=>d.id===di);
+  const at=dia&&(dia.itens||[]).find(a=>a.id===ai);
+  if(!at)return;
+  const quemAtual=(Array.isArray(at.quem)&&at.quem.length)?at.quem.slice():PEOPLE.slice();
+  openModal("Editar atividade",[
+    {id:"hora",label:"Hora",placeholder:"10:00",value:(at.hora&&at.hora!=="—")?at.hora:""},
+    {id:"titulo",label:"O que é",value:at.titulo||""},
+    {id:"local",label:"Local (abre no mapa)",type:"text",placeholder:"Ex.: Museu do Louvre",value:at.local||""},
+    {id:"nota",label:"Observação",type:"area",placeholder:"opcional",value:at.nota||""},
+    {id:"valor",label:"Custo total (opcional)",type:"money",placeholder:"0,00",value:Number(at.valor)>0?at.valor:""},
+    {id:"moeda",label:"Moeda",type:"select",options:moedasForm(at.moeda||moedaPrincipal()),value:at.moeda||moedaPadrao()},
+    {id:"quem",label:"Quem vai (e divide o custo)",type:"chips",value:quemAtual}
+  ],v=>{
+    if(!v.titulo){toast("Dê um nome à atividade");return false;}
+    const novo=Object.assign({},at,{hora:v.hora||"—",titulo:v.titulo,nota:v.nota,local:v.local||""});
+    delete novo.valor;delete novo.moeda;delete novo.quem;
+    if(v.valor>0){novo.valor=v.valor;novo.moeda=v.moeda;
+      novo.quem=(v.quem.length&&v.quem.length<PEOPLE.length)?v.quem:"todos";}
+    const dias=(STATE.roteiro.dias||[]).map(d=>d.id!==di?d:
+      Object.assign({},d,{itens:(d.itens||[]).map(a=>a.id===ai?novo:a)}));
+    saveDoc("roteiro",{dias:dias});toast("Atividade atualizada");
+  });
+}
+function excluirAtividade(di,ai){
+  const dia=(STATE.roteiro.dias||[]).find(d=>d.id===di);
+  const at=dia&&(dia.itens||[]).find(a=>a.id===ai);
+  confirmModal("Excluir atividade?",`Remove <b>${esc(at?at.titulo:"a atividade")}</b> do roteiro.`,"Excluir",async()=>{
+    saveDoc("roteiro",{dias:(STATE.roteiro.dias||[]).map(d=>d.id===di?Object.assign({},d,{itens:(d.itens||[]).filter(a=>a.id!==ai)}):d)});$("#modal").innerHTML="";
+  },true);
+}
+/* Gesto único no card: toque curto=editar · segurar=arrastar · deslizar p/ esquerda=excluir. */
+function ligarGestoAtiv(el){
+  const parts=(el.dataset.act||"").split("|"),di=parts[0],ai=parts[1];
+  const day=el.closest(".day"); if(!day)return;
   const rows=()=>[...day.querySelectorAll(".act")];
-  row.classList.add("dragging");
-  vibrar(18);
-  try{handle.setPointerCapture(e.pointerId);}catch(_){}
-  const onMove=ev=>{
-    ev.preventDefault();
-    const y=ev.clientY;
-    let ref=null;
-    for(const r of rows()){if(r===row)continue;const b=r.getBoundingClientRect();if(y<b.top+b.height/2){ref=r;break;}}
-    if(ref){if(ref!==row.nextElementSibling)day.insertBefore(row,ref);}
-    else{const add=day.querySelector("[data-aadd]");if(add){if(add.previousElementSibling!==row)day.insertBefore(row,add);}else if(day.lastElementChild!==row)day.appendChild(row);}
+  let x0=0,y0=0,t0=0,pid=null,mode="idle",lp=null,tmBlock=null;
+  const setX=v=>{el.style.transform=v?`translateX(${v}px)`:"";};
+  const block=()=>{if(tmBlock)return;tmBlock=ev=>ev.preventDefault();document.addEventListener("touchmove",tmBlock,{passive:false});};
+  const unblock=()=>{if(tmBlock){document.removeEventListener("touchmove",tmBlock,{passive:false});tmBlock=null;}};
+  const capture=()=>{try{el.setPointerCapture(pid);}catch(_){}};
+  const startDrag=()=>{mode="drag";el.classList.add("dragging");vibrar(18);capture();block();};
+  const reorder=y=>{let ref=null;for(const r of rows()){if(r===el)continue;const b=r.getBoundingClientRect();if(y<b.top+b.height/2){ref=r;break;}}if(ref){if(ref!==el.nextElementSibling)day.insertBefore(el,ref);}else{const add=day.querySelector("[data-aadd]");if(add){if(add.previousElementSibling!==el)day.insertBefore(el,add);}else if(day.lastElementChild!==el)day.appendChild(el);}};
+  const move=e=>{
+    const dx=e.clientX-x0,dy=e.clientY-y0;
+    if(mode==="pending"){
+      if(Math.abs(dx)>10&&Math.abs(dx)>Math.abs(dy)+4){mode="swipe";clearTimeout(lp);capture();block();}
+      else if(Math.abs(dy)>10){mode="scroll";clearTimeout(lp);}
+    }
+    if(mode==="swipe"){e.preventDefault();let d=dx;if(d>0)d=0;if(d<-170)d=-170;setX(d);el.classList.add("swiping");el.classList.toggle("will-del",d<-70);}
+    else if(mode==="drag"){e.preventDefault();reorder(e.clientY);}
   };
-  const fim=ev=>{
-    try{handle.releasePointerCapture(e.pointerId);}catch(_){}
-    document.removeEventListener("pointermove",onMove);
-    document.removeEventListener("pointerup",fim);
-    document.removeEventListener("pointercancel",fim);
-    row.classList.remove("dragging");
-    const ordem=rows().map(r=>{const g=r.querySelector("[data-drag]");return g?g.dataset.ai:null;}).filter(Boolean);
-    const mudou=persistirOrdemDia(dayId,ordem);
-    if(mudou)confirmarHoraAtiv(dayId,handle.dataset.ai);
+  const up=e=>{
+    clearTimeout(lp);
+    document.removeEventListener("pointermove",move);
+    document.removeEventListener("pointerup",up);
+    document.removeEventListener("pointercancel",up);
+    try{el.releasePointerCapture(pid);}catch(_){}
+    unblock();
+    const dx=e.clientX-x0,dy=e.clientY-y0,dt=Date.now()-t0;
+    if(mode==="drag"){
+      el.classList.remove("dragging");setX(0);
+      const ordem=rows().map(r=>r.dataset.act?r.dataset.act.split("|")[1]:null).filter(Boolean);
+      const mudou=persistirOrdemDia(di,ordem);
+      if(mudou)confirmarHoraAtiv(di,ai);
+    }else if(mode==="swipe"){
+      el.classList.remove("swiping","will-del");setX(0);
+      if(dx<-80)excluirAtividade(di,ai);
+    }else if(mode==="pending"){
+      if(dt<600&&Math.abs(dx)<8&&Math.abs(dy)<8)editarAtividade(di,ai);
+    }else{setX(0);}
+    mode="idle";
   };
-  document.addEventListener("pointermove",onMove);
-  document.addEventListener("pointerup",fim);
-  document.addEventListener("pointercancel",fim);
+  el.addEventListener("pointerdown",e=>{
+    if(e.target.closest(".maplink,.actcheck,a,button"))return;
+    if(e.button!=null&&e.button!==0)return;
+    x0=e.clientX;y0=e.clientY;t0=Date.now();pid=e.pointerId;mode="pending";
+    lp=setTimeout(()=>{if(mode==="pending")startDrag();},300);
+    document.addEventListener("pointermove",move);
+    document.addEventListener("pointerup",up);
+    document.addEventListener("pointercancel",up);
+  });
 }
 function persistirOrdemDia(dayId,ordemIds){
   let mudou=false;
