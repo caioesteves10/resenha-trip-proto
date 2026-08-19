@@ -5074,8 +5074,16 @@ function confirmarHoraAtiv(dayId,actId){
     {id:"hora",label:`Novo horário de "${at.titulo}"`,placeholder:"10:00",value:at.hora}
   ],v=>{
     const nova=(v.hora||"").trim()||at.hora;
-    const dias=(STATE.roteiro.dias||[]).map(d=>d.id!==dayId?d:Object.assign({},d,{itens:(d.itens||[]).map(a=>a.id===actId?Object.assign({},a,{hora:nova}):a)}));
-    saveDoc("roteiro",{dias});toast("Horário atualizado");
+    // ao confirmar um horário, o horário passa a mandar: reorganiza o dia por hora (limpa a ordem manual)
+    const dias=(STATE.roteiro.dias||[]).map(d=>{
+      if(d.id!==dayId)return d;
+      return Object.assign({},d,{itens:(d.itens||[]).map(a=>{
+        const b=Object.assign({},a,a.id===actId?{hora:nova}:{});
+        delete b.ord;
+        return b;
+      })});
+    });
+    saveDoc("roteiro",{dias});toast("Reorganizado por horário");
   },"Salvar");
 }
 
