@@ -765,6 +765,52 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
 #aj-tabs{margin-bottom:14px}
 .mk-hint2{font-size:12px;color:var(--muted);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 11px;margin-bottom:14px;line-height:1.4}
 .modal .box{position:relative}
+/* ===== Meu panorama ===== */
+.pano-box{padding:0!important;overflow:hidden;max-width:440px;width:100%}
+.pano-load{padding:40px 20px;text-align:center;color:var(--dim);font-weight:600}
+.pano-x{position:absolute;top:12px;right:12px;z-index:3;width:32px;height:32px;border-radius:50%;border:0;background:rgba(255,255,255,.2);color:#fff;font-size:15px;cursor:pointer}
+.pano-hero{background:linear-gradient(160deg,var(--navy),var(--navy2));color:#fff;padding:20px 16px 18px}
+.pano-htop{display:flex;align-items:center;gap:12px}
+.pano-av{width:50px;height:50px;border-radius:50%;background:var(--orange);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:19px;flex:none;border:2px solid rgba(255,255,255,.35)}
+.pano-hello{font-size:11px;color:rgba(255,255,255,.7);font-weight:800;letter-spacing:.06em}
+.pano-name{font-size:21px;font-weight:800;line-height:1.1;font-family:'Bricolage Grotesque',Inter,sans-serif}
+.pano-filtro{display:flex;gap:6px;margin-top:14px;overflow-x:auto;scrollbar-width:none}
+.pano-filtro::-webkit-scrollbar{display:none}
+.pano-filtro button{flex:none;border:0;background:rgba(255,255,255,.14);color:rgba(255,255,255,.85);padding:6px 14px;border-radius:99px;font-weight:800;font-size:13px;cursor:pointer}
+.pano-filtro button.on{background:#fff;color:var(--navy)}
+.pano-stats3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.pstat{background:rgba(255,255,255,.10);border-radius:13px;padding:11px 6px;text-align:center}
+.pstat .n{font-size:24px;font-weight:800;line-height:1;font-family:'Bricolage Grotesque',Inter,sans-serif}
+.pstat .l{font-size:10px;color:rgba(255,255,255,.8);margin-top:4px;font-weight:600}
+.pano-body{padding:14px 14px 18px;max-height:60vh;overflow-y:auto;background:var(--bg)}
+.pano-sec-h{display:flex;align-items:center;gap:8px;margin:6px 2px 9px}
+.pano-sec-h .ico{width:17px;height:17px;color:var(--orange)}
+.pano-sec-h h3{font-size:14px;font-weight:800;color:var(--navy);margin:0}
+.pano-card{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:13px;margin-bottom:11px}
+.pano-note{font-size:12px;color:var(--dim);line-height:1.45}
+.pano-empty{font-size:12px;color:var(--dim)}
+.worldn{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px}
+.worldn b{font-size:19px;font-weight:800;color:var(--navy)}
+.worldn span{font-size:12px;color:var(--dim)}
+.worldbar{height:9px;border-radius:99px;background:var(--panel2);overflow:hidden;margin-bottom:10px}
+.worldbar i{display:block;height:100%;background:linear-gradient(90deg,var(--orange),#F0A35E);border-radius:99px}
+.pchips{display:flex;flex-wrap:wrap;gap:6px}
+.pchip{display:inline-flex;align-items:center;gap:5px;background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:4px 10px;font-size:12.5px;font-weight:700}
+.conti{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}
+.conti .cbadge{flex:1 1 44%;display:flex;align-items:center;gap:8px;background:var(--panel2);border-radius:10px;padding:8px 10px;font-size:12.5px;font-weight:700}
+.conti .cbadge.off{opacity:.4}
+.conti .cdot{width:9px;height:9px;border-radius:50%;background:var(--ok);flex:none}
+.conti .cbadge.off .cdot{background:var(--muted)}
+.tl{position:relative;padding-left:20px}
+.tl::before{content:"";position:absolute;left:5px;top:5px;bottom:5px;width:2px;background:var(--line)}
+.tl-item{position:relative;padding:0 0 13px}
+.tl-item:last-child{padding-bottom:0}
+.tl-dot{position:absolute;left:-18px;top:3px;width:11px;height:11px;border-radius:50%;border:2.5px solid var(--panel);box-shadow:0 0 0 1px var(--line)}
+.tl-dot.done{background:var(--ok)} .tl-dot.plan{background:var(--orange)} .tl-dot.now{background:var(--ber)}
+.tl-nome{font-weight:800;font-size:14px}
+.tl-meta{font-size:11.5px;color:var(--dim);margin-top:1px}
+.tl-tag{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle}
+.tl-tag.done{background:#E4F5EC;color:var(--ok)} .tl-tag.plan{background:#FDECE0;color:var(--orange)} .tl-tag.now{background:#E7F0FA;color:var(--ber)}
 .mx{position:absolute;top:14px;right:14px;background:var(--panel2);border:none;color:var(--muted);width:30px;height:30px;border-radius:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;z-index:3}
 .mx:hover{color:var(--text)}
 .mx svg{width:16px;height:16px}
@@ -1436,6 +1482,20 @@ const PAISES=(()=>{
   return {byName,byIso};
 })();
 const PAIS_POR_ISO=PAISES.byIso;
+/* continente por ISO-2 (cobre os países do PAISES + os mais comuns) */
+const CONTINENTE_POR_ISO=(()=>{
+  const g={
+    "América do Sul":["BR","AR","CL","UY","PY","BO","PE","CO","EC","VE","GY","SR","GF"],
+    "América do Norte":["US","CA","MX","CR","PA","CU","DO","GT","HN","NI","SV","JM","BS","BZ"],
+    "Europa":["FR","DE","GB","IT","ES","PT","NL","BE","CZ","AT","CH","DK","HU","GR","IE","SE","NO","FI","PL","IS","LU","HR","RO","TR","RU","UA","RS","BG","SK","SI","EE","LV","LT","MT","CY","AL","BA","ME","MK","MC","VA","AD","LI","SM"],
+    "Ásia":["JP","CN","KR","IN","TH","AE","ID","VN","MY","SG","PH","KH","LA","MM","NP","LK","BD","PK","IL","JO","LB","SA","QA","KW","OM","BH","IQ","IR","KZ","UZ","GE","AM","AZ","MN","BT","MV","TW","HK","MO"],
+    "África":["EG","MA","ZA","KE","TZ","NG","GH","ET","SN","TN","DZ","CM","CI","UG","ZW","NA","BW","MZ","MG","RW","MU","SC","AO"],
+    "Oceania":["AU","NZ","FJ","PG","WS","TO","VU","PF","NC"]
+  };
+  const m={};for(const cont in g)g[cont].forEach(iso=>m[iso]=cont);return m;
+})();
+const CONTINENTES_ORDEM=["América do Sul","América do Norte","Europa","Ásia","África","Oceania"];
+function continenteDeISO(iso){return CONTINENTE_POR_ISO[(iso||"").toUpperCase()]||"";}
 function paisISOde(nome){const p=PAISES.byName[normNome(nome)];return p?p.iso:"";}
 function bandeiraISO(iso){iso=(iso||"").toUpperCase();if(!/^[A-Z]{2}$/.test(iso))return "";return String.fromCodePoint(...[...iso].map(c=>0x1F1E6+(c.charCodeAt(0)-65)));}
 function resolverLocal(nome){
@@ -2158,6 +2218,7 @@ async function atualizarResumo(id){
     nome:c.nome||"Viagem",
     tagline:c.tagline||"",
     cidades:(c.cidades||[]).map(x=>x&&(x.n||x.nome)).filter(Boolean),
+    paises:(()=>{const iso={};(c.cidades||[]).forEach(x=>{const nm=x&&(x.n||x.nome);if(!nm)return;const loc=resolverLocal(nm);const i=(loc&&loc.paisISO)||(x&&x.iso)||paisISOde(nm)||"";if(i)iso[i]=1;});return Object.keys(iso);})(),
     inicio:c.inicio||"", fim:c.fim||"",
     pessoasCard:_pp.map(p=>{const o={n:p.nome};if(p.foto)o.f=p.foto;return o;})
   };
@@ -2526,7 +2587,8 @@ function abrirPerfil(){
     </div>
     ${secEsta}
     <div class="dw-sec"><div class="dw-sec-tit">Você</div>
-      ${it("pf-perfil","perfil","Meu perfil")}
+      ${it("pf-panorama","panorama","Meu panorama")}
+      ${it("pf-perfil","dados","Meus dados")}
       ${it("pf-ajuda","ajuda","Como usar o app")}
     </div>
     <div class="dw-sec"><div class="dw-sec-tit">Conta</div>
@@ -2542,6 +2604,7 @@ function abrirPerfil(){
   const _bv=$("#pf-viagens");if(_bv)_bv.onclick=()=>ir(showViagens);
   const _cv=$("#pf-configvia");if(_cv)_cv.onclick=()=>ir(()=>abrirAjustes("padrao"));
   const _pp=$("#pf-participantes");if(_pp)_pp.onclick=()=>ir(abrirParticipantes);
+  const _pn=$("#pf-panorama");if(_pn)_pn.onclick=()=>ir(abrirPanorama);
   const _pu=$("#pf-perfil");if(_pu)_pu.onclick=()=>ir(abrirPerfilUsuario);
   const _aj=$("#pf-ajuda");if(_aj)_aj.onclick=()=>ir(()=>mostrarIntro(true));
 }
@@ -2688,7 +2751,9 @@ const ICONS={
   reativar:'<path d="M3 12a9 9 0 1 1 3 6.7L3 16"/><path d="M3 21v-5h5"/>',
   adicionar:'<path d="M12 5v14M5 12h14"/>',
   remover:'<path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"/>',
-  eu:'<circle cx="12" cy="8" r="4"/><path d="M5 20a7 7 0 0 1 14 0"/>'
+  eu:'<circle cx="12" cy="8" r="4"/><path d="M5 20a7 7 0 0 1 14 0"/>',
+  dados:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+  panorama:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 2.5 15.4 0 18M12 3c-2.5 2.6-2.5 15.4 0 18"/>'
 };
 function ICO(n,cls){const p=ICONS[n];if(!p)return"";return `<svg class="ico${cls?' '+cls:''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;}
 function statusViagem(v){
@@ -4001,6 +4066,116 @@ function _alertaPassaporte(validade){
   if(val<req) return `<div class="pu-alert warn">Passaporte válido até ${br(validade)} — <b>menos de 6 meses</b> após o fim da viagem. Muitos países exigem 6 meses de validade; confirme a exigência do destino.</div>`;
   return `<div class="pu-alert ok">Validade suficiente pra esta viagem (6+ meses após a volta).</div>`;
 }
+/* ===== Meu panorama — visão cross-viagem (Parte 1: não-financeiro) =====
+   Deriva tudo dos resumos que o app já busca em listarMinhasViagens().
+   No MOCK (1 viagem), monta o resumo a partir do STATE atual pra a tela não ficar vazia. */
+function _anoDe(s){const m=/^(\d{4})/.exec(String(s||""));return m?m[1]:"";}
+function _statusPanorama(v){ // reusa statusViagem, mas devolve chave simples
+  const st=statusViagem(v); if(/Conclu/i.test(st.t))return"done"; if(/andamento/i.test(st.t))return"now"; return"plan";
+}
+function _diasViagem(v){
+  if(!v.inicio||!v.fim)return 0;
+  const a=ymd(v.inicio),b=ymd(v.fim); const d=Math.round((b-a)/86400000)+1; return d>0?d:0;
+}
+/* percorre as viagens (resumos) e agrega o não-financeiro, filtrando por ano ("Total" = tudo) */
+function panoramaAgrega(vs, ano){
+  const paises={}, contis={}, cidades={}; let concl=0, dias=0;
+  const tl=[];
+  (vs||[]).forEach(v=>{
+    const anoV=_anoDe(v.inicio||v.fim);
+    if(ano&&ano!=="Total"&&anoV!==ano)return;
+    const st=_statusPanorama(v);
+    if(st==="done"){concl++; dias+=_diasViagem(v);}
+    // países/continentes só contam de viagens já concluídas (visitadas de fato)
+    (v.cidades||[]).forEach(nome=>{
+      if(!nome)return;
+      cidades[normNome(nome)] = nome;
+    });
+    if(st==="done"){
+      let isos=[];
+      if(Array.isArray(v.paises)&&v.paises.length) isos=v.paises.slice();
+      else (v.cidades||[]).forEach(nome=>{const loc=resolverLocal(nome);const iso=(loc&&loc.paisISO)||paisISOde(nome);if(iso)isos.push(iso);});
+      isos.forEach(iso=>{paises[iso]=(PAIS_POR_ISO[iso]&&PAIS_POR_ISO[iso].nome)||iso;const cc=continenteDeISO(iso);if(cc)contis[cc]=1;});
+    }
+    tl.push({nome:v.nome||"Viagem", cidades:(v.cidades||[]).filter(Boolean), inicio:v.inicio||"", fim:v.fim||"", st, dias:_diasViagem(v)});
+  });
+  tl.sort((a,b)=>String(b.inicio).localeCompare(String(a.inicio)));
+  return {concl, dias, paises, contis, cidades:Object.keys(cidades).length, tl};
+}
+/* lista base de viagens: online usa os resumos; MOCK usa a viagem atual do STATE */
+async function panoramaViagens(){
+  if(!MOCK){ try{ const vs=await listarMinhasViagens(); return vs||[]; }catch(e){ return []; } }
+  const c=STATE.config||{};
+  return [{
+    id:VIAGEM.id, nome:c.nome||"Viagem",
+    cidades:(c.cidades||[]).map(x=>x&&(x.n||x.nome)).filter(Boolean),
+    inicio:c.inicio||"", fim:c.fim||""
+  }];
+}
+let _panoAno="Total";
+async function abrirPanorama(){
+  const nome=(STATE.conta||STATE.me||"Você");
+  const ini=(nome.trim()[0]||"V").toUpperCase();
+  $("#modal").innerHTML=`<div class="modal"><div class="box pano-box"><div class="pano-load">Somando suas viagens…</div></div></div>`;
+  $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)$("#modal").innerHTML="";};
+  const vs=await panoramaViagens();
+  // anos disponíveis (dos inícios), desc
+  const anos=[...new Set(vs.map(v=>_anoDe(v.inicio||v.fim)).filter(Boolean))].sort().reverse();
+  if(!anos.includes(_panoAno)&&_panoAno!=="Total")_panoAno="Total";
+  const render=()=>{
+    const A=panoramaAgrega(vs,_panoAno);
+    const nPaises=Object.keys(A.paises).length, nConti=Object.keys(A.contis).length;
+    const pct=Math.max(1,Math.round(nPaises/195*100));
+    const chipsPais=Object.keys(A.paises).map(iso=>`<span class="pchip">${bandeiraISO(iso)||"📍"} ${esc(A.paises[iso])}</span>`).join("")||'<span class="pano-empty">Nenhum país ainda — suas viagens concluídas aparecem aqui.</span>';
+    const conti=CONTINENTES_ORDEM.map(c=>`<div class="cbadge ${A.contis[c]?"":"off"}"><span class="cdot"></span>${esc(c)}</div>`).join("");
+    const tl=A.tl.map(t=>{
+      const tag=t.st==="done"?'<span class="tl-tag done">concluída</span>':(t.st==="now"?'<span class="tl-tag now">em andamento</span>':'<span class="tl-tag plan">planejando</span>');
+      const per=(t.inicio?fmtMesAno(t.inicio):"")+(t.st==="done"&&t.dias?` · ${t.dias} dias`:"");
+      return `<div class="tl-item"><div class="tl-dot ${t.st}"></div><div class="tl-nome">${esc(t.nome)}${tag}</div><div class="tl-meta">${esc(t.cidades.join(" › ")||"—")}${per?` · ${esc(per)}`:""}</div></div>`;
+    }).join("")||'<div class="pano-empty">Você ainda não tem viagens por aqui.</div>';
+    const filtroBtns=['Total'].concat(anos).map(a=>`<button class="${a===_panoAno?"on":""}" data-ano="${esc(a)}">${esc(a)}</button>`).join("");
+
+    $("#modal").innerHTML=`<div class="modal"><div class="box pano-box">
+      <button class="pano-x" id="pano-x" aria-label="Fechar">✕</button>
+      <div class="pano-hero">
+        <div class="pano-htop"><div class="pano-av">${esc(ini)}</div>
+          <div><div class="pano-hello">MEU PANORAMA</div><div class="pano-name">${esc(nome)}</div></div></div>
+        <div class="pano-filtro">${filtroBtns}</div>
+        <div class="pano-stats3">
+          <div class="pstat"><div class="n">${A.concl}</div><div class="l">viagens concluídas</div></div>
+          <div class="pstat"><div class="n">${A.cidades}</div><div class="l">cidades</div></div>
+          <div class="pstat"><div class="n">${A.dias}</div><div class="l">dias viajando</div></div>
+        </div>
+      </div>
+      <div class="pano-body">
+        <div class="pano-sec-h">${ICO("panorama")}<h3>Meu mundo</h3></div>
+        <div class="pano-card">
+          <div class="worldn"><b>${nPaises} ${nPaises===1?"país":"países"}</b><span>de 195 · ${nPaises?pct:0}%</span></div>
+          <div class="worldbar"><i style="width:${nPaises?pct:0}%"></i></div>
+          <div class="pchips">${chipsPais}</div>
+          <div class="conti">${conti}</div>
+          <div class="pano-note" style="margin-top:9px">${nConti} de 6 continentes visitados</div>
+        </div>
+
+        <div class="pano-fin-stub pano-card">
+          <div class="pano-note"><b>Dinheiro (em breve)</b><br>Quanto falta guardar, quanto já gastou e o Ratatá em aberto entram aqui na próxima atualização.</div>
+        </div>
+
+        <div class="pano-sec-h">${ICO("viagem")}<h3>Minhas viagens</h3></div>
+        <div class="pano-card"><div class="tl">${tl}</div></div>
+
+        <div class="pano-note" style="text-align:center;margin:14px 4px 2px">Somado das suas viagens. O filtro no topo recorta por período.</div>
+      </div>
+    </div></div>`;
+    $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)$("#modal").innerHTML="";};
+    $("#pano-x").onclick=()=>{$("#modal").innerHTML="";};
+    $("#modal").querySelectorAll(".pano-filtro [data-ano]").forEach(b=>b.onclick=()=>{_panoAno=b.dataset.ano;render();});
+  };
+  render();
+}
+/* mês/ano abreviado pt-BR a partir de ISO */
+function fmtMesAno(s){const d=ymd(s);const M=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];return `${M[d.getMonth()]}/${d.getFullYear()}`;}
+
 async function abrirPerfilUsuario(){
   let p=PERFIL||{};
   if(!MOCK&&db&&UID){try{const s=await FB.getDoc(FB.doc(db,"usuarios",UID));if(s.exists()){PERFIL=s.data()||{};p=PERFIL;}}catch(e){}}
