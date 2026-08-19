@@ -552,6 +552,7 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer;ma
 .act-grip:active{cursor:grabbing;background:var(--panel2)}
 .act-grip svg{width:16px;height:16px;pointer-events:none}
 .rot-ordbar{display:flex;justify-content:flex-end;margin:0 2px 8px}
+.csv-bar{margin-top:20px;padding-top:6px}
 .rot-ord{display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line2);border-radius:20px;padding:6px 13px;font:inherit;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer}
 .rot-ord:active{background:var(--panel2)}
 .rot-ord svg{width:14px;height:14px}
@@ -1537,6 +1538,42 @@ function exportarICS(){
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(()=>URL.revokeObjectURL(url),2000);
     toast(`${n} passeios exportados`);
+  }catch(e){toast("Não foi possível exportar");}
+}
+function exportarCustosCSV(){
+  const itens=custoItens();
+  if(!itens.length){toast("Nenhum custo pra exportar");return;}
+  const SEP=";";
+  const q=v=>`"${String(v==null?"":v).replace(/"/g,'""')}"`;
+  const numBR=n=>(Math.round((Number(n)||0)*100)/100).toFixed(2).replace(".",",");
+  const nomeV=(STATE.config&&STATE.config.nome)||"Viagem";
+  const L=[];
+  L.push(q("Resenha Trip — "+nomeV));
+  L.push("");
+  L.push(["Descrição","Categoria","Valor","Moeda","Valor (R$)","Participantes","Por pessoa (R$)","Na meta"].map(q).join(SEP));
+  let totalBRL=0;
+  itens.forEach(it=>{
+    const g=itemPeople(it), emBRL=toBRL(it.valor,it.moeda||"EUR"), cada=emBRL/(g.length||1);
+    totalBRL+=emBRL;
+    L.push([it.desc||"", it.cat||"Outros", numBR(it.valor), (it.moeda||"EUR"),
+      numBR(emBRL), g.join(", "), numBR(cada), naMeta(it)?"Sim":"Não"].map(q).join(SEP));
+  });
+  L.push([q("TOTAL"),q(""),q(""),q(""),q(numBR(totalBRL)),q(""),q(""),q("")].join(SEP));
+  L.push("");
+  L.push(q("Parte de cada um (rateio dos custos do grupo, em R$)"));
+  L.push(["Pessoa","Parte (R$)"].map(q).join(SEP));
+  const perP={}; PEOPLE.forEach(p=>perP[p]=0);
+  itens.forEach(it=>{const g=itemPeople(it),cada=toBRL(it.valor,it.moeda||"EUR")/(g.length||1);g.forEach(p=>{if(perP[p]!=null)perP[p]+=cada;});});
+  PEOPLE.forEach(p=>L.push([p,numBR(perP[p])].map(q).join(SEP)));
+  const csv="\ufeff"+L.join("\r\n");
+  try{
+    const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+    const url=URL.createObjectURL(blob), a=document.createElement("a");
+    const slug=String(nomeV).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"viagem";
+    a.href=url; a.download="custos-"+slug+".csv";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),2000);
+    toast("CSV exportado \u2713");
   }catch(e){toast("Não foi possível exportar");}
 }
 function mesViagem(){const x=(STATE.config&&STATE.config.inicio)||"2027-10-01";return Math.max(0,Math.min(11,Number(x.slice(5,7))-1));}
@@ -4664,6 +4701,11 @@ function renderCustos(){_sujo.delete("custos");
         <button class="x" data-redit="${r.id}" aria-label="Editar">✎</button>
         <button class="x" data-rdel="${r.id}" aria-label="Excluir">✕</button></div>`).join(""):
       '<div class="empty">Nada lançado ainda.<br>Conforme for pagando, registre aqui para comparar com o plano.</div>'}
+  </div>
+
+  <div class="csv-bar">
+    <button class="btn sec" id="csvexp">Exportar custos (.csv)</button>
+    <div class="note" style="text-align:center;margin-top:7px">Baixa uma planilha com os custos do grupo e o quanto cabe a cada um.</div>
   </div>`;
 
   const _sig=[Math.round(planoDe(me)*100),Math.round((cmp.real||0)*100),Math.round((cmp.plan||0)*100)].join("|");
@@ -4684,6 +4726,7 @@ function renderCustos(){_sujo.delete("custos");
     renderCustos();
     const seg=$("#cseg");if(seg)seg.scrollLeft=sl;});
   const ga=$("#goadm");if(ga)ga.onclick=()=>abrirAjustes("padrao");
+  const cx=$("#csvexp");if(cx)cx.onclick=exportarCustosCSV;
   const pmB=$("#plano-mais-btn"),pmBox=$("#plano-mais");
   if(pmB&&pmBox)pmB.onclick=()=>{
     const abrir=pmBox.hidden;pmBox.hidden=!abrir;
