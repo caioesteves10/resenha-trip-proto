@@ -706,6 +706,14 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer;ma
 .mo-chip{background:var(--panel);border:1px solid var(--line2);color:var(--navy);border-radius:999px;padding:7px 12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
 .mo-chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
 .box.perfil-form{max-height:86vh;overflow-y:auto}
+.pf-head{display:flex;flex-direction:column;align-items:center;text-align:center;padding:4px 0 12px;border-bottom:1px solid var(--line);margin-bottom:6px}
+.pf-av{position:relative;width:88px;height:88px;border-radius:50%;background:var(--orange);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:36px;overflow:hidden;border:3px solid var(--panel);box-shadow:0 2px 10px rgba(20,40,80,.18)}
+.pf-av img{width:100%;height:100%;object-fit:cover}
+.pf-cam{position:absolute;right:-2px;bottom:-2px;width:30px;height:30px;border-radius:50%;background:var(--navy);border:2.5px solid var(--panel);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.pf-cam .ico{width:15px;height:15px;color:#fff}
+.pf-acts{display:flex;gap:8px;margin-top:11px}
+.pf-acts .sm{padding:6px 12px;font-size:12.5px}
+.pf-acts .pf-rm{color:var(--danger)}
 .qv-item{width:100%}
 .qv-item.on{border-color:var(--navy);color:var(--navy);font-weight:800}
 .cv-lista,.pt-lista{display:flex;flex-direction:column;gap:8px;margin:4px 0 10px}
@@ -2234,6 +2242,7 @@ function calcPanoramaViagem(){
     (PEOPLE||[]).forEach(nome=>{
       porPessoa[nome]={
         plano:Math.round((typeof planoDe==="function"?planoDe(nome):0)||0),
+        gasto:Math.round((typeof realizadoTotal==="function"?realizadoTotal(nome):0)||0),
         meta:Math.round((typeof metaDe==="function"?metaDe(nome):0)||0),
         guardado:Math.round((typeof guardado==="function"?guardado(nome):0)||0),
         saldo:Math.round(toBRL((Number(bal[nome]||0))/100,moeda))
@@ -4145,7 +4154,7 @@ function panoramaAgrega(vs, ano){
     const pp=v.panorama&&v.panorama.porPessoa&&v.panorama.porPessoa[meuNomeNaViagem(v)];
     if(!pp){ semFin++; }
     else{
-      if(st==="done") gastei+=Number(pp.plano)||0;
+      if(st==="done") gastei+=(pp.gasto!=null?Number(pp.gasto):Number(pp.plano))||0;
       if(st==="plan"||st==="now"){ const falta=(Number(pp.meta)||0)-(Number(pp.guardado)||0); if(falta>0){metas.push({nome:v.nome||"Viagem",falta,meta:Number(pp.meta)||0,guardado:Number(pp.guardado)||0,data:v.inicio||""});} }
       const sal=Number(pp.saldo)||0; if(sal>0.5)teDevem+=sal; else if(sal<-0.5)voceDeve+=(-sal);
     }
@@ -4249,6 +4258,81 @@ async function abrirPanorama(){
 /* mês/ano abreviado pt-BR a partir de ISO */
 function fmtMesAno(s){const d=ymd(s);const M=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];return `${M[d.getMonth()]}/${d.getFullYear()}`;}
 
+/* ===== Perfil Parte 2: foto + nome (propaga pra tudo) ===== */
+/* reduz a imagem no aparelho pra ~256px, JPEG comprimido (dataURL leve, cabe no doc) */
+function _reduzirImagem(file, max){
+  max=max||256;
+  return new Promise((resolve,reject)=>{
+    try{
+      const fr=new FileReader();
+      fr.onload=()=>{
+        const img=new Image();
+        img.onload=()=>{
+          let w=img.width,h=img.height;
+          const s=Math.min(1,max/Math.max(w,h)); w=Math.round(w*s); h=Math.round(h*s);
+          // recorte quadrado central (avatar redondo)
+          const lado=Math.min(w,h); const cv=document.createElement("canvas"); cv.width=lado; cv.height=lado;
+          const ctx=cv.getContext("2d");
+          const sMin=Math.min(img.width,img.height);
+          ctx.drawImage(img,(img.width-sMin)/2,(img.height-sMin)/2,sMin,sMin,0,0,lado,lado);
+          resolve(cv.toDataURL("image/jpeg",0.8));
+        };
+        img.onerror=reject; img.src=fr.result;
+      };
+      fr.onerror=reject; fr.readAsDataURL(file);
+    }catch(e){reject(e);}
+  });
+}
+/* a pessoa (participante) que sou eu nesta viagem */
+function _minhaPessoa(){
+  if(typeof PARTICIPANTES==="undefined"||!PARTICIPANTES)return null;
+  let p=(!MOCK&&typeof UID!=="undefined"&&UID)?PARTICIPANTES.find(x=>x.uid===UID):null;
+  if(!p){const nm=(typeof MEU_VINCULO!=="undefined"&&MEU_VINCULO&&MEU_VINCULO[VIAGEM.id])||STATE.me;if(nm)p=PARTICIPANTES.find(x=>normNome(x.nome)===normNome(nm));}
+  return p||null;
+}
+/* aplica nome/foto na viagem ATUAL (via STATE), reusando o renome canônico */
+async function _aplicarPerfilAtual(nome, foto){
+  const p=_minhaPessoa(); if(!p)return;
+  if(nome && normNome(nome)!==normNome(p.nome)){ try{await renomearLugar(p.id, nome);}catch(e){} }
+  const alvo=_minhaPessoa()||p;
+  const atual=PARTICIPANTES.map(x=>{
+    if(x.id===alvo.id){const o=Object.assign({},x); if(nome)o.nome=nome; if(foto===null)delete o.foto; else if(foto)o.foto=foto; return partClean(o);}
+    return partClean(x);
+  });
+  try{await saveDoc("config",{pessoas:atual}); sincronizarPessoas();}catch(e){}
+}
+/* propaga nome/foto pras OUTRAS viagens no backend, no momento do salvar */
+async function _propagarPerfilOutras(nome, foto, nomeAntigo){
+  if(MOCK||!db||typeof UID==="undefined"||!UID)return;
+  let vs=[]; try{vs=await listarMinhasViagens();}catch(e){return;}
+  for(const v of vs){
+    if(v.id===VIAGEM.id)continue; // a atual já foi via STATE
+    try{
+      const cref=FB.doc(db,"viagens",v.id,"dados","config");
+      const snap=await FB.getDoc(cref); if(!snap.exists())continue;
+      const cfg=snap.data()||{}; const pessoas=(cfg.pessoas||[]).slice();
+      let mudou=false;
+      const novas=pessoas.map(p=>{
+        if(p&&p.uid===UID){mudou=true;const o=Object.assign({},p);if(nome)o.nome=nome;if(foto===null){delete o.foto;}else if(foto)o.foto=foto;return o;}
+        return p;
+      });
+      if(!mudou)continue;
+      await FB.setDoc(cref,{pessoas:novas},{merge:true});
+      const resumoUpd={
+        membrosInfo:{[UID]:(nome||(v.membrosInfo&&v.membrosInfo[UID])||"")},
+        pessoasCard:novas.map(p=>{const o={n:p.nome};if(p.foto)o.f=p.foto;return o;}),
+        atualizadoEm:(FB.serverTimestamp?FB.serverTimestamp():Date.now())
+      };
+      // mantém o panorama consistente: renomeia a chave da minha fatia se o nome mudou
+      if(v.panorama&&v.panorama.porPessoa&&nomeAntigo&&nome&&normNome(nomeAntigo)!==normNome(nome)&&v.panorama.porPessoa[nomeAntigo]){
+        const pp=Object.assign({},v.panorama.porPessoa); pp[nome]=pp[nomeAntigo]; delete pp[nomeAntigo];
+        resumoUpd.panorama=Object.assign({},v.panorama,{porPessoa:pp});
+      }
+      await FB.setDoc(FB.doc(db,"viagens",v.id),resumoUpd,{merge:true});
+    }catch(e){}
+  }
+}
+
 async function abrirPerfilUsuario(){
   let p=PERFIL||{};
   if(!MOCK&&db&&UID){try{const s=await FB.getDoc(FB.doc(db,"usuarios",UID));if(s.exists()){PERFIL=s.data()||{};p=PERFIL;}}catch(e){}}
@@ -4256,6 +4340,21 @@ async function abrirPerfilUsuario(){
   $("#modal").innerHTML=`<div class="modal"><div class="box perfil-form">
     <h3>Meu perfil</h3>
     <p class="mo-sub">Guardado só na sua conta (privado). Agiliza a criação de viagens e deixa suas infos à mão.</p>
+    <div class="pf-head">
+      <div class="pf-av" id="pu-av">
+        ${p.foto?`<img src="${esc(p.foto)}" alt="">`:`<span>${esc(iniciais(p.nome||STATE.conta||STATE.me||"Você"))}</span>`}
+        <button type="button" class="pf-cam" id="pu-cam" aria-label="Trocar foto">${ICO("perfil")}</button>
+      </div>
+      <input type="file" id="pu-file" accept="image/*" style="display:none">
+      <div class="pf-acts">
+        <button type="button" class="btn gh sm" id="pu-troca">${p.foto?"Trocar foto":"Adicionar foto"}</button>
+        <button type="button" class="btn gh sm pf-rm" id="pu-rmfoto" ${p.foto?"":"hidden"}>Remover</button>
+      </div>
+    </div>
+    <label class="mo-lb">Nome de exibição</label>
+    <input id="pu-nome" class="au-inp" value="${esc(p.nome||STATE.conta||STATE.me||"")}" placeholder="Como você aparece pra todos" autocomplete="off">
+    <label class="mo-lb">E-mail (da sua conta)</label>
+    <input id="pu-email" class="au-inp" value="${esc((typeof auth!=="undefined"&&auth&&auth.currentUser&&auth.currentUser.email)||p.email||"")}" readonly placeholder="—">
     <label class="mo-lb">Moeda base (padrão ao criar viagem)</label>
     <select id="pu-moeda" class="au-inp">${_optsMoeda(mb)}</select>
     <label class="mo-lb">Nacionalidade / país</label>
@@ -4283,6 +4382,26 @@ async function abrirPerfilUsuario(){
   $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};
   $("#pu-cancel").onclick=close;
   montarAutoPais($("#pu-nac"),$("#pu-nac-sug"));
+  let _fotoNova; // undefined = sem mudança; string = nova; null = remover
+  {const _cam=$("#pu-cam"),_tro=$("#pu-troca"),_file=$("#pu-file"),_rm=$("#pu-rmfoto"),_av=$("#pu-av");
+   const pick=()=>{if(_file)_file.click();};
+   if(_cam)_cam.onclick=pick; if(_tro)_tro.onclick=pick;
+   if(_file)_file.onchange=async()=>{
+     const f=_file.files&&_file.files[0]; if(!f)return;
+     try{const url=await _reduzirImagem(f,256); _fotoNova=url;
+       if(_av)_av.innerHTML=`<img src="${url}" alt=""><button type="button" class="pf-cam" id="pu-cam2" aria-label="Trocar foto">${ICO("perfil")}</button>`;
+       const c2=$("#pu-cam2"); if(c2)c2.onclick=pick;
+       if(_tro)_tro.textContent="Trocar foto"; if(_rm)_rm.hidden=false;
+     }catch(e){toast("Não consegui ler a imagem");}
+     _file.value="";
+   };
+   if(_rm)_rm.onclick=()=>{_fotoNova=null;
+     if(_av)_av.innerHTML=`<span>${esc(iniciais($("#pu-nome")&&$("#pu-nome").value||"Você"))}</span><button type="button" class="pf-cam" id="pu-cam3" aria-label="Trocar foto">${ICO("perfil")}</button>`;
+     const c3=$("#pu-cam3"); if(c3)c3.onclick=pick;
+     if(_tro)_tro.textContent="Adicionar foto"; _rm.hidden=true;
+   };
+   const _nm=$("#pu-nome"); if(_nm)_nm.addEventListener("input",()=>{const av=$("#pu-av");if(av&&!av.querySelector("img"))av.querySelector("span")&&(av.querySelector("span").textContent=iniciais(_nm.value||"Você"));});
+  }
   {const _u=$("#pu-unit");if(_u)_u.querySelectorAll("[data-u]").forEach(bt=>bt.onclick=()=>{
     localStorage.setItem("tr27_tempUnit",bt.dataset.u);
     _u.querySelectorAll("[data-u]").forEach(x=>x.classList.toggle("on",x===bt));
@@ -4300,9 +4419,21 @@ async function abrirPerfilUsuario(){
       restricoes:($("#pu-rest").value||"").trim(),
       tempUnit:(localStorage.getItem("tr27_tempUnit")==="F"?"F":"C")
     };
+    const nomeNovo=($("#pu-nome").value||"").trim();
+    const nomeAntigo=(PERFIL&&PERFIL.nome)||STATE.conta||STATE.me||"";
+    if(nomeNovo)dados.nome=nomeNovo;
+    if(_fotoNova!==undefined)dados.foto=_fotoNova; // string ou null
     PERFIL=Object.assign({},PERFIL,dados);
+    if(_fotoNova===null)delete PERFIL.foto;
     close();toast("Perfil salvo ✓");
+    // 1) doc do usuário
     if(!MOCK&&db&&UID){try{await FB.setDoc(FB.doc(db,"usuarios",UID),dados,{merge:true});}catch(e){toast("Não consegui salvar agora.");}}
+    // 2) propaga nome/foto pra viagem atual e pras outras (backend)
+    try{
+      const fotoAplicar=(_fotoNova!==undefined)?_fotoNova:((PERFIL&&PERFIL.foto)||undefined);
+      await _aplicarPerfilAtual(nomeNovo||undefined, fotoAplicar);
+      _propagarPerfilOutras(nomeNovo||undefined, fotoAplicar, nomeAntigo);
+    }catch(e){}
   };
 }
 async function criarConvite(viagemId,viagemNome,nome,email){
