@@ -22,9 +22,11 @@
  --par:#E8722E; --mun:#1B3A6B; --ber:#3E82C4;
  --ok:#1E9E74; --danger:#DC5A46; --warn:#D98A2B; --orange:#E8722E;
  --shadow:0 3px 12px rgba(21,34,56,.05); --shadowlg:0 8px 24px rgba(18,41,79,.14);
+ --tab-bg:rgba(255,255,255,.66); --tab-brd:rgba(255,255,255,.6); --tab-ico:#5D6E88; --tab-ico-on:#1B3A6B; --tab-on-bg:rgba(27,58,107,.10); --tab-sh:0 8px 26px rgba(20,40,80,.16);
  --r:16px;
 }
 [data-theme="dark"]{
+ --tab-bg:rgba(22,35,60,.62); --tab-brd:rgba(255,255,255,.10); --tab-ico:#94A6C0; --tab-ico-on:#E7EDF6; --tab-on-bg:rgba(255,255,255,.12); --tab-sh:0 8px 26px rgba(0,0,0,.42);
  --bg:#0D1526; --ink2:#141F35; --panel:#16233C; --panel2:#1D2C48; --line:#28374F; --line2:#3A4C68;
  --text:#E7EDF6; --muted:#94A6C0; --dim:#8496B2;
  --navy:#5B9BD8; --navy2:#3E82C4; --stripbg:#111B2E; --striptext:#F1F5FB;
@@ -37,7 +39,7 @@ html{-webkit-text-size-adjust:100%}
 body{background:var(--bg);color:var(--text);
  font-family:Inter,system-ui,-apple-system,sans-serif;font-size:15px;line-height:1.45;
  max-width:520px;margin:0 auto;min-height:100vh;
- padding-bottom:calc(78px + env(safe-area-inset-bottom));
+ padding-bottom:calc(88px + env(safe-area-inset-bottom));
  font-feature-settings:"tnum" 1,"cv05" 1}
 body::before{content:"";position:fixed;inset:0 0 auto 0;height:calc(200px + env(safe-area-inset-top));pointer-events:none;z-index:0;background:var(--bg)}
 .wrap{position:relative;z-index:1;overflow-x:clip;padding:calc(14px + env(safe-area-inset-top)) 14px 0;
@@ -306,19 +308,27 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer;ma
 .rst-actions .btn{flex:1}
 
 /* ---------- barra inferior ---------- */
-.nav{position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--panel);
- backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--line);
- padding:7px 4px calc(6px + env(safe-area-inset-bottom));display:flex;max-width:520px;margin:0 auto}
+.nav{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(13px + env(safe-area-inset-bottom));z-index:40;
+ background:var(--tab-bg);backdrop-filter:blur(22px) saturate(1.35);-webkit-backdrop-filter:blur(22px) saturate(1.35);
+ border:1px solid var(--tab-brd);border-radius:999px;box-shadow:var(--tab-sh);
+ padding:6px;display:flex;gap:1px;margin:0;
+ transition:transform .28s cubic-bezier(.22,.61,.36,1),padding .26s ease,opacity .26s ease}
+.nav.mini{transform:translateX(-50%) scale(.84);opacity:.92;padding:4px}
 .nav .navsum{display:none}
-.nav div{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:3px 1px;
- color:var(--dim);font-size:8.8px;font-weight:700;letter-spacing:0;cursor:pointer;border-radius:10px;white-space:nowrap}
+.nav div{flex:none;width:52px;height:46px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:0;
+ color:var(--tab-ico);font-size:8px;font-weight:800;letter-spacing:.01em;cursor:pointer;border-radius:999px;white-space:nowrap;
+ transition:height .26s ease,background .2s,transform .09s}
+.nav div:active{transform:scale(.9)}
 .nav div .ic{width:23px;height:23px;display:flex;align-items:center;justify-content:center}
-.nav div .ic svg{width:23px;height:23px;color:var(--dim)}
-.nav div.on .ic svg{color:var(--orange)}
-.nav div.on{color:var(--navy)}
-.nav div.on .ic{filter:none}
-.navdot{width:16px;height:2px;border-radius:2px;background:transparent;margin-top:1px}
-.nav div.on .navdot{background:var(--orange);width:20px}
+.nav div .ic svg{width:23px;height:23px;color:var(--tab-ico)}
+.nav div>span:not(.ic):not(.navdot){max-height:0;overflow:hidden;transition:max-height .24s ease,color .2s;line-height:1.1}
+.nav div.on{background:var(--tab-on-bg);color:var(--tab-ico-on)}
+.nav div.on .ic svg{color:var(--tab-ico-on)}
+.nav div.on>span:not(.ic):not(.navdot){max-height:13px}
+.nav.mini div{height:38px}
+.nav.mini div>span:not(.ic):not(.navdot){max-height:0}
+.navdot{display:none}
+.nav div.on .navdot{display:none}
 
 .panel-v{display:none}
 .gd-day-k{font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);line-height:1}
@@ -875,7 +885,11 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
   .nav{position:fixed;top:0;left:0;bottom:0;right:auto;width:250px;height:100vh;
     flex-direction:column;align-items:stretch;justify-content:flex-start;
     border-top:none;border-right:1px solid var(--line);padding:22px 14px;gap:5px;
-    backdrop-filter:none;background:var(--panel);max-width:none;margin:0;overflow-y:auto}
+    backdrop-filter:none;background:var(--panel);max-width:none;margin:0;overflow-y:auto;
+    transform:none;border-radius:0;box-shadow:none}
+  .nav.mini{transform:none}
+  .nav div{width:auto;height:auto}
+  .nav div>span:not(.ic):not(.navdot){max-height:none!important}
   .nav::before{content:"Resenha Trip";display:block;font-family:'Bricolage Grotesque',Inter,sans-serif;
     font-weight:800;font-size:20px;letter-spacing:-.02em;color:var(--navy);padding:4px 12px 18px;line-height:1.05}
   .nav div{flex:0 0 auto;flex-direction:row;justify-content:flex-start;gap:13px;padding:12px 14px;
@@ -1145,6 +1159,7 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
   <div class="wrap">
 
     <div class="topbar">
+      <button class="hamb" id="viagensbtn" aria-label="Minhas viagens" title="Minhas viagens" style="display:none"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></button>
       <button class="hamb" id="menubtn" aria-label="Menu"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
       <span class="kicker" id="tagline">Bem-vindo</span><span id="mename" style="display:none"></span>
       <button class="viasw" id="viabtn" role="switch" aria-checked="false" title="Modo viagem"><span class="viasw-knob"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 3.2c.4-.9 1.6-.9 2 0l.3.8v5.3l7 4.1v1.9l-7-2.1v3.8l2 1.5v1.5l-3.3-1-3.3 1v-1.5l2-1.5v-3.8l-7 2.1v-1.9l7-4.1V4l.3-.8Z" fill="currentColor" stroke="none"/></svg></span></button>
@@ -2613,6 +2628,7 @@ async function sairDaConta(){
 {const _ab=$("#aj-back");if(_ab)_ab.onclick=fecharAjustes;}
 {const _tn=$("#tripname");if(_tn){_tn.classList.add("tapname");_tn.onclick=abrirTrocadorViagem;}}
 $("#menubtn").onclick=(e)=>{e.stopPropagation();abrirPerfil();};
+{const _vb=$("#viagensbtn");if(_vb)_vb.onclick=(e)=>{e.stopPropagation();showViagens();};}
 function abrirPerfil(){
   const emailConta=(auth&&auth.currentUser&&auth.currentUser.email)||"";
   const cod=STATE.config&&STATE.config.codigo;
@@ -3253,6 +3269,7 @@ const TABS=()=>TABS_BASE;
 let curTab=localStorage.getItem(LS.tab)||"inicio";
 if(curTab==="compras")curTab="custos";
 function buildNav(){
+  {const _vb=$("#viagensbtn");if(_vb)_vb.style.display=MOCK?"none":"";}
   let t=TABS().slice();
   if(!t.some(x=>x[0]===curTab)&&!MONEY.includes(curTab))curTab=t[0][0];
   $("#nav").innerHTML=t.map(x=>`<div data-t="${x[0]}" class="${x[0]===curTab?"on":""}" role="button" tabindex="0">
@@ -3288,18 +3305,39 @@ function applyTab(){
     }else{mt.classList.add("hidden");mt.innerHTML="";}
   }
 }
+const _scrollTab={};
 function show(t){
   if(t==="compras")t="custos";
   if(t==="dinheiro")t=moneySub;
   if(t==="racha"&&ehSolo())t="cofre";
   if(MONEY.includes(t)){moneySub=t;try{localStorage.setItem("tr27_money",t);}catch(e){}}
-  if(t!==curTab)window.scrollTo(0,0);
   const changed=t!==curTab;
+  if(changed){try{_scrollTab[curTab]=window.scrollY;}catch(e){}}
   curTab=t;localStorage.setItem(LS.tab,t);
   garantirPainel(t);   // redesenha o painel se ele ficou desatualizado
   applyTab();
-  if(changed)animarNumeros();
+  if(changed){
+    const y=_scrollTab[t]||0;                       // restaura a rolagem daquela aba
+    window.scrollTo(0,y);
+    requestAnimationFrame(()=>window.scrollTo(0,y)); // reaplica após o layout do painel
+    animarNumeros();
+  }
 }
+/* a tabbar flutuante encolhe ao rolar pra baixo e cresce ao rolar pra cima */
+(function navShrink(){
+  let last=0,ticking=false;
+  window.addEventListener("scroll",()=>{
+    if(ticking)return;ticking=true;
+    requestAnimationFrame(()=>{
+      const y=window.scrollY||0,nav=document.getElementById("nav");
+      if(nav){
+        if(y>last+8&&y>60)nav.classList.add("mini");
+        else if(y<last-8)nav.classList.remove("mini");
+      }
+      last=y;ticking=false;
+    });
+  },{passive:true});
+})();
 /* (6/3) anima os números financeiros do painel ativo para "contar" até o valor.
    Detecta automaticamente os displays de dinheiro grandes e conta de 0 até o valor,
    preservando exatamente o texto final formatado. */
@@ -4154,7 +4192,7 @@ function panoramaAgrega(vs, ano){
     const pp=v.panorama&&v.panorama.porPessoa&&v.panorama.porPessoa[meuNomeNaViagem(v)];
     if(!pp){ semFin++; }
     else{
-      if(st==="done") gastei+=(pp.gasto!=null?Number(pp.gasto):Number(pp.plano))||0;
+      gastei+=(pp.gasto!=null?Number(pp.gasto):0)||0;  // gasto REAL de todas as viagens
       if(st==="plan"||st==="now"){ const falta=(Number(pp.meta)||0)-(Number(pp.guardado)||0); if(falta>0){metas.push({nome:v.nome||"Viagem",falta,meta:Number(pp.meta)||0,guardado:Number(pp.guardado)||0,data:v.inicio||""});} }
       const sal=Number(pp.saldo)||0; if(sal>0.5)teDevem+=sal; else if(sal<-0.5)voceDeve+=(-sal);
     }
@@ -4234,7 +4272,7 @@ async function abrirPanorama(){
           const guardarBloco = (F.aGuardar>0)?`<div class="pano-sec-h">${ICO("meta")}<h3>A guardar (em planejamento)</h3></div>
             <div class="pano-card"><div class="money-row"><div class="lab">Falta juntar no total</div><div class="val navy">${R$(F.aGuardar)}</div></div>${metasHTML}</div>`:"";
           const rows=[];
-          if(F.gastei>0)rows.push(`<div class="money-row"><div class="lab">Já gastei em viagens<small>somando as concluídas</small></div><div class="val navy">${R$(F.gastei)}</div></div>`);
+          if(F.gastei>0)rows.push(`<div class="money-row"><div class="lab">Já gastei em viagens<small>gasto real de todas as viagens</small></div><div class="val navy">${R$(F.gastei)}</div></div>`);
           if(F.teDevem>0)rows.push(`<div class="money-row"><div class="lab">Ratatá — têm a te devolver</div><div class="val pos">+ ${R$(F.teDevem)}</div></div>`);
           if(F.voceDeve>0)rows.push(`<div class="money-row"><div class="lab">Ratatá — você deve</div><div class="val neg">− ${R$(F.voceDeve)}</div></div>`);
           if(F.teDevem>0||F.voceDeve>0)rows.push(`<div class="money-row"><div class="lab">Saldo do Ratatá</div><div class="val ${F.saldoRatata>=0?"pos":"neg"}">${F.saldoRatata>=0?"+ ":"− "}${R$(Math.abs(F.saldoRatata))}</div></div>`);
@@ -7071,7 +7109,9 @@ setInterval(()=>{const k=monthKey(new Date());if(k!==ULT_MES){ULT_MES=k;renderAl
   document.body.appendChild(bar);
   const painel=()=>document.querySelector(".panel-v.on");
   function irLado(dir){
-    const o=ordem(),i=o.indexOf(curTab);if(i<0)return;
+    const o=ordem();
+    const pos=(typeof MONEY!=="undefined"&&MONEY.includes(curTab))?"dinheiro":curTab;
+    const i=o.indexOf(pos);if(i<0)return;
     const n=i+dir;if(n<0||n>=o.length)return;
     // anima a saída do painel atual na direção do gesto, depois troca e anima a entrada
     const atual=painel();
@@ -7107,7 +7147,9 @@ setInterval(()=>{const k=monthKey(new Date());if(k!==ULT_MES){ULT_MES=k;renderAl
     if(hor){
       const alvo=e.target.closest&&e.target.closest(".seg, .act[data-act], .deplist, table, input, textarea, select, .chartwrap");
       if(!alvo){
-        const o=ordem(),i=o.indexOf(curTab);
+        const o=ordem();
+        const _pos=(typeof MONEY!=="undefined"&&MONEY.includes(curTab))?"dinheiro":curTab;
+        const i=o.indexOf(_pos);
         const borda=(dx>0&&i<=0)||(dx<0&&i>=o.length-1);
         const mov=borda?dx*.25:dx*.6; // resistência se não há aba pra ir
         const p=painel();if(p){p.style.transition="none";p.style.transform=`translateX(${mov}px)`;p.style.opacity=String(Math.max(.55,1-Math.abs(mov)/500));}
@@ -7126,7 +7168,8 @@ setInterval(()=>{const k=monthKey(new Date());if(k!==ULT_MES){ULT_MES=k;renderAl
     // swipe horizontal concluído?
     if(hor){
       const alvo=e.target.closest&&e.target.closest(".seg, .act[data-act], .deplist, table, input, textarea, select, .chartwrap");
-      const disparou=Math.abs(dx)>70&&dt<700;
+      const vel=Math.abs(dx)/Math.max(1,dt);                    // px/ms
+      const disparou=(Math.abs(dx)>44)||(vel>0.4&&Math.abs(dx)>22); // leve OU flick rápido
       if(!alvo&&disparou)irLado(dx<0?1:-1);
       else limpaDrag(); // não passou do limite: volta o painel pro lugar
     }
