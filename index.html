@@ -811,6 +811,20 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
 .tl-meta{font-size:11.5px;color:var(--dim);margin-top:1px}
 .tl-tag{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle}
 .tl-tag.done{background:#E4F5EC;color:var(--ok)} .tl-tag.plan{background:#FDECE0;color:var(--orange)} .tl-tag.now{background:#E7F0FA;color:var(--ber)}
+.money-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.money-row:last-child{border-bottom:0}
+.money-row .lab{font-size:13px;font-weight:700;color:var(--text)}
+.money-row .lab small{display:block;font-size:11px;color:var(--dim);font-weight:500;margin-top:2px}
+.money-row .val{font-size:16px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.money-row .val.pos{color:var(--ok)} .money-row .val.neg{color:var(--danger)} .money-row .val.navy{color:var(--navy)}
+.goal{margin:12px 0 2px}
+.goal-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;gap:10px}
+.goal-h .g1{font-size:13px;font-weight:800;color:var(--text)}
+.goal-h .g2{font-size:11.5px;color:var(--dim);font-weight:700;white-space:nowrap}
+.gbar{height:8px;border-radius:99px;background:var(--panel2);overflow:hidden}
+.gbar i{display:block;height:100%;background:var(--navy);border-radius:99px}
+.milestone{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--warn);font-weight:800;margin-top:6px}
+.milestone .ico{width:13px;height:13px}
 .mx{position:absolute;top:14px;right:14px;background:var(--panel2);border:none;color:var(--muted);width:30px;height:30px;border-radius:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;z-index:3}
 .mx:hover{color:var(--text)}
 .mx svg{width:16px;height:16px}
@@ -2210,6 +2224,24 @@ async function entrarNaViagem(id){
     {membros:FB.arrayUnion(UID),atualizadoEm:(FB.serverTimestamp?FB.serverTimestamp():Date.now())},
     {merge:true});}catch(e){console.warn("entrarNaViagem:",e&&e.code);}
 }
+/* calcula o resumo financeiro da viagem ABERTA (por pessoa), em BRL.
+   Reusa as funções canônicas de custo/cofre/racha. */
+function calcPanoramaViagem(){
+  try{
+    const moeda=(typeof MOEDA_VIAGEM==="function")?MOEDA_VIAGEM():"EUR";
+    const bal=(typeof balances==="function")?balances():{};
+    const porPessoa={};
+    (PEOPLE||[]).forEach(nome=>{
+      porPessoa[nome]={
+        plano:Math.round((typeof planoDe==="function"?planoDe(nome):0)||0),
+        meta:Math.round((typeof metaDe==="function"?metaDe(nome):0)||0),
+        guardado:Math.round((typeof guardado==="function"?guardado(nome):0)||0),
+        saldo:Math.round(toBRL((Number(bal[nome]||0))/100,moeda))
+      };
+    });
+    return {gastoTotal:Math.round((typeof totalShared==="function"?totalShared():0)||0),porPessoa};
+  }catch(e){return null;}
+}
 async function atualizarResumo(id){
   if(MOCK||!db)return;
   const c=STATE.config||{};
@@ -2222,6 +2254,7 @@ async function atualizarResumo(id){
     inicio:c.inicio||"", fim:c.fim||"",
     pessoasCard:_pp.map(p=>{const o={n:p.nome};if(p.foto)o.f=p.foto;return o;})
   };
+  const _pano=calcPanoramaViagem(); if(_pano)resumo.panorama=_pano;
   const chave=JSON.stringify(resumo);
   if(chave===_resumoAnt)return;      // nada mudou desde a última gravação
   _resumoAnt=chave;
@@ -2363,6 +2396,7 @@ function listen(){
   const doc1=(id,key,fb)=>UNSUBS.push(FB.onSnapshot(caminho(id),opts,d=>{
     STATE[key]=d.exists()?Object.assign({},fb,d.data()):JSON.parse(JSON.stringify(fb));
     if(id==="config"){atualizarResumo(VIAGEM.id);sincronizarPessoas();ajustarMoeda();garantirVinculoPessoa();}
+    else if(id==="custos"||id==="racha"){atualizarResumo(VIAGEM.id);}
     marcarPend("v:"+id,d.metadata);renderAll();}));
   doc1("config","config",SEED.config);
   doc1("roteiro","roteiro",SEED.roteiro);
@@ -2424,6 +2458,7 @@ async function savePessoa(nome,obj){
   if(MOCK){saveLocal();return;}
   try{await FB.setDoc(caminhoPessoa(nome),obj,{merge:true});}
   catch(e){console.error(e);toast("Erro ao salvar: "+String((e&&e.code)||(e&&e.message)||e).slice(0,60));}
+  try{atualizarResumo(VIAGEM.id);}catch(e){}
 }
 const meDoc=()=>STATE.pessoas[STATE.me]||{meta:0,depositos:[],compras:[],checklist:[],pessoais:[],realizados:[],mala:[]};
 const CAT_BASE=["Passagens","Hospedagem","Transporte","Passeios","Alimentação","Compras","Seguro","Reserva","Outros"];
@@ -4077,10 +4112,18 @@ function _diasViagem(v){
   if(!v.inicio||!v.fim)return 0;
   const a=ymd(v.inicio),b=ymd(v.fim); const d=Math.round((b-a)/86400000)+1; return d>0?d:0;
 }
+/* meu nome dentro de uma viagem (pra ler minha fatia do panorama financeiro) */
+function meuNomeNaViagem(v){
+  if(MOCK)return (PEOPLE&&PEOPLE.includes(STATE.me))?STATE.me:((PEOPLE&&PEOPLE[0])||"Você");
+  if(v&&v.membrosInfo&&typeof UID!=="undefined"&&v.membrosInfo[UID])return v.membrosInfo[UID];
+  if(typeof MEU_VINCULO!=="undefined"&&MEU_VINCULO&&v&&MEU_VINCULO[v.id])return MEU_VINCULO[v.id];
+  return "";
+}
 /* percorre as viagens (resumos) e agrega o não-financeiro, filtrando por ano ("Total" = tudo) */
 function panoramaAgrega(vs, ano){
   const paises={}, contis={}, cidades={}; let concl=0, dias=0;
   const tl=[];
+  let gastei=0, teDevem=0, voceDeve=0, semFin=0; const metas=[];
   (vs||[]).forEach(v=>{
     const anoV=_anoDe(v.inicio||v.fim);
     if(ano&&ano!=="Total"&&anoV!==ano)return;
@@ -4098,18 +4141,32 @@ function panoramaAgrega(vs, ano){
       isos.forEach(iso=>{paises[iso]=(PAIS_POR_ISO[iso]&&PAIS_POR_ISO[iso].nome)||iso;const cc=continenteDeISO(iso);if(cc)contis[cc]=1;});
     }
     tl.push({nome:v.nome||"Viagem", cidades:(v.cidades||[]).filter(Boolean), inicio:v.inicio||"", fim:v.fim||"", st, dias:_diasViagem(v)});
+    // financeiro: minha fatia do panorama gravado no resumo
+    const pp=v.panorama&&v.panorama.porPessoa&&v.panorama.porPessoa[meuNomeNaViagem(v)];
+    if(!pp){ semFin++; }
+    else{
+      if(st==="done") gastei+=Number(pp.plano)||0;
+      if(st==="plan"||st==="now"){ const falta=(Number(pp.meta)||0)-(Number(pp.guardado)||0); if(falta>0){metas.push({nome:v.nome||"Viagem",falta,meta:Number(pp.meta)||0,guardado:Number(pp.guardado)||0,data:v.inicio||""});} }
+      const sal=Number(pp.saldo)||0; if(sal>0.5)teDevem+=sal; else if(sal<-0.5)voceDeve+=(-sal);
+    }
   });
   tl.sort((a,b)=>String(b.inicio).localeCompare(String(a.inicio)));
-  return {concl, dias, paises, contis, cidades:Object.keys(cidades).length, tl};
+  const aGuardar=metas.reduce((a,m)=>a+m.falta,0);
+  metas.sort((a,b)=>String(a.data).localeCompare(String(b.data)));
+  return {concl, dias, paises, contis, cidades:Object.keys(cidades).length, tl,
+    fin:{gastei,aGuardar,metas,teDevem,voceDeve,saldoRatata:teDevem-voceDeve,semFin,temAlgum:(gastei>0||aGuardar>0||teDevem>0||voceDeve>0)}};
 }
 /* lista base de viagens: online usa os resumos; MOCK usa a viagem atual do STATE */
 async function panoramaViagens(){
   if(!MOCK){ try{ const vs=await listarMinhasViagens(); return vs||[]; }catch(e){ return []; } }
   const c=STATE.config||{};
+  const isos={};(c.cidades||[]).forEach(x=>{const nm=x&&(x.n||x.nome);if(!nm)return;const loc=resolverLocal(nm);const i=(loc&&loc.paisISO)||(x&&x.iso)||paisISOde(nm)||"";if(i)isos[i]=1;});
   return [{
     id:VIAGEM.id, nome:c.nome||"Viagem",
     cidades:(c.cidades||[]).map(x=>x&&(x.n||x.nome)).filter(Boolean),
-    inicio:c.inicio||"", fim:c.fim||""
+    paises:Object.keys(isos),
+    inicio:c.inicio||"", fim:c.fim||"",
+    panorama:calcPanoramaViagem()
   }];
 }
 let _panoAno="Total";
@@ -4157,9 +4214,25 @@ async function abrirPanorama(){
           <div class="pano-note" style="margin-top:9px">${nConti} de 6 continentes visitados</div>
         </div>
 
-        <div class="pano-fin-stub pano-card">
-          <div class="pano-note"><b>Dinheiro (em breve)</b><br>Quanto falta guardar, quanto já gastou e o Ratatá em aberto entram aqui na próxima atualização.</div>
-        </div>
+        ${(()=>{
+          const F=A.fin||{}; const R$=n=>"R$ "+Math.round(n||0).toLocaleString("pt-BR");
+          if(F.semFin&&!F.temAlgum) return `<div class="pano-card"><div class="pano-note"><b>Dinheiro</b><br>Abra cada viagem uma vez nesta versão pra eu calcular os totais de dinheiro (fica guardado no resumo e some rápido daqui pra frente).</div></div>`;
+          const metasHTML=(F.metas||[]).map(m=>{
+            const pct=m.meta>0?Math.min(100,Math.round(m.guardado/m.meta*100)):0;
+            const ms=m.data?`<div class="milestone">${ICO("meta")}meta até ${fmtMesAno(m.data)} · faltam ${R$(m.falta)}</div>`:"";
+            return `<div class="goal"><div class="goal-h"><div class="g1">${esc(m.nome)}</div><div class="g2">${R$(m.guardado)} / ${R$(m.meta)}</div></div><div class="gbar"><i style="width:${pct}%"></i></div>${ms}</div>`;
+          }).join("");
+          const guardarBloco = (F.aGuardar>0)?`<div class="pano-sec-h">${ICO("meta")}<h3>A guardar (em planejamento)</h3></div>
+            <div class="pano-card"><div class="money-row"><div class="lab">Falta juntar no total</div><div class="val navy">${R$(F.aGuardar)}</div></div>${metasHTML}</div>`:"";
+          const rows=[];
+          if(F.gastei>0)rows.push(`<div class="money-row"><div class="lab">Já gastei em viagens<small>somando as concluídas</small></div><div class="val navy">${R$(F.gastei)}</div></div>`);
+          if(F.teDevem>0)rows.push(`<div class="money-row"><div class="lab">Ratatá — têm a te devolver</div><div class="val pos">+ ${R$(F.teDevem)}</div></div>`);
+          if(F.voceDeve>0)rows.push(`<div class="money-row"><div class="lab">Ratatá — você deve</div><div class="val neg">− ${R$(F.voceDeve)}</div></div>`);
+          if(F.teDevem>0||F.voceDeve>0)rows.push(`<div class="money-row"><div class="lab">Saldo do Ratatá</div><div class="val ${F.saldoRatata>=0?"pos":"neg"}">${F.saldoRatata>=0?"+ ":"− "}${R$(Math.abs(F.saldoRatata))}</div></div>`);
+          const dinBloco = rows.length?`<div class="pano-sec-h">${ICO("moeda")}<h3>Dinheiro nas viagens</h3></div><div class="pano-card">${rows.join("")}</div>`:"";
+          const aviso = F.semFin?`<div class="pano-note" style="margin:2px 4px 10px">Algumas viagens ainda não entraram nas contas — abra cada uma uma vez pra incluir.</div>`:"";
+          return guardarBloco+dinBloco+aviso;
+        })()}
 
         <div class="pano-sec-h">${ICO("viagem")}<h3>Minhas viagens</h3></div>
         <div class="pano-card"><div class="tl">${tl}</div></div>
