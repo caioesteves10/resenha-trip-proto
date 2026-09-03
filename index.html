@@ -2136,30 +2136,64 @@ function cityOf(k){return (STATE.config.cidades||[]).find(c=>c.k===k)||{k:k,n:"�
    na lista NUNCA), então abre direto no Maps do celular. */
 const PIN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6-5.4-6-10a6 6 0 1 1 12 0c0 4.6-6 10-6 10Z"/><circle cx="12" cy="11" r="2.1"/></svg>';
 const IS_IOS=(()=>{try{return /iPad|iPhone|iPod/.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&(navigator.maxTouchPoints||0)>1);}catch(e){return false;}})();
+/* área de busca do mapa: restringe às sugestões DENTRO da cidade do dia
+   (ou, quando não há cidade, à região que engloba as cidades da viagem). */
+function _areaBuscaLocal(cityKey){
+  // cidade específica -> ponto central + raio
+  const cn=(cityOf(cityKey)||{}).n||"";
+  if(cityKey&&cn){
+    try{const L=resolverLocal(cn); if(L&&L.lat!=null&&L.lng!=null){
+      const dLat=0.18, dLon=0.18/Math.max(.2,Math.cos(L.lat*Math.PI/180));
+      return {lat:L.lat,lng:L.lng,raioKm:32,
+        box:{loMin:L.lng-dLon,laMin:L.lat-dLat,loMax:L.lng+dLon,laMax:L.lat+dLat}};
+    }}catch(e){}
+  }
+  // sem cidade -> bounding box de TODAS as cidades da viagem (com margem)
+  const pts=[];
+  (STATE.config.cidades||[]).forEach(c=>{try{const L=resolverLocal(c.n);if(L&&L.lat!=null&&L.lng!=null)pts.push([L.lat,L.lng]);}catch(e){}});
+  if(!pts.length)return null;
+  let laMin=90,laMax=-90,loMin=180,loMax=-180;
+  pts.forEach(([la,lo])=>{laMin=Math.min(laMin,la);laMax=Math.max(laMax,la);loMin=Math.min(loMin,lo);loMax=Math.max(loMax,lo);});
+  const m=0.25; // margem
+  return {lat:null,lng:null,raioKm:null,box:{loMin:loMin-m,laMin:laMin-m,loMax:loMax+m,laMax:laMax+m}};
+}
+function _distKm(la1,lo1,la2,lo2){
+  const dy=(la2-la1)*111, dx=(lo2-lo1)*111*Math.cos((la1+la2)/2*Math.PI/180);
+  return Math.hypot(dx,dy);
+}
 async function sugestoesLocal(q,cityKey){
   q=(q||"").trim(); if(q.length<3)return [];
   const cn=(cityOf(cityKey)||{}).n||"";
-  let bias="";
-  try{const L=resolverLocal(cn); if(L&&L.lat!=null&&L.lng!=null)bias=`&lat=${L.lat}&lon=${L.lng}`;}catch(e){}
+  const area=_areaBuscaLocal(cityKey);
+  const bias=(area&&area.lat!=null)?`&lat=${area.lat}&lon=${area.lng}`:"";
+  const bbox=area?`&bbox=${area.box.loMin.toFixed(4)},${area.box.laMin.toFixed(4)},${area.box.loMax.toFixed(4)},${area.box.laMax.toFixed(4)}`:"";
+  const dentro=(la,lo)=>{
+    if(!area)return true;
+    if(area.lat!=null&&area.raioKm)return _distKm(area.lat,area.lng,la,lo)<=area.raioKm;
+    return lo>=area.box.loMin&&lo<=area.box.loMax&&la>=area.box.laMin&&la<=area.box.laMax;
+  };
   const qq=bias?q:(cn?(q+" "+cn):q);
-  // 1) Photon (bom para autocomplete) — sem lang (pt não é suportado)
+  // 1) Photon (autocomplete) — com bbox pra restringir + filtro por distância no cliente
   try{
-    const r=await fetch("https://photon.komoot.io/api/?limit=6&q="+encodeURIComponent(qq)+bias);
+    const r=await fetch("https://photon.komoot.io/api/?limit=10&q="+encodeURIComponent(qq)+bias+bbox);
     if(r.ok){const j=await r.json();
-      const out=((j&&j.features)||[]).map(f=>{const p=f.properties||{};
-        const nome=p.name||[p.street,p.housenumber].filter(Boolean).join(" ")||p.city||"";
-        const ctx=[p.city||p.county||p.state,p.country].filter(Boolean).join(", ");
-        return {nome,ctx};}).filter(x=>x.nome);
-      if(out.length)return out;}
+      const out=((j&&j.features)||[]).filter(f=>{const c=f.geometry&&f.geometry.coordinates;return c?dentro(c[1],c[0]):true;})
+        .map(f=>{const p=f.properties||{};
+          const nome=p.name||[p.street,p.housenumber].filter(Boolean).join(" ")||p.city||"";
+          const ctx=[p.city||p.county||p.state,p.country].filter(Boolean).join(", ");
+          return {nome,ctx};}).filter(x=>x.nome);
+      if(out.length)return out.slice(0,6);}
   }catch(e){}
-  // 2) Nominatim (fallback)
+  // 2) Nominatim (fallback) — viewbox + bounded=1 restringe estritamente à área
   try{
-    const r2=await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&q="+encodeURIComponent(cn?(q+", "+cn):q));
+    const vb=area?`&viewbox=${area.box.loMin.toFixed(4)},${area.box.laMin.toFixed(4)},${area.box.loMax.toFixed(4)},${area.box.laMax.toFixed(4)}&bounded=1`:"";
+    const r2=await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=10&q="+encodeURIComponent(cn?(q+", "+cn):q)+vb);
     if(r2.ok){const arr=await r2.json();
-      return ((arr)||[]).map(x=>{
-        const nome=x.name||String(x.display_name||"").split(",")[0];
-        const ctx=String(x.display_name||"").split(",").slice(1,3).map(t=>t.trim()).filter(Boolean).join(", ");
-        return {nome,ctx};}).filter(x=>x.nome);}
+      return ((arr)||[]).filter(x=>{const la=parseFloat(x.lat),lo=parseFloat(x.lon);return (isFinite(la)&&isFinite(lo))?dentro(la,lo):true;})
+        .map(x=>{
+          const nome=x.name||String(x.display_name||"").split(",")[0];
+          const ctx=String(x.display_name||"").split(",").slice(1,3).map(t=>t.trim()).filter(Boolean).join(", ");
+          return {nome,ctx};}).filter(x=>x.nome).slice(0,6);}
   }catch(e){}
   return [];
 }
@@ -2491,7 +2525,11 @@ function categorias(){
   (STATE.config.categorias||[]).forEach(c=>set.add(c));
   (STATE.custos.itens||[]).forEach(it=>it.cat&&set.add(it.cat));
   PEOPLE.forEach(p=>((STATE.pessoas[p]||{}).pessoais||[]).forEach(x=>x.cat&&set.add(x.cat)));
-  return Array.from(set);
+  // ordem alfabética (pt-BR, ignora acentos/caixa), com "Outros" sempre por último
+  return Array.from(set).sort((a,b)=>{
+    if(a==="Outros")return 1; if(b==="Outros")return -1;
+    return String(a).localeCompare(String(b),"pt-BR",{sensitivity:"base"});
+  });
 }
 function registrarCategoria(c){
   c=String(c||"").trim();if(!c||CAT_BASE.includes(c))return;
@@ -3316,6 +3354,7 @@ function show(t){
   curTab=t;localStorage.setItem(LS.tab,t);
   garantirPainel(t);   // redesenha o painel se ele ficou desatualizado
   applyTab();
+  {const _pa=document.querySelector(".panel-v.on");if(_pa){_pa.style.transform="";_pa.style.opacity="";}}
   if(changed){
     const y=_scrollTab[t]||0;                       // restaura a rolagem daquela aba
     window.scrollTo(0,y);
@@ -4135,6 +4174,23 @@ function montarAutoPais(inp,sug){
   inp.addEventListener("input",render);
   inp.addEventListener("focus",render);
   sug.addEventListener("mousedown",e=>{const it=e.target.closest("[data-pais]");if(!it)return;e.preventDefault();inp.value=it.dataset.pais;sug.innerHTML="";});
+  inp.addEventListener("blur",()=>setTimeout(()=>{sug.innerHTML="";},120));
+}
+/* autocomplete genérico a partir de uma lista (ex.: categorias já criadas).
+   Ao focar mostra todas; ao digitar, filtra. Funciona no iOS (não usa <datalist>). */
+function montarAutoLista(inp,sug,opcoes){
+  if(!inp||!sug)return;
+  const lista=(opcoes||[]).filter(Boolean);
+  const render=()=>{
+    const q=(inp.value||"").trim().toLowerCase();
+    let res=lista;
+    if(q)res=lista.filter(c=>String(c).toLowerCase().includes(q));
+    if(!res.length||(res.length===1&&String(res[0]).toLowerCase()===q)){sug.innerHTML="";return;}
+    sug.innerHTML=res.map(c=>`<div class="geo-item" data-val="${esc(c)}">${esc(c)}</div>`).join("");
+  };
+  inp.addEventListener("input",render);
+  inp.addEventListener("focus",render);
+  sug.addEventListener("mousedown",e=>{const it=e.target.closest("[data-val]");if(!it)return;e.preventDefault();inp.value=it.dataset.val;sug.innerHTML="";inp.focus();});
   inp.addEventListener("blur",()=>setTimeout(()=>{sug.innerHTML="";},120));
 }
 function _alertaPassaporte(validade){
@@ -5597,6 +5653,19 @@ function renderRoteiroDiario(){_sujo.delete("roteiro");
   $("#p-roteiro").querySelectorAll("[data-dwrite]").forEach(b=>b.onclick=()=>abrirDiario(b.dataset.dwrite,null));
   $("#p-roteiro").querySelectorAll("[data-dedit]").forEach(b=>b.onclick=()=>{const e=diarioItens().find(x=>x.id===b.dataset.dedit);if(e)abrirDiario(e.data,e);});
 }
+function editarDia(id){
+  const d=(STATE.roteiro.dias||[]).find(x=>x.id===id); if(!d)return;
+  const cityOpts=(STATE.config.cidades||[]).map(c=>({v:c.k,l:c.n}));
+  openModal("Editar dia",[
+    {id:"data",label:"Data",type:"date",value:d.data},
+    {id:"cidade",label:"Cidade",type:"select",options:cityOpts,value:d.cidade},
+    {id:"titulo",label:"Título do dia",placeholder:"Ex.: Berlim histórica",value:d.titulo||""}
+  ],v=>{
+    if(!v.data){toast("Escolha a data");return false;}
+    const dias=(STATE.roteiro.dias||[]).map(x=>x.id===id?Object.assign({},x,{data:v.data,cidade:v.cidade,titulo:v.titulo}):x);
+    saveDoc("roteiro",{dias:dias});toast("Dia atualizado");
+  });
+}
 function renderRoteiro(){_sujo.delete("roteiro");
   let dias=(STATE.roteiro.dias||[]).slice().sort((a,b)=>String(a.data).localeCompare(String(b.data)));
   const adm=isAdmin();
@@ -5651,7 +5720,7 @@ function renderRoteiro(){_sujo.delete("roteiro");
       ? (a,b)=>((typeof a.ord==="number"?a.ord:9999)-(typeof b.ord==="number"?b.ord:9999))||horaVal(a.hora).localeCompare(horaVal(b.hora))
       : (a,b)=>horaVal(a.hora).localeCompare(horaVal(b.hora)));
     return `<div class="day ${esc(d.cidade)} ${dpast?"day-past":""}"><div class="dot"></div>
-      <div class="dh"><div class="d">${fmtDate(d.data)}</div><div class="c">${esc(c.n)}</div>
+      <div class="dh"${adm?` data-dedit-dia="${d.id}" style="cursor:pointer"`:""}><div class="d">${fmtDate(d.data)}</div><div class="c">${esc(c.n)}</div>
         <div class="grow" style="font-size:13px;color:var(--muted);font-weight:600">${esc(d.titulo||"")}</div>
         ${climaNaJanela(d.data)?`<span class="day-clima" data-clima="${(()=>{const L=resolverLocal(c.n);return (L&&L.lat!=null&&L.lng!=null)?`${L.lat}|${L.lng}|${String(d.data).slice(0,10)}|${esc(L.fuso||"")}`:"";})()}"></span>`:""}
         ${itensOrd.length?`<span class="day-count">${itensOrd.length}</span>`:""}
@@ -5689,6 +5758,10 @@ function renderRoteiro(){_sujo.delete("roteiro");
   wireRoteiroTabs();
   const ie=$("#icsexp");if(ie)ie.onclick=exportarICS;
   if(!adm)return;
+  $("#p-roteiro").querySelectorAll("[data-dedit-dia]").forEach(el=>el.addEventListener("click",e=>{
+    if(e.target.closest("[data-ddel]")||e.target.closest(".day-clima")||e.target.closest(".day-count"))return;
+    editarDia(el.dataset.deditDia);
+  }));
   const da=$("#dayadd");
   if(da)da.onclick=()=>openModal("Novo dia",[
     {id:"data",label:"Data",type:"date",value:STATE.config.inicio},
@@ -6008,8 +6081,7 @@ function renderCheck(){_sujo.delete("check");
         <div class="grow"><input id="mln" placeholder="O que levar (ex.: carregador)" aria-label="Novo item da mala"></div>
       </div>
       <div class="row" style="gap:8px;margin-top:8px">
-        <div class="grow"><input id="mlcat" placeholder="Categoria (ex.: Roupas)" list="malacatlist" aria-label="Categoria">
-          <datalist id="malacatlist">${catsMala.map(c=>`<option value="${esc(c)}">`).join("")}</datalist></div>
+        <div class="grow au-wrap"><input id="mlcat" placeholder="Categoria (ex.: Roupas)" autocomplete="off" aria-label="Categoria"><div id="mlcat-sug" class="geo-sug"></div></div>
         <button class="btn sm" id="mladd">Add</button>
       </div>
       <div class="mala-tpl-row">
@@ -6091,6 +6163,7 @@ function renderCheck(){_sujo.delete("check");
     mpB.querySelector("span").textContent=abrir?"Ocultar progresso por categoria":"Ver progresso por categoria";};
   const mln=$("#mln");if(mln)mln.addEventListener("keydown",e=>{if(e.key==="Enter")maladd();});
   const mlcat=$("#mlcat");if(mlcat)mlcat.addEventListener("keydown",e=>{if(e.key==="Enter")maladd();});
+  montarAutoLista($("#mlcat"),$("#mlcat-sug"),catsMala);
   $("#p-check").querySelectorAll("[data-mcatf]").forEach(el=>el.onclick=()=>{
     const c=el.dataset.mcatf;
     if(c==="__todas")malaCats=[];
@@ -7128,7 +7201,7 @@ setInterval(()=>{const k=monthKey(new Date());if(k!==ULT_MES){ULT_MES=k;renderAl
       if(atual){atual.style.transition="";atual.style.transform="";atual.style.opacity="";}
     },140);
   }
-  function limpaDrag(){const p=painel();if(p){p.style.transition="transform .2s ease";p.style.transform="";setTimeout(()=>{if(p)p.style.transition="";},220);}}
+  function limpaDrag(){const p=painel();if(p){p.style.transition="transform .2s ease, opacity .2s ease";p.style.transform="";p.style.opacity="";setTimeout(()=>{if(p)p.style.transition="";},220);}}
   app.addEventListener("touchstart",e=>{
     if(e.touches.length!==1)return;
     x0=e.touches[0].clientX;y0=e.touches[0].clientY;t0=Date.now();drag=true;hor=null;
