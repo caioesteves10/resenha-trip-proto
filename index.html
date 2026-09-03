@@ -168,7 +168,7 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 .au-wrap{position:relative}
 .au-wrap .geo-sug{position:absolute;left:0;right:0;top:100%;z-index:20;border-radius:10px;border-top:1px solid var(--line2);box-shadow:var(--shadowlg);max-height:260px;overflow:auto}
 .geo-item,.geo-load,.geo-empty{font-size:13.5px;padding:9px 12px;background:var(--panel)}
-.geo-item{cursor:pointer;border-top:1px solid var(--line)}
+.geo-item{cursor:pointer;border-top:1px solid var(--line);touch-action:manipulation;-webkit-user-select:none;user-select:none}
 .geo-item:first-child{border-top:0}
 .geo-item:active,.geo-item:hover{background:var(--panel2)}
 .geo-load,.geo-empty{color:var(--muted)}
@@ -4173,7 +4173,7 @@ function montarAutoPais(inp,sug){
     sug.innerHTML=res.map(r=>`<div class="geo-item" data-pais="${esc(r.nome)}">${bandeiraISO(r.iso)} ${esc(r.nome)}</div>`).join("");};
   inp.addEventListener("input",render);
   inp.addEventListener("focus",render);
-  sug.addEventListener("mousedown",e=>{const it=e.target.closest("[data-pais]");if(!it)return;e.preventDefault();inp.value=it.dataset.pais;sug.innerHTML="";});
+  sug.addEventListener("pointerdown",e=>{const it=e.target.closest("[data-pais]");if(!it)return;e.preventDefault();inp.value=it.dataset.pais;sug.innerHTML="";});
   inp.addEventListener("blur",()=>setTimeout(()=>{sug.innerHTML="";},120));
 }
 /* autocomplete genérico a partir de uma lista (ex.: categorias já criadas).
@@ -4190,7 +4190,7 @@ function montarAutoLista(inp,sug,opcoes){
   };
   inp.addEventListener("input",render);
   inp.addEventListener("focus",render);
-  sug.addEventListener("mousedown",e=>{const it=e.target.closest("[data-val]");if(!it)return;e.preventDefault();inp.value=it.dataset.val;sug.innerHTML="";inp.focus();});
+  sug.addEventListener("pointerdown",e=>{const it=e.target.closest("[data-val]");if(!it)return;e.preventDefault();inp.value=it.dataset.val;sug.innerHTML="";inp.focus();});
   inp.addEventListener("blur",()=>setTimeout(()=>{sug.innerHTML="";},120));
 }
 function _alertaPassaporte(validade){
@@ -5532,7 +5532,7 @@ function openModal(title,fields,onSave,saveLabel){
       sug.innerHTML=res.map(r=>`<div class="geo-item" data-pick="${esc(r.nome)}">${esc(r.nome)}${r.ctx?` <span class="geo-adm">${esc(r.ctx)}</span>`:""}</div>`).join("");
     };
     inp.addEventListener("input",()=>{clearTimeout(t);t=setTimeout(run,320);});
-    sug.addEventListener("mousedown",e=>{const it=e.target.closest("[data-pick]");if(!it)return;e.preventDefault();inp.value=it.dataset.pick;sug.innerHTML="";});
+    sug.addEventListener("pointerdown",e=>{const it=e.target.closest("[data-pick]");if(!it)return;e.preventDefault();inp.value=it.dataset.pick;sug.innerHTML="";});
     inp.addEventListener("blur",()=>setTimeout(()=>{sug.innerHTML="";},160));
   });
   $("#mok").onclick=()=>{

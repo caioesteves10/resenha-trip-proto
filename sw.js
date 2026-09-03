@@ -5,7 +5,7 @@
    - NUNCA intercepta o tráfego do Firestore: ele tem o próprio mecanismo offline
    Ao publicar uma versão nova, troque o número em VERSAO abaixo.            */
 
-const VERSAO = "proto-v91";
+const VERSAO = "proto-v92";
 const CACHE_APP = "app-" + VERSAO;
 const CACHE_EXT = "ext-" + VERSAO;
 
