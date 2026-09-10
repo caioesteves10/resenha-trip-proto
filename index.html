@@ -352,6 +352,12 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer;ma
 .mtabs button.on{background:var(--panel);color:var(--navy);box-shadow:0 1px 3px rgba(20,34,56,.08)}
 .cofre-disp{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-top:10px}
 .cofre-disp .lbl{font-size:11.5px;color:var(--muted);font-weight:700;text-transform:none;letter-spacing:.01em}
+.cofre-resfoot{display:flex;justify-content:space-between;align-items:center;margin-top:11px;font-size:13px;gap:10px}
+.cofre-resfoot .crf-falta{color:var(--muted)}
+.cofre-resfoot .crf-falta b{color:var(--navy);font-weight:800}
+.cofre-resfoot .lnk{font-size:12.5px}
+.cofre-det[hidden]{display:none}
+.cofre-det{margin-top:2px}
 .cofre-disp .disp{color:var(--navy);margin:2px 0}
 .cofre-disp .of{font-size:11.5px;color:var(--muted)}
 .cofre-disp .btn{flex:none}
@@ -5200,23 +5206,16 @@ function renderCofre(){_sujo.delete("cofre");
         <div class="lbl">Já guardei</div>
         <div class="big money count" data-count="${disp(sav).toFixed(0)}" data-pre="${simboloMoeda(STATE.cur)+' '}" data-final="${fmt(sav)}">${fmt(sav)}</div>
         <div class="of">de ${fmt(meta)}${STATE.cur!=="EUR"?` · <b style="color:var(--mun)">≈ ${fmtCur(sav,"EUR")}</b>`:""}</div>
-        <div class="of" style="margin-top:2px"><span class="lnk" id="metaedit">${metaAuto(me)?"meta automática":"editar meta"}</span>${metaAuto(me)?infoBtn("Sua meta automática é a soma da sua parte nos custos compartilhados da viagem mais os seus gastos pessoais planejados. Toque em \u201cmeta automática\u201d para definir um valor manual."):""}</div>
       </div>
       <div class="pct">${pct.toFixed(0)}%</div>
     </div>
     <div class="rail ${done?"ok":""}"><i style="width:${pct}%"></i></div>
-    <div class="kpis">
-      <div class="kpi ${done?"ok":""}"><div class="k">Falta guardar</div><div class="v money">${fmt(falta)}</div></div>
-      <div class="kpi"><div class="k">Meses até a viagem</div><div class="v">${M.meses}</div></div>
+    <div class="cofre-resfoot">
+      <div class="crf-falta">${semMeta?"defina uma meta":`Falta <b>${fmt(falta)}</b>${M.meses?` · ${M.meses} ${M.meses===1?"mês":"meses"}`:""}`}</div>
+      <span class="lnk" id="metaedit">${metaAuto(me)?"meta automática":"editar meta"}</span>${metaAuto(me)?infoBtn("Sua meta automática é a soma da sua parte nos custos compartilhados da viagem mais os seus gastos pessoais planejados. Toque em \u201cmeta automática\u201d para definir um valor manual."):""}
     </div>
   </div>
 
-  <div class="cofre-disp">
-    <div class="grow"><div class="lbl">Disponível pra viagem${_verbaAj>0?" · ajustado":" · do cofre"}</div>
-      <div class="disp money" style="font-size:23px">${fmt(_dispV)}</div>
-      <div class="of">${_verbaAj>0?"Você ajustou manualmente quanto levou.":"Por padrão, é o que você guardou no cofre."}</div></div>
-    <button class="btn sec sm" id="ajverba">Ajustar</button>
-  </div>
   <div class="cofre-month"><div class="sect" style="margin-top:0">${M.antes?"Plano mensal":"Este mês"}<span class="r">${M.antes?"começa em "+monthLabel(iniPoup()):monthLabel(M.mk)}</span></div>
   <div class="card ${(!semMeta&&(M.ok||M.acabou))?"okline":""}">
     ${semMeta?
@@ -5249,20 +5248,31 @@ function renderCofre(){_sujo.delete("cofre");
   </div><!-- /cofre-month -->
   </div><!-- /cofre-top -->
 
-  <div class="sect">Meus depósitos<span class="r">${deps.length||"nenhum"}</span></div>
-  ${deps.length?`<div class="${deps.length>4?"deplist":""}">`+deps.map(x=>`<div class="li">
-      <div class="t"><div class="n money">${fmtIn(x.valor,x.moeda||"BRL")}</div>
-      <div class="s">${monthLabel(x.mes||M.mk)}${x.nota?" · "+esc(x.nota):""}</div></div>
-      <button class="x" data-dedit="${x.id}" aria-label="Editar">✎</button>
-      <button class="x" data-del="${x.id}" aria-label="Excluir">✕</button></div>`).join("")+`</div>`:
-    '<div class="empty">Nada guardado ainda.<br>O primeiro depósito é o mais difícil.</div>'}
+  <button class="mais-btn" id="cofre-det-btn" aria-expanded="false" aria-controls="cofre-det">
+    <span>Ver detalhes</span><span class="mais-ch">⌄</span></button>
+  <div class="cofre-det" id="cofre-det" hidden>
+    <div class="cofre-disp">
+      <div class="grow"><div class="lbl">Disponível pra viagem${_verbaAj>0?" · ajustado":" · do cofre"}</div>
+        <div class="disp money" style="font-size:23px">${fmt(_dispV)}</div>
+        <div class="of">${_verbaAj>0?"Você ajustou manualmente quanto levou.":"Por padrão, é o que você guardou no cofre."}</div></div>
+      <button class="btn sec sm" id="ajverba">Ajustar</button>
+    </div>
 
-  <button class="mais-btn" id="cofre-mais-btn" aria-expanded="false" aria-controls="cofre-mais">
-    <span>${ehSolo()?"Ver histórico":"Ver histórico e o grupo"}</span><span class="mais-ch">⌄</span></button>
-  <div class="cofre-mais" id="cofre-mais" hidden>
-  ${keys.length?`<div class="sect" style="margin-top:4px">Últimos meses</div>${mesesStrip(mm)}`:""}
-  ${ehSolo()?"":blocoGrupoCofre(me)}
-  </div><!-- /cofre-mais -->
+    <div class="sect">Meus depósitos<span class="r">${deps.length||"nenhum"}</span></div>
+    ${deps.length?`<div class="${deps.length>4?"deplist":""}">`+deps.map(x=>`<div class="li">
+        <div class="t"><div class="n money">${fmtIn(x.valor,x.moeda||"BRL")}</div>
+        <div class="s">${monthLabel(x.mes||M.mk)}${x.nota?" · "+esc(x.nota):""}</div></div>
+        <button class="x" data-dedit="${x.id}" aria-label="Editar">✎</button>
+        <button class="x" data-del="${x.id}" aria-label="Excluir">✕</button></div>`).join("")+`</div>`:
+      '<div class="empty">Nada guardado ainda.<br>O primeiro depósito é o mais difícil.</div>'}
+
+    <button class="mais-btn" id="cofre-mais-btn" aria-expanded="false" aria-controls="cofre-mais">
+      <span>${ehSolo()?"Ver histórico":"Ver histórico e o grupo"}</span><span class="mais-ch">⌄</span></button>
+    <div class="cofre-mais" id="cofre-mais" hidden>
+    ${keys.length?`<div class="sect" style="margin-top:4px">Últimos meses</div>${mesesStrip(mm)}`:""}
+    ${ehSolo()?"":blocoGrupoCofre(me)}
+    </div><!-- /cofre-mais -->
+  </div><!-- /cofre-det -->
   ${fm>0?`<div class="note" style="text-align:center">A meta não inclui ${fmt(fm)} da sua passagem aérea, que vai parcelada no cartão. O plano completo está em Custos.</div>`:""}`;
 
   checarMarco(me,pct);
@@ -5299,6 +5309,10 @@ function renderCofre(){_sujo.delete("cofre");
 
   // "Ver histórico e o grupo": começa recolhido; o gráfico só é desenhado
   // depois de aparecer (SVG oculto mede largura 0 e sairia torto).
+  {const detB=$("#cofre-det-btn"),detBox=$("#cofre-det");
+   if(detB&&detBox)detB.onclick=()=>{const abrir=detBox.hidden;detBox.hidden=!abrir;
+     detB.setAttribute("aria-expanded",abrir?"true":"false");detB.classList.toggle("aberto",abrir);
+     detB.querySelector("span").textContent=abrir?"Ocultar detalhes":"Ver detalhes";};}
   const maisBtn=$("#cofre-mais-btn"),maisBox=$("#cofre-mais");
   if(maisBtn&&maisBox)maisBtn.onclick=()=>{
     const abrir=maisBox.hidden;
