@@ -6013,7 +6013,6 @@ function renderCheck(){_sujo.delete("check");
   const catsMala=[...new Set(mala.map(i=>i.cat||"Geral"))].sort();
   malaCats=malaCats.filter(c=>catsMala.includes(c));
   const malaView=malaCats.length?mala.filter(i=>malaCats.includes(i.cat||"Geral")):mala;
-  const mFalta=malaView.filter(i=>!i.ok),mPronto=malaView.filter(i=>i.ok);
   const dias=daysTo(STATE.config.inicio);
   $("#p-check").innerHTML=`
   <div class="seg" id="ckseg">
@@ -6102,29 +6101,24 @@ function renderCheck(){_sujo.delete("check");
     ${catsMala.length?`<div class="catfilter-wrap"><div class="catfilter" id="catfilter">${["__todas"].concat(catsMala).map(c=>`<span class="catchip ${(c==="__todas"?malaCats.length===0:malaCats.includes(c))?"on":""}" data-mcatf="${esc(c)}">${c==="__todas"?"Todas":esc(c)}</span>`).join("")}</div></div>`:""}
 
 
-    ${mFalta.length?`<div class="sect">Ainda na lista<span class="r">${mFalta.length}</span></div>`+
+    ${malaView.length?
       (()=>{
-        const grupos={};mFalta.forEach(i=>{const c=i.cat||"Geral";(grupos[c]=grupos[c]||[]).push(i);});
+        const grupos={};malaView.forEach(i=>{const c=i.cat||"Geral";(grupos[c]=grupos[c]||[]).push(i);});
         const ord=Object.keys(grupos).sort((a,b)=>String(a).localeCompare(String(b),"pt-BR",{sensitivity:"base"}));
-        const prog=c=>{const its=mala.filter(i=>(i.cat||"Geral")===c);return {ok:its.filter(i=>i.ok).length,tot:its.length};};
-        return ord.map(c=>{const col=malaColapsadas.has(c),pg=prog(c);
-          return `<div class="mala-grp"><button class="mala-grp-h ${col?"col":""}" data-mgrp="${esc(c)}" aria-expanded="${col?"false":"true"}"><span class="mgh-ch">⌄</span><span class="mgh-cat">${esc(c)}</span><span class="mgh-n">${pg.ok}/${pg.tot}</span></button>
-          <div class="mala-grp-body" ${col?"hidden":""}>${grupos[c].map(i=>`<div class="li">
-            <div class="tick" data-mtog="${i.id}" role="button" tabindex="0">✓</div>
+        return ord.map(c=>{const col=malaColapsadas.has(c);
+          const its=grupos[c].slice().sort((a,b)=>(a.ok?1:0)-(b.ok?1:0)); // pendentes primeiro, concluídos no fim
+          const ok=its.filter(i=>i.ok).length;
+          return `<div class="mala-grp"><button class="mala-grp-h ${col?"col":""}" data-mgrp="${esc(c)}" aria-expanded="${col?"false":"true"}"><span class="mgh-ch">⌄</span><span class="mgh-cat">${esc(c)}</span><span class="mgh-n">${ok}/${its.length}</span></button>
+          <div class="mala-grp-body" ${col?"hidden":""}>${its.map(i=>`<div class="li ${i.ok?"done":""}">
+            <div class="tick ${i.ok?"on":""}" data-mtog="${i.id}" role="button" tabindex="0">✓</div>
             <div class="t"><div class="n">${esc(i.item)}</div></div>
-            <button class="x" data-medit="${i.id}" aria-label="Editar">✎</button>
+            ${i.ok?"":`<button class="x" data-medit="${i.id}" aria-label="Editar">✎</button>`}
             <button class="x" data-mdel="${i.id}" aria-label="Excluir">✕</button></div>`).join("")}</div></div>`;
         }).join("");
       })():
-      (mala.length?`<div class="okbox">${malaCats.length?"Nada pendente nessas categorias.":"Tudo na mala! Pode fechar o zíper. 🧳"}</div>`:
+      (mala.length?`<div class="okbox">${malaCats.length?"Nada nessas categorias.":"Mala vazia."}</div>`:
       '<div class="empty">Mala vazia por enquanto.<br>Adicione o que precisa levar e organize por categoria.</div>')}
-
-    ${mPronto.length?`<div class="sect">Já na mala<span class="r">${mPronto.length}</span></div>`+
-      mPronto.map(i=>`<div class="li done">
-        <div class="tick on" data-mtog="${i.id}" role="button" tabindex="0">✓</div>
-        <div class="t"><div class="n">${esc(i.item)}</div>${i.cat?`<div class="s">${catDot(i.cat)}${esc(i.cat)}</div>`:""}</div>
-        <button class="x" data-mdel="${i.id}" aria-label="Excluir">✕</button></div>`).join(""):""}
-    <div class="note">Marque conforme for colocando na mala. Categorias ajudam a não esquecer nada — e a lista é só sua.</div>
+    <div class="note">Marque conforme for colocando na mala. Itens marcados ficam riscados no fim de cada categoria. A lista é só sua.</div>
   </div>
   ${tarefasBloco()}`;
 
@@ -7193,7 +7187,7 @@ setInterval(()=>{const k=monthKey(new Date());if(k!==ULT_MES){ULT_MES=k;renderAl
 (function gestos(){
   const app=document.getElementById("app");if(!app)return;
   let x0=0,y0=0,t0=0,drag=false,pull=false,hor=null;
-  const ordem=()=>TABS().map(t=>t[0]).concat(isAdmin()?["admin"]:[]);
+  const ordem=()=>TABS().map(t=>t[0]); // só as abas visíveis da tabbar (sem admin)
   const bar=document.createElement("div");bar.id="ptr";bar.innerHTML='<span class="ptrspin"></span>';
   document.body.appendChild(bar);
   const painel=()=>document.querySelector(".panel-v.on");
@@ -7234,7 +7228,7 @@ setInterval(()=>{const k=monthKey(new Date());if(k!==ULT_MES){ULT_MES=k;renderAl
     }
     // arrasto lateral: o painel segue o dedo (com resistência nas bordas)
     if(hor){
-      const alvo=e.target.closest&&e.target.closest(".seg, .act[data-act], .deplist, table, input, textarea, select, .chartwrap");
+      const alvo=e.target.closest&&e.target.closest(".seg, .catfilter, .act[data-act], .deplist, table, input, textarea, select, .chartwrap");
       if(!alvo){
         const o=ordem();
         const _pos=(typeof MONEY!=="undefined"&&MONEY.includes(curTab))?"dinheiro":curTab;
@@ -7256,7 +7250,7 @@ setInterval(()=>{const k=monthKey(new Date());if(k!==ULT_MES){ULT_MES=k;renderAl
     }else{bar.classList.remove("ready");bar.style.transform="";bar.style.opacity="0";}
     // swipe horizontal concluído?
     if(hor){
-      const alvo=e.target.closest&&e.target.closest(".seg, .act[data-act], .deplist, table, input, textarea, select, .chartwrap");
+      const alvo=e.target.closest&&e.target.closest(".seg, .catfilter, .act[data-act], .deplist, table, input, textarea, select, .chartwrap");
       const vel=Math.abs(dx)/Math.max(1,dt);                    // px/ms
       const disparou=(Math.abs(dx)>44)||(vel>0.4&&Math.abs(dx)>22); // leve OU flick rápido
       if(!alvo&&disparou)irLado(dx<0?1:-1);
