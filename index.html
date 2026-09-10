@@ -166,7 +166,7 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 .geo-sug:empty{display:none}
 .geo-sug{margin-top:-1px;border-radius:0 0 10px 10px;overflow:hidden;border:1px solid var(--line2);border-top:0}
 .au-wrap{position:relative}
-.au-wrap .geo-sug{position:absolute;left:0;right:0;top:100%;z-index:20;border-radius:10px;border-top:1px solid var(--line2);box-shadow:var(--shadowlg);max-height:260px;overflow:auto}
+.au-wrap .geo-sug{position:absolute;left:0;right:0;top:calc(100% + 3px);z-index:80;border-radius:12px;border:1px solid var(--line2);box-shadow:var(--shadowlg);max-height:260px;overflow:auto;background:var(--panel)}
 .geo-item,.geo-load,.geo-empty{font-size:13.5px;padding:9px 12px;background:var(--panel)}
 .geo-item{cursor:pointer;border-top:1px solid var(--line);touch-action:manipulation;-webkit-user-select:none;user-select:none}
 .geo-item:first-child{border-top:0}
@@ -228,7 +228,11 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer;ma
 .seg::-webkit-scrollbar{display:none}
 .seg div{flex:1 0 auto;white-space:nowrap;text-align:center;padding:9px 14px;font-size:13.5px;font-weight:700;color:var(--muted);border-radius:9px;cursor:pointer}
 .seg div.on{background:var(--panel);color:var(--navy);box-shadow:var(--shadow)}
-.catfilter{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px}
+.catfilter-wrap{position:relative;margin-bottom:11px}
+.catfilter{display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;scroll-padding:0 8px;padding-bottom:2px}
+.catfilter::-webkit-scrollbar{display:none}
+.catfilter-wrap.more::after{content:"";position:absolute;top:0;right:0;bottom:2px;width:34px;pointer-events:none;background:linear-gradient(90deg,transparent,var(--bg) 78%)}
+.catfilter .catchip{flex:0 0 auto}
 .catchip{font-size:12px;font-weight:700;color:var(--muted);background:var(--panel2);border:1px solid var(--line);
  border-radius:99px;padding:5px 12px;cursor:pointer;transition:background .12s,color .12s,border-color .12s;white-space:nowrap;
  display:inline-flex;align-items:center}
@@ -990,6 +994,13 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
 .td-cat{display:inline-flex;align-items:center}
 .catchip .catdot{margin-right:5px;width:7px;height:7px}
 .catchip.on .catdot{box-shadow:0 0 0 1.5px rgba(255,255,255,.5)}
+.mala-grp{margin-bottom:2px}
+.mala-grp-h{width:100%;display:flex;align-items:center;gap:8px;background:none;border:0;border-bottom:1px solid var(--line);padding:11px 2px 8px;cursor:pointer;font-family:inherit}
+.mala-grp-h .mgh-ch{color:var(--dim);font-size:13px;transition:transform .18s;flex:0 0 auto}
+.mala-grp-h.col .mgh-ch{transform:rotate(-90deg)}
+.mala-grp-h .mgh-cat{font-weight:800;font-size:13px;color:var(--navy);text-transform:uppercase;letter-spacing:.03em;text-align:left}
+.mala-grp-h .mgh-n{margin-left:auto;font-weight:800;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;flex:0 0 auto}
+.mala-grp-body[hidden]{display:none}
 
 
 /* ---- home de viagens (pastas) — Fase 3 ---- */
@@ -5990,6 +6001,8 @@ function renderCompras(){_sujo.delete("compras");
 /* ---- 14b. CHECKLIST ------------------------------------ */
 let checkView=localStorage.getItem("tr27_check")||"geral";
 let malaCats=[]; // filtro de categorias na Mala
+let malaColapsadas=(()=>{try{return new Set(JSON.parse(localStorage.getItem("tr27_malacol")||"[]"));}catch(e){return new Set();}})();
+function _salvarColap(){try{localStorage.setItem("tr27_malacol",JSON.stringify([...malaColapsadas]));}catch(e){}}
 function renderCheck(){_sujo.delete("check");
   const me=STATE.me,chk=(meDoc().checklist||[]);
   const nOk=chk.filter(i=>i.ok).length,pct=chk.length?Math.round(nOk/chk.length*100):0;
@@ -6002,10 +6015,6 @@ function renderCheck(){_sujo.delete("check");
   const malaView=malaCats.length?mala.filter(i=>malaCats.includes(i.cat||"Geral")):mala;
   const mFalta=malaView.filter(i=>!i.ok),mPronto=malaView.filter(i=>i.ok);
   const dias=daysTo(STATE.config.inicio);
-  // progresso por categoria (para o resumo escaneável) — depois de catsMala
-  const malaCatProg=catsMala.map(c=>{const its=mala.filter(i=>(i.cat||"Geral")===c);const ok=its.filter(i=>i.ok).length;
-    return {cat:c,ok,tot:its.length,pct:its.length?Math.round(ok/its.length*100):0};});
-
   $("#p-check").innerHTML=`
   <div class="seg" id="ckseg">
     <div data-cv="geral" class="${checkView==="geral"?"on":""}">Checklist geral</div>
@@ -6090,22 +6099,23 @@ function renderCheck(){_sujo.delete("check");
       </div>
     </div>
 
-    ${catsMala.length?`<div class="catfilter">${["__todas"].concat(catsMala).map(c=>`<span class="catchip ${(c==="__todas"?malaCats.length===0:malaCats.includes(c))?"on":""}" data-mcatf="${esc(c)}">${c==="__todas"?"Todas":catDot(c)+esc(c)}</span>`).join("")}</div>`:""}
+    ${catsMala.length?`<div class="catfilter-wrap"><div class="catfilter" id="catfilter">${["__todas"].concat(catsMala).map(c=>`<span class="catchip ${(c==="__todas"?malaCats.length===0:malaCats.includes(c))?"on":""}" data-mcatf="${esc(c)}">${c==="__todas"?"Todas":esc(c)}</span>`).join("")}</div></div>`:""}
 
-    ${catsMala.length>1?`<button class="mais-btn" id="malaprog-btn" aria-expanded="false" aria-controls="malaprog"><span>Ver progresso por categoria</span><span class="mais-ch">⌄</span></button>
-    <div class="malaprog" id="malaprog" hidden>
-      ${malaCatProg.map(p=>`<div class="mpg-row">
-        <div class="mpg-top"><span class="mpg-cat">${catDot(p.cat)}${esc(p.cat)}</span><span class="mpg-n">${p.ok}/${p.tot}</span></div>
-        <div class="mala-bar sm"><i style="width:${p.pct}%" class="${p.pct===100?"done":""}"></i></div>
-      </div>`).join("")}
-    </div>`:""}
 
     ${mFalta.length?`<div class="sect">Ainda na lista<span class="r">${mFalta.length}</span></div>`+
-      mFalta.map(i=>`<div class="li">
-        <div class="tick" data-mtog="${i.id}" role="button" tabindex="0">✓</div>
-        <div class="t"><div class="n">${esc(i.item)}</div>${i.cat?`<div class="s">${catDot(i.cat)}${esc(i.cat)}</div>`:""}</div>
-        <button class="x" data-medit="${i.id}" aria-label="Editar">✎</button>
-        <button class="x" data-mdel="${i.id}" aria-label="Excluir">✕</button></div>`).join(""):
+      (()=>{
+        const grupos={};mFalta.forEach(i=>{const c=i.cat||"Geral";(grupos[c]=grupos[c]||[]).push(i);});
+        const ord=Object.keys(grupos).sort((a,b)=>String(a).localeCompare(String(b),"pt-BR",{sensitivity:"base"}));
+        const prog=c=>{const its=mala.filter(i=>(i.cat||"Geral")===c);return {ok:its.filter(i=>i.ok).length,tot:its.length};};
+        return ord.map(c=>{const col=malaColapsadas.has(c),pg=prog(c);
+          return `<div class="mala-grp"><button class="mala-grp-h ${col?"col":""}" data-mgrp="${esc(c)}" aria-expanded="${col?"false":"true"}"><span class="mgh-ch">⌄</span><span class="mgh-cat">${esc(c)}</span><span class="mgh-n">${pg.ok}/${pg.tot}</span></button>
+          <div class="mala-grp-body" ${col?"hidden":""}>${grupos[c].map(i=>`<div class="li">
+            <div class="tick" data-mtog="${i.id}" role="button" tabindex="0">✓</div>
+            <div class="t"><div class="n">${esc(i.item)}</div></div>
+            <button class="x" data-medit="${i.id}" aria-label="Editar">✎</button>
+            <button class="x" data-mdel="${i.id}" aria-label="Excluir">✕</button></div>`).join("")}</div></div>`;
+        }).join("");
+      })():
       (mala.length?`<div class="okbox">${malaCats.length?"Nada pendente nessas categorias.":"Tudo na mala! Pode fechar o zíper. 🧳"}</div>`:
       '<div class="empty">Mala vazia por enquanto.<br>Adicione o que precisa levar e organize por categoria.</div>')}
 
@@ -6157,10 +6167,16 @@ function renderCheck(){_sujo.delete("check");
   const mla=$("#mladd");if(mla)mla.onclick=maladd;
   const mtL=$("#mtpl-load");if(mtL)mtL.onclick=malaTplCarregar;
   const mtS=$("#mtpl-save");if(mtS)mtS.onclick=malaTplSalvar;
-  const mpB=$("#malaprog-btn"),mpBox=$("#malaprog");
-  if(mpB&&mpBox)mpB.onclick=()=>{const abrir=mpBox.hidden;mpBox.hidden=!abrir;
-    mpB.setAttribute("aria-expanded",abrir?"true":"false");mpB.classList.toggle("aberto",abrir);
-    mpB.querySelector("span").textContent=abrir?"Ocultar progresso por categoria":"Ver progresso por categoria";};
+  // grupos colapsáveis de "Ainda na lista"
+  $("#p-check").querySelectorAll("[data-mgrp]").forEach(b=>b.onclick=()=>{
+    const c=b.dataset.mgrp;
+    if(malaColapsadas.has(c))malaColapsadas.delete(c);else malaColapsadas.add(c);
+    _salvarColap();renderCheck();});
+  // sombra "tem mais ao arrastar" nos filtros de categoria
+  {const cf=$("#catfilter");
+   if(cf){const wrap=cf.parentElement;
+     const upd=()=>{if(!wrap)return;const mais=cf.scrollWidth-cf.clientWidth-cf.scrollLeft>4;wrap.classList.toggle("more",mais);};
+     cf.addEventListener("scroll",upd,{passive:true});setTimeout(upd,0);}}
   const mln=$("#mln");if(mln)mln.addEventListener("keydown",e=>{if(e.key==="Enter")maladd();});
   const mlcat=$("#mlcat");if(mlcat)mlcat.addEventListener("keydown",e=>{if(e.key==="Enter")maladd();});
   montarAutoLista($("#mlcat"),$("#mlcat-sug"),catsMala);
