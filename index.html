@@ -276,6 +276,17 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer;ma
 .mpg-n{margin-left:auto;color:var(--muted);font-size:11.5px}
 .mala-tpl-row{display:flex;gap:14px;align-items:center;margin-top:10px;font-size:12.5px}
 .mala-tpl-row .lnk{font-weight:700}
+.mala-tpl-row .lnk{display:inline-flex;align-items:center;gap:5px}
+.tz-sub{font-size:12.5px;color:var(--dim);margin:2px 0 12px;line-height:1.45}
+.tz-via{display:flex;align-items:center;gap:11px;padding:11px;border:1px solid var(--line);border-radius:14px;margin-bottom:9px}
+.tz-via.vazia{opacity:.55}
+.tz-vi{width:36px;height:36px;border-radius:10px;background:var(--panel2);display:flex;align-items:center;justify-content:center;flex:0 0 auto;color:var(--navy)}
+.tz-vi svg{width:19px;height:19px}
+.tz-vx{flex:1;min-width:0}
+.tz-vn{font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tz-vs{font-size:11.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tz-vr{text-align:right;flex:0 0 auto}
+.tz-vc{font-size:11px;color:var(--muted);font-weight:700;margin-bottom:5px}
 .tpl-list{display:flex;flex-direction:column;gap:8px}
 .tpl-it{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--panel2);border:1px solid var(--line);border-radius:12px}
 .tpl-info{flex:1;min-width:0}
@@ -5236,6 +5247,61 @@ function malaTplCarregar(){
   });
 }
 
+/* ===== Trazer lista (mala/checklist/tarefas) de outra viagem ===== */
+const TRAZER={
+  mala:     {rotulo:"a Mala",       fonte:"pessoa",  ler:d=>d&&d.mala,      chave:i=>i.item,  novo:i=>({id:uid(),item:i.item,ok:false,cat:i.cat||""}), atual:()=>meDoc().mala||[],      salvar:n=>savePessoa(STATE.me,{mala:(meDoc().mala||[]).concat(n)})},
+  checklist:{rotulo:"o Checklist",   fonte:"pessoa",  ler:d=>d&&d.checklist, chave:i=>i.item,  novo:i=>({id:uid(),item:i.item,ok:false}),               atual:()=>meDoc().checklist||[], salvar:n=>savePessoa(STATE.me,{checklist:(meDoc().checklist||[]).concat(n)})},
+  tarefas:  {rotulo:"as Tarefas",    fonte:"tarefas", ler:d=>d&&d.itens,     chave:i=>i.texto, novo:i=>({id:uid(),texto:i.texto,quem:"",feito:false}),    atual:()=>tarefasItens(),        salvar:n=>saveDoc("tarefas",{itens:tarefasItens().concat(n)})}
+};
+async function _lerListaViagem(tipo,v){
+  const T=TRAZER[tipo];
+  try{
+    if(T.fonte==="tarefas"){const sn=await FB.getDoc(FB.doc(db,"viagens",v.id,"dados","tarefas"));return (T.ler(sn.exists()?sn.data():null)||[]);}
+    const nome=meuNomeNaViagem(v); if(!nome)return [];
+    const sn=await FB.getDoc(FB.doc(db,"viagens",v.id,"viajantes",nome));
+    return (T.ler(sn.exists()?sn.data():null)||[]);
+  }catch(e){return [];}
+}
+function _trazerAplicar(tipo,itens){
+  const T=TRAZER[tipo];
+  const jaTem=new Set((T.atual()||[]).map(i=>String(T.chave(i)||"").toLowerCase().trim()).filter(Boolean));
+  const novos=[];
+  (itens||[]).forEach(i=>{const k=String(T.chave(i)||"").toLowerCase().trim();if(k&&!jaTem.has(k)){novos.push(T.novo(i));jaTem.add(k);}});
+  if(!novos.length){toast("Tudo já estava na lista");return 0;}
+  T.salvar(novos);
+  toast(`${novos.length} ${novos.length===1?"item adicionado":"itens adicionados"} \u2713`);
+  return novos.length;
+}
+async function abrirTrazerViagem(tipo){
+  const T=TRAZER[tipo]; if(!T)return;
+  const close=()=>{$("#modal").innerHTML="";};
+  const wrapModal=(inner)=>{$("#modal").innerHTML=`<div class="modal"><div class="box"><h3>Trazer para ${T.rotulo}</h3>${inner}</div></div>`;
+    $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};};
+  wrapModal('<div class="tz-sub">Carregando suas viagens…</div>');
+  let vs=[]; if(!MOCK){try{vs=await listarMinhasViagens();}catch(e){}}
+  vs=(vs||[]).filter(v=>v.id!==VIAGEM.id);
+  if(!vs.length){
+    wrapModal('<div class="tz-sub">Você só tem esta viagem por enquanto. Quando tiver outras, dá pra trazer a lista de lá pra cá, sem duplicar.</div><button class="btn gh" id="tz-x" style="margin-top:10px">Fechar</button>');
+    const x=$("#tz-x");if(x)x.onclick=close; return;
+  }
+  const dados=await Promise.all(vs.map(async v=>({v,itens:await _lerListaViagem(tipo,v)})));
+  const per=v=>{try{const d=ymd(v.inicio);const M=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];return M[d.getMonth()]+"/"+d.getFullYear();}catch(e){return "";}};
+  const linhas=dados.map(({v,itens})=>{
+    const n=itens.length, cidades=(v.cidades||[]).slice(0,3).join(", ");
+    const vazia=!n;
+    return `<div class="tz-via ${vazia?"vazia":""}">
+      <div class="tz-vi">${svgIcon("roteiro")}</div>
+      <div class="tz-vx"><div class="tz-vn">${esc(v.nome||"Viagem")}</div><div class="tz-vs">${esc(per(v))}${cidades?" · "+esc(cidades):""}</div></div>
+      <div class="tz-vr"><div class="tz-vc">${vazia?"sem itens":(n+(n===1?" item":" itens"))}</div>${vazia?"":`<button class="btn sm" data-tzid="${esc(v.id)}">Trazer</button>`}</div>
+    </div>`;
+  }).join("");
+  wrapModal(`<div class="tz-sub">Escolha uma viagem sua. Traz os itens <b>que faltam</b> — sem apagar nem duplicar o que você já tem.</div>${linhas}<button class="btn gh" id="tz-x" style="margin-top:8px">Fechar</button>`);
+  const x=$("#tz-x");if(x)x.onclick=close;
+  $("#modal").querySelectorAll("[data-tzid]").forEach(btn=>btn.onclick=()=>{
+    const rec=dados.find(d=>d.v.id===btn.dataset.tzid); if(!rec)return;
+    _trazerAplicar(tipo,rec.itens); close();
+  });
+}
 function guiaDinheiro(txt){return '<div class="guia">'+txt+'</div>';}
 function renderCofre(){_sujo.delete("cofre");
   const me=STATE.me,d=meDoc();
@@ -6143,6 +6209,7 @@ function renderCheck(){_sujo.delete("check");
       <button class="btn sm" id="ckadd">Incluir</button>
     </div>
     <button class="btn sec" id="ckseed" style="margin-top:9px">${chk.length?"Puxar itens novos da lista master":"Carregar lista master"}</button>
+    <div class="mala-tpl-row" style="margin-top:10px"><span class="lnk" id="tz-check"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17V7a2 2 0 012-2h9l4 4v8a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><path d="M8 12h8M12 8v8"/></svg> Trazer de outra viagem</span></div>
   </div>
 
   ${falta.length?`<div class="sect">Falta fazer<span class="r">${falta.length}</span></div>`+
@@ -6201,8 +6268,7 @@ function renderCheck(){_sujo.delete("check");
         <button class="btn sm" id="mladd">Add</button>
       </div>
       <div class="mala-tpl-row">
-        <span class="lnk" id="mtpl-load">📋 Usar um template</span>
-        ${mala.length?`<span class="lnk" id="mtpl-save">salvar esta lista</span>`:""}
+        <span class="lnk" id="tz-mala"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17V7a2 2 0 012-2h9l4 4v8a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><path d="M8 12h8M12 8v8"/></svg> Trazer de outra viagem</span>
       </div>
     </div>
 
@@ -6241,6 +6307,7 @@ function renderCheck(){_sujo.delete("check");
     savePessoa(me,{checklist:(meDoc().checklist||[]).concat([{id:uid(),item:it,ok:false}])});
     $("#ckn").value="";};
   const ckadd=$("#ckadd");if(ckadd)ckadd.onclick=add;
+  {const _tzc=$("#tz-check");if(_tzc)_tzc.onclick=()=>abrirTrazerViagem("checklist");}
   const ckn=$("#ckn");if(ckn)ckn.addEventListener("keydown",e=>{if(e.key==="Enter")add();});
   const ks=$("#ckseed");
   if(ks)ks.onclick=()=>{
@@ -6267,8 +6334,7 @@ function renderCheck(){_sujo.delete("check");
     $("#mln").value="";$("#mlcat").value="";
     setTimeout(()=>{const i=$("#mln");if(i)i.focus();},40);};
   const mla=$("#mladd");if(mla)mla.onclick=maladd;
-  const mtL=$("#mtpl-load");if(mtL)mtL.onclick=malaTplCarregar;
-  const mtS=$("#mtpl-save");if(mtS)mtS.onclick=malaTplSalvar;
+  {const _tz=$("#tz-mala");if(_tz)_tz.onclick=()=>abrirTrazerViagem("mala");}
   // grupos colapsáveis de "Ainda na lista"
   $("#p-check").querySelectorAll("[data-mgrp]").forEach(b=>b.onclick=()=>{
     const c=b.dataset.mgrp;
@@ -6418,6 +6484,7 @@ function tarefasBloco(){
         <div class="disp" style="font-size:26px">${feitas} <span style="font-size:15px;color:var(--muted);font-family:Inter">de ${its.length}</span></div></div>
         <button class="btn sm" id="taradd">+ Tarefa</button></div>
       <div class="note" style="margin-top:8px">Quem faz o quê antes de viajar — reservas, ingressos, documentos. É compartilhado: todo mundo vê, edita e marca como feito.</div>
+      <div class="mala-tpl-row" style="margin-top:10px"><span class="lnk" id="tz-tar"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17V7a2 2 0 012-2h9l4 4v8a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><path d="M8 12h8M12 8v8"/></svg> Trazer de outra viagem</span></div>
     </div>
     ${its.length?
       ((pend.length?`<div class="sect">A fazer<span class="r">${pend.length}</span></div>`+pend.map(linha).join(""):'<div class="okbox">Tudo feito! 🎉</div>')+
@@ -6427,6 +6494,7 @@ function tarefasBloco(){
 }
 function wireTarefas(){
   const a=$("#taradd");if(a)a.onclick=()=>abrirFormTarefa(null);
+  {const _tzt=$("#tz-tar");if(_tzt)_tzt.onclick=()=>abrirTrazerViagem("tarefas");}
   $("#p-check").querySelectorAll("[data-ttog]").forEach(b=>b.onclick=()=>{
     const it=tarefasItens().find(x=>x.id===b.dataset.ttog);if(!it)return;
     const novo=Object.assign({},it,{feito:!it.feito});
