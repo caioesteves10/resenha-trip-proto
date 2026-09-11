@@ -166,7 +166,7 @@ label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercas
 .geo-sug:empty{display:none}
 .geo-sug{margin-top:-1px;border-radius:0 0 10px 10px;overflow:hidden;border:1px solid var(--line2);border-top:0}
 .au-wrap{position:relative}
-.au-wrap .geo-sug{position:absolute;left:0;right:0;top:calc(100% + 3px);z-index:80;border-radius:12px;border:1px solid var(--line2);box-shadow:var(--shadowlg);max-height:260px;overflow:auto;background:var(--panel)}
+.au-wrap .geo-sug{position:absolute;left:0;right:0;top:calc(100% + 3px);z-index:130;transform:translateZ(0);border-radius:12px;border:1px solid var(--line2);box-shadow:var(--shadowlg);max-height:260px;overflow:auto;background:var(--panel)}
 .geo-item,.geo-load,.geo-empty{font-size:13.5px;padding:9px 12px;background:var(--panel)}
 .geo-item{cursor:pointer;border-top:1px solid var(--line);touch-action:manipulation;-webkit-user-select:none;user-select:none}
 .geo-item:first-child{border-top:0}
@@ -228,8 +228,8 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer;ma
 .seg::-webkit-scrollbar{display:none}
 .seg div{flex:1 0 auto;white-space:nowrap;text-align:center;padding:9px 14px;font-size:13.5px;font-weight:700;color:var(--muted);border-radius:9px;cursor:pointer}
 .seg div.on{background:var(--panel);color:var(--navy);box-shadow:var(--shadow)}
-.catfilter-wrap{position:relative;margin-bottom:11px}
-.catfilter{display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;scroll-padding:0 8px;padding-bottom:2px}
+.catfilter-wrap{position:relative;margin-bottom:11px;z-index:1}
+.catfilter{display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;scrollbar-width:none;scroll-padding:0 8px;padding-bottom:2px}
 .catfilter::-webkit-scrollbar{display:none}
 .catfilter-wrap.more::after{content:"";position:absolute;top:0;right:0;bottom:2px;width:34px;pointer-events:none;background:linear-gradient(90deg,transparent,var(--bg) 78%)}
 .catfilter .catchip{flex:0 0 auto}
@@ -1018,6 +1018,10 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
 .mala-grp-h.col .mgh-ch{transform:rotate(-90deg)}
 .mala-grp-h .mgh-cat{font-weight:800;font-size:13px;color:var(--navy);text-transform:uppercase;letter-spacing:.03em;text-align:left}
 .mala-grp-h .mgh-n{margin-left:auto;font-weight:800;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;flex:0 0 auto}
+.mala-grp-htop{display:flex;align-items:center;gap:6px}
+.mala-grp-htop .mala-grp-h{flex:1;min-width:0}
+.mala-grp-add{flex:0 0 auto;width:28px;height:28px;border-radius:8px;border:1px solid var(--line2);background:var(--panel);color:var(--navy);font-size:19px;font-weight:700;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;margin-bottom:2px}
+.mala-grp-add:active{background:var(--panel2)}
 .mala-grp-body[hidden]{display:none}
 
 
@@ -6143,7 +6147,7 @@ function renderCheck(){_sujo.delete("check");
         <div class="grow"><input id="mln" placeholder="O que levar (ex.: carregador)" aria-label="Novo item da mala"></div>
       </div>
       <div class="row" style="gap:8px;margin-top:8px">
-        <div class="grow au-wrap"><input id="mlcat" placeholder="Categoria (ex.: Roupas)" autocomplete="off" aria-label="Categoria"><div id="mlcat-sug" class="geo-sug"></div></div>
+        <div class="grow au-wrap" style="position:relative;z-index:20"><input id="mlcat" placeholder="Categoria (ex.: Roupas)" autocomplete="off" aria-label="Categoria"><div id="mlcat-sug" class="geo-sug"></div></div>
         <button class="btn sm" id="mladd">Add</button>
       </div>
       <div class="mala-tpl-row">
@@ -6162,7 +6166,7 @@ function renderCheck(){_sujo.delete("check");
         return ord.map(c=>{const col=malaColapsadas.has(c);
           const its=grupos[c].slice().sort((a,b)=>(a.ok?1:0)-(b.ok?1:0)); // pendentes primeiro, concluídos no fim
           const ok=its.filter(i=>i.ok).length;
-          return `<div class="mala-grp"><button class="mala-grp-h ${col?"col":""}" data-mgrp="${esc(c)}" aria-expanded="${col?"false":"true"}"><span class="mgh-ch">⌄</span><span class="mgh-cat">${esc(c)}</span><span class="mgh-n">${ok}/${its.length}</span></button>
+          return `<div class="mala-grp"><div class="mala-grp-htop"><button class="mala-grp-h ${col?"col":""}" data-mgrp="${esc(c)}" aria-expanded="${col?"false":"true"}"><span class="mgh-ch">⌄</span><span class="mgh-cat">${esc(c)}</span><span class="mgh-n">${ok}/${its.length}</span></button><button class="mala-grp-add" data-mgadd="${esc(c)}" aria-label="Adicionar em ${esc(c)}">+</button></div>
           <div class="mala-grp-body" ${col?"hidden":""}>${its.map(i=>`<div class="li ${i.ok?"done":""}">
             <div class="tick ${i.ok?"on":""}" data-mtog="${i.id}" role="button" tabindex="0">✓</div>
             <div class="t"><div class="n">${esc(i.item)}</div></div>
@@ -6220,6 +6224,13 @@ function renderCheck(){_sujo.delete("check");
     const c=b.dataset.mgrp;
     if(malaColapsadas.has(c))malaColapsadas.delete(c);else malaColapsadas.add(c);
     _salvarColap();renderCheck();});
+  $("#p-check").querySelectorAll("[data-mgadd]").forEach(b=>b.onclick=(e)=>{
+    e.stopPropagation();const cat=b.dataset.mgadd;
+    openModal("Novo item · "+cat,[{id:"item",label:"O que levar",placeholder:"Ex.: carregador"}],v=>{
+      const it=(v.item||"").trim();if(!it){toast("Escreva o item");return false;}
+      if(malaColapsadas.has(cat)){malaColapsadas.delete(cat);_salvarColap();} // garante o grupo aberto pra ver o item novo
+      savePessoa(me,{mala:(meDoc().mala||[]).concat([{id:uid(),item:it,ok:false,cat:cat}])});
+    });});
   // sombra "tem mais ao arrastar" nos filtros de categoria
   {const cf=$("#catfilter");
    if(cf){const wrap=cf.parentElement;
