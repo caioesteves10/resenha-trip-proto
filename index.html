@@ -97,11 +97,13 @@ a{color:var(--mun)}
 .strip::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--orange)}
 .strip .route{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:rgba(255,255,255,.82);flex-wrap:wrap}
 .strip .route .ar{color:rgba(255,255,255,.4);font-weight:600}
-.strip h1{font-size:26px;margin:4px 0 2px}
+.strip h1{font-size:26px;margin:4px 0 2px;line-height:1.08;overflow-wrap:anywhere}
 .strip .when{color:rgba(255,255,255,.72);font-size:12.5px;font-weight:600}
-.strip .cd{position:absolute;right:14px;top:12px;text-align:right}
+.strip-row{display:flex;align-items:flex-start;gap:12px}
+.strip-main{flex:1;min-width:0}
+.strip .cd{flex:0 0 auto;text-align:right;display:flex;flex-direction:column;align-items:flex-end}
 .wkchip{display:none}
-.wkchip.on{display:inline-block;margin-top:5px;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+.wkchip.on{display:inline-block;margin-top:6px;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;
  background:var(--orange);color:#fff;border-radius:99px;padding:3px 8px}
 .strip .cd .n{font-family:'Bricolage Grotesque',Inter,sans-serif;font-weight:800;font-size:26px;line-height:1;color:var(--par)}
 .strip .cd .u{font-size:9.5px;letter-spacing:.16em;font-weight:800;color:rgba(255,255,255,.55);text-transform:uppercase}
@@ -1228,10 +1230,14 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
     </div>
 
     <div class="strip">
-      <div class="cd"><div class="n" id="cdn">—</div><div class="u" id="cdu">dias</div><span id="weekchip" class="wkchip"></span></div>
-      <div class="route" id="route">—</div>
-      <h1 class="disp" id="tripname">Resenha Trip 2027</h1>
-      <div class="when" id="tripwhen">—</div>
+      <div class="strip-row">
+        <div class="strip-main">
+          <div class="route" id="route">—</div>
+          <h1 class="disp" id="tripname">Resenha Trip 2027</h1>
+          <div class="when" id="tripwhen">—</div>
+        </div>
+        <div class="cd"><div class="n" id="cdn">—</div><div class="u" id="cdu">dias</div><span id="weekchip" class="wkchip"></span></div>
+      </div>
       <div class="perf"></div>
       <div class="fxbar" id="fxline">—</div>
     </div>
