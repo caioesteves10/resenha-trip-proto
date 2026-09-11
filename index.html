@@ -476,6 +476,24 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer;ma
 .ini-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 15px;margin-bottom:9px;
  box-shadow:var(--shadow);cursor:pointer;transition:transform .08s ease,border-color .15s ease}
 .ini-card:active{transform:scale(.99)}
+.ini-lbl{font-size:11.5px;font-weight:700;color:var(--muted);margin:16px 2px 9px}
+.dest-card{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--card-brd);border-radius:16px;padding:13px 15px;margin-bottom:11px;box-shadow:var(--shadow);cursor:pointer;transition:transform .08s ease}
+.dest-card:active{transform:scale(.99)}
+.dest-card .dest-ic{width:42px;height:42px;border-radius:12px;background:#FDECE0;display:flex;align-items:center;justify-content:center;flex:none}
+.dest-card .dest-ic svg{width:22px;height:22px;color:var(--orange)}
+[data-theme="dark"] .dest-card .dest-ic{background:rgba(232,114,46,.16)}
+.dest-card .dest-tx{flex:1;min-width:0}
+.dest-card .dest-k{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--orange)}
+.dest-card .dest-v{font-size:16px;font-weight:800;color:var(--navy);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dest-card .dest-s{font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dest-card .dest-go{color:var(--navy);font-weight:800;font-size:22px;flex:none}
+.atalhos{display:grid;gap:9px}
+.atalho{background:var(--panel);border:1px solid var(--card-brd);border-radius:14px;padding:12px 4px 11px;text-align:center;box-shadow:var(--shadow);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;font-family:inherit;transition:transform .08s ease}
+.atalho:active{transform:scale(.96)}
+.atalho .ai{width:24px;height:24px;color:var(--navy);display:flex;align-items:center;justify-content:center}
+.atalho .ai svg{width:24px;height:24px}
+.atalho .an{font-size:11.5px;font-weight:800;color:var(--text)}
+.atalho .av{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
 .ini-card:hover{border-color:var(--line2)}
 .ini-card:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
 .ini-h{display:flex;align-items:center;gap:8px;margin-bottom:9px}
@@ -3409,6 +3427,7 @@ function show(t){
   garantirPainel(t);   // redesenha o painel se ele ficou desatualizado
   applyTab();
   {const _pa=document.querySelector(".panel-v.on");if(_pa){_pa.style.transform="";_pa.style.opacity="";}}
+  fxVisivelPorAba();
   if(changed){
     const y=_scrollTab[t]||0;                       // restaura a rolagem daquela aba
     window.scrollTo(0,y);
@@ -3571,6 +3590,11 @@ function renderAll(){
   if(aid){const el=document.getElementById(aid);if(el&&el.focus){try{el.focus();el.setSelectionRange(asel,asel);}catch(e){}}}
   _rendering=false;
 }
+function fxVisivelPorAba(){
+  const fx=document.getElementById("fxline"); if(!fx)return;
+  const naMoeda=(curTab==="dinheiro")||(typeof MONEY!=="undefined"&&MONEY.includes(curTab));
+  fx.style.display=naMoeda?"":"none";
+}
 function renderHeader(){
   const c=STATE.config,cs=c.cidades||[];
   /* legenda do topo agora é saudação; mantém no renderHeader só se vazio */
@@ -3607,6 +3631,7 @@ function renderHeader(){
   $("#foot").textContent=c.nota||"";
   syncViaBtn();
   syncFab();
+  fxVisivelPorAba();
 }
 
 /* ---- calculadora de câmbio ----------------------------- */
@@ -5093,10 +5118,35 @@ function renderInicio(){_sujo.delete("inicio");
     </div>`;
   }
 
+  // ---- destaque "Agora": próxima atividade do roteiro (o que vem agora) ----
+  let destaque="";
+  if(prox.length){const p0=prox[0],cid=cityOf(p0.dia.cidade);
+    destaque=`<div class="dest-card" data-goto="roteiro" role="button" tabindex="0">
+      <div class="dest-ic">${svgIcon("roteiro")}</div>
+      <div class="dest-tx"><div class="dest-k">${emV?(sameDay(p0.base)?"Agora":"Próximo"):"Começa a viagem"}</div>
+        <div class="dest-v">${esc(p0.a.titulo)}</div>
+        <div class="dest-s">${p0.a.hora&&p0.a.hora!=="—"?esc(p0.a.hora)+" · ":""}${esc(cid.n)}${sameDay(p0.base)?"":" · "+fmtDate(p0.base).slice(0,3)}</div></div>
+      <div class="dest-go">›</div></div>`;
+  }
+  // ---- atalhos compactos pras abas (com mini-status) ----
+  const _docsN=(STATE.reservas.itens||[]).length;
+  const _balMe=(balances()[me])||0;
+  const _rachaSt=Math.abs(_balMe)<1?"em dia":(_balMe<0?"você deve":"a receber");
+  const _at=(goto,icon,nome,status)=>`<button class="atalho" data-goto="${goto}" type="button"><span class="ai">${svgIcon(icon)}</span><span class="an">${esc(nome)}</span><span class="av">${esc(status)}</span></button>`;
+  const _atalhos=[
+    _at("roteiro","roteiro","Roteiro", cidades.length?cidades.length+(cidades.length===1?" cidade":" cidades"):"a montar"),
+    _at("cofre","cofre","Cofre", semMetaC?"definir":Math.round(pctC)+"%"),
+    ehSolo()?"":_at("racha","racha","Ratatá", _rachaSt),
+    _at("reservas","reservas","Docs", _docsN?_docsN+(_docsN===1?" item":" itens"):"vazio")
+  ].filter(Boolean);
+  const _atGrid=`<div class="atalhos" style="grid-template-columns:repeat(${_atalhos.length},1fr)">${_atalhos.join("")}</div>`;
+
   $("#p-inicio").innerHTML=`
   ${onboardingCard()}
-  ${emV?`${roteiroCard}${gastoCard}${ehSolo()?"":rachaCard}${cofreCard}`:`${cofreCard}${roteiroCard}${ehSolo()?"":rachaCard}`}
-  <div class="note" style="text-align:center;margin-top:4px">Toque em qualquer cartão para abrir a aba completa.</div>`;
+  ${destaque?`<div class="ini-lbl">Agora</div>${destaque}`:""}
+  <div class="ini-lbl">Atalhos</div>
+  ${_atGrid}
+  <div class="note" style="text-align:center;margin-top:8px">Toque num atalho pra abrir a aba.</div>`;
 
   // navegação: cada cartão abre a aba correspondente (menos ao tocar no (i) ou na verba)
   $("#p-inicio").querySelectorAll("[data-goto]").forEach(el=>{
