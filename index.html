@@ -506,7 +506,7 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer;ma
 .atalho .ai{width:24px;height:24px;color:var(--navy);display:flex;align-items:center;justify-content:center}
 .atalho .ai svg{width:24px;height:24px}
 .atalho .an{font-size:11.5px;font-weight:800;color:var(--text)}
-.atalho .av{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
+.atalho .a-status{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums;background:none;border:0;border-radius:0;width:auto;height:auto;margin:0;display:block}
 .ini-card:hover{border-color:var(--line2)}
 .ini-card:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
 .ini-h{display:flex;align-items:center;gap:8px;margin-bottom:9px}
@@ -5149,7 +5149,7 @@ function renderInicio(){_sujo.delete("inicio");
   const _docsN=(STATE.reservas.itens||[]).length;
   const _balMe=(balances()[me])||0;
   const _rachaSt=Math.abs(_balMe)<1?"em dia":(_balMe<0?"você deve":"a receber");
-  const _at=(goto,icon,nome,status)=>`<button class="atalho" data-goto="${goto}" type="button"><span class="ai">${svgIcon(icon)}</span><span class="an">${esc(nome)}</span><span class="av">${esc(status)}</span></button>`;
+  const _at=(goto,icon,nome,status)=>`<button class="atalho" data-goto="${goto}" type="button"><span class="ai">${svgIcon(icon)}</span><span class="an">${esc(nome)}</span><span class="a-status">${esc(status)}</span></button>`;
   const _atalhos=[
     _at("roteiro","roteiro","Roteiro", cidades.length?cidades.length+(cidades.length===1?" cidade":" cidades"):"a montar"),
     _at("cofre","cofre","Cofre", semMetaC?"definir":Math.round(pctC)+"%"),
