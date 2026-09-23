@@ -464,6 +464,13 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer;ma
 .li .v{font-size:15px;font-weight:800;white-space:nowrap}
 .li.done{opacity:.5}
 .li.done .t .n{text-decoration:line-through}
+/* line-item leve p/ sub-itens de categoria (dinheiro) */
+.gli{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid var(--line)}
+.gli:last-child{border-bottom:0}
+.gli .t{flex:1;min-width:0}
+.gli .t .n{font-size:13px;font-weight:500;word-break:break-word;line-height:1.3}
+.gli .t .s{font-size:11px;color:var(--dim);margin-top:1px}
+.gli .v{font-size:13px;font-weight:600;white-space:nowrap;color:var(--text)}
 .tick{width:26px;height:26px;flex:0 0 26px;border-radius:8px;border:1.5px solid var(--line2);background:var(--panel);
  display:flex;align-items:center;justify-content:center;font-size:14px;color:transparent;cursor:pointer}
 .tick.on{background:var(--ok);border-color:var(--ok);color:#fff}
@@ -586,16 +593,16 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer;ma
 .unit button.on{background:var(--navy);color:#fff}
 .day-past{opacity:.62}
 .day-past .dot{background:var(--muted)!important;opacity:.6}
-.act{position:relative;display:flex;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:7px;transition:box-shadow .12s ease,transform .12s ease;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:pan-y}
+.act{position:relative;display:flex;gap:10px;background:transparent;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:9px 2px;margin-bottom:0;transition:box-shadow .12s ease,transform .12s ease,background .12s ease;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:pan-y}
 .act.act-int{cursor:pointer}
 .act.swiping{transition:none}
-.act.will-del{border-color:var(--danger);box-shadow:inset 4px 0 0 var(--danger)}
+.act.will-del{background:rgba(220,90,70,.07);border-bottom-color:transparent;border-radius:8px;box-shadow:inset 4px 0 0 var(--danger)}
 .act.will-del::after{content:"Excluir";position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--danger);font-weight:800;font-size:13px}
 .act .h{font-size:12.5px;font-weight:800;color:var(--navy);flex:0 0 46px;padding-top:1px;text-align:right;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .act .h .h-livre{color:var(--dim);font-weight:700;font-size:11px}
 .act .b{flex:1;min-width:0}
-.act .b .n{font-size:14.5px;font-weight:600}
-.act-t{display:inline-block;font-size:11.5px;font-weight:800;color:var(--navy);background:var(--panel2);border-radius:6px;padding:1px 7px;margin-right:7px;vertical-align:1px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.act .b .n{font-size:13px;font-weight:500;line-height:1.35}
+.act-t{display:inline-block;font-size:11px;font-weight:700;color:var(--navy);background:var(--panel2);border-radius:6px;padding:1px 7px;margin-right:7px;vertical-align:1px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .act-t.livre{color:var(--dim);font-weight:700;background:transparent;padding:0;margin-right:5px}
 .act.act-done .act-t{background:transparent}
 .act .b .s{font-size:12px;color:var(--dim);margin-top:3px;line-height:1.5}
@@ -684,7 +691,7 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer;ma
 .rot-ord{display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line2);border-radius:20px;padding:6px 13px;font:inherit;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer}
 .rot-ord:active{background:var(--panel2)}
 .rot-ord svg{width:14px;height:14px}
-.act.dragging{opacity:.98;box-shadow:0 16px 32px rgba(18,41,79,.32);border-color:var(--navy);position:relative;z-index:6;transition:none}
+.act.dragging{opacity:.98;background:var(--panel);border-radius:12px;border-bottom-color:transparent;box-shadow:0 16px 32px rgba(18,41,79,.32),0 0 0 1px var(--navy);position:relative;z-index:6;transition:none}
 .act.dragging .b{border-left-color:var(--line2)}
 .actcheck{flex:0 0 24px;width:24px;height:24px;border-radius:50%;border:2px solid var(--line2);
  background:var(--panel);color:#fff;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;
@@ -1012,8 +1019,8 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
   .nav{display:flex}
 
   /* (5) botões de ação (editar/excluir) aparecem só no hover da linha */
-  .li .x,.tr .x{opacity:0;transition:opacity .15s}
-  .li:hover .x,.tr:hover .x,.li:focus-within .x,.tr:focus-within .x{opacity:1}
+  .li .x,.tr .x,.gli .x{opacity:0;transition:opacity .15s}
+  .li:hover .x,.tr:hover .x,.li:focus-within .x,.tr:focus-within .x,.gli:hover .x,.gli:focus-within .x{opacity:1}
 
   /* (7) modal vira painel lateral deslizando da direita */
   .modal{align-items:stretch;justify-content:flex-end}
@@ -5636,7 +5643,7 @@ function renderCustos(){_sujo.delete("custos");
       if(!ord.length)return "";
       return `<div class="card" style="padding:6px 15px">`+ord.map(c=>{
         const totC=byc[c].reduce((a,i)=>a+toBRL(i.valor,i.moeda),0);
-        const inner=byc[c].map(it=>{const g=itemPeople(it);return `<div class="li">
+        const inner=byc[c].map(it=>{const g=itemPeople(it);return `<div class="gli">
           <div class="t"><div class="n">${esc(it.desc)}</div>
           <div class="s">${g.length===PEOPLE.length?`todos · ${fmt(toBRL(it.valor,it.moeda)/g.length)} cada`:(g.length===1?"só "+esc(g[0]):g.map(esc).join(", ")+` · ${fmt(toBRL(it.valor,it.moeda)/g.length)} cada`)}${naMeta(it)?"":' · <span style="color:var(--warn)">fora da meta</span>'}</div></div>
           <div class="v money">${fmtIn(it.valor,it.moeda)}</div></div>`;}).join("");
@@ -5657,7 +5664,7 @@ function renderCustos(){_sujo.delete("custos");
       const ord=Object.keys(byc).sort((a,b)=>String(a).localeCompare(String(b),"pt-BR",{sensitivity:"base"}));
       return `<div class="card" style="padding:6px 15px">`+ord.map(c=>{
         const totC=byc[c].reduce((a,x)=>a+toBRL(x.valor,x.moeda),0);
-        const inner=byc[c].map(x=>`<div class="li"><div class="t"><div class="n">${esc(x.desc)}</div>
+        const inner=byc[c].map(x=>`<div class="gli"><div class="t"><div class="n">${esc(x.desc)}</div>
           <div class="s">gasto individual</div></div>
           <div class="v money">${fmtIn(x.valor,x.moeda)}</div>
           <button class="x" data-pedit="${x.id}" aria-label="Editar">✎</button><button class="x" data-pdel="${x.id}" aria-label="Excluir">✕</button></div>`).join("");
@@ -5674,7 +5681,7 @@ function renderCustos(){_sujo.delete("custos");
         const ord=Object.keys(byc).sort((a,b)=>String(a).localeCompare(String(b),"pt-BR",{sensitivity:"base"}));
         return `<div class="card" style="padding:6px 15px">`+ord.map(c=>{
           const totC=byc[c].reduce((a,r)=>a+toBRL(r.valor,r.moeda),0);
-          const inner=byc[c].map(r=>`<div class="li"><div class="t"><div class="n">${esc(r.desc)}</div>
+          const inner=byc[c].map(r=>`<div class="gli"><div class="t"><div class="n">${esc(r.desc)}</div>
             <div class="s">${r.data?esc(fmtDate(r.data)):"sem data"}</div></div>
             <div class="v money">${fmtIn(r.valor,r.moeda)}</div>
             <button class="x" data-redit="${r.id}" aria-label="Editar">✎</button>
