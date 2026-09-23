@@ -465,12 +465,17 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer;ma
 .li.done{opacity:.5}
 .li.done .t .n{text-decoration:line-through}
 /* line-item leve p/ sub-itens de categoria (dinheiro) */
-.gli{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid var(--line)}
+.gli{position:relative;display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid var(--line);touch-action:pan-y;-webkit-user-select:none;user-select:none}
 .gli:last-child{border-bottom:0}
+.gli.tapedit{cursor:pointer}
+.gli.swiping{transition:none}
+.gli.will-del{background:rgba(220,90,70,.07);border-bottom-color:transparent;border-radius:8px;box-shadow:inset 4px 0 0 var(--danger)}
+.gli.will-del .v{opacity:0}
+.gli.will-del::after{content:"Excluir";position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--danger);font-weight:800;font-size:11.5px}
 .gli .t{flex:1;min-width:0}
-.gli .t .n{font-size:13px;font-weight:500;word-break:break-word;line-height:1.3}
+.gli .t .n{font-size:12.5px;font-weight:500;word-break:break-word;line-height:1.3}
 .gli .t .s{font-size:11px;color:var(--dim);margin-top:1px}
-.gli .v{font-size:13px;font-weight:600;white-space:nowrap;color:var(--text)}
+.gli .v{font-size:12px;font-weight:600;white-space:nowrap;color:var(--text)}
 .tick{width:26px;height:26px;flex:0 0 26px;border-radius:8px;border:1.5px solid var(--line2);background:var(--panel);
  display:flex;align-items:center;justify-content:center;font-size:14px;color:transparent;cursor:pointer}
 .tick.on{background:var(--ok);border-color:var(--ok);color:#fff}
@@ -5664,10 +5669,9 @@ function renderCustos(){_sujo.delete("custos");
       const ord=Object.keys(byc).sort((a,b)=>String(a).localeCompare(String(b),"pt-BR",{sensitivity:"base"}));
       return `<div class="card" style="padding:6px 15px">`+ord.map(c=>{
         const totC=byc[c].reduce((a,x)=>a+toBRL(x.valor,x.moeda),0);
-        const inner=byc[c].map(x=>`<div class="gli"><div class="t"><div class="n">${esc(x.desc)}</div>
+        const inner=byc[c].map(x=>`<div class="gli tapedit" data-pgli="${x.id}"><div class="t"><div class="n">${esc(x.desc)}</div>
           <div class="s">gasto individual</div></div>
-          <div class="v money">${fmtIn(x.valor,x.moeda)}</div>
-          <button class="x" data-pedit="${x.id}" aria-label="Editar">✎</button><button class="x" data-pdel="${x.id}" aria-label="Excluir">✕</button></div>`).join("");
+          <div class="v money">${fmtIn(x.valor,x.moeda)}</div></div>`).join("");
         return _cgrp("extras",c,fmt(totC),inner);
       }).join("")+`</div>`;
     })()}
@@ -5681,11 +5685,9 @@ function renderCustos(){_sujo.delete("custos");
         const ord=Object.keys(byc).sort((a,b)=>String(a).localeCompare(String(b),"pt-BR",{sensitivity:"base"}));
         return `<div class="card" style="padding:6px 15px">`+ord.map(c=>{
           const totC=byc[c].reduce((a,r)=>a+toBRL(r.valor,r.moeda),0);
-          const inner=byc[c].map(r=>`<div class="gli"><div class="t"><div class="n">${esc(r.desc)}</div>
+          const inner=byc[c].map(r=>`<div class="gli tapedit" data-rgli="${r.id}"><div class="t"><div class="n">${esc(r.desc)}</div>
             <div class="s">${r.data?esc(fmtDate(r.data)):"sem data"}</div></div>
-            <div class="v money">${fmtIn(r.valor,r.moeda)}</div>
-            <button class="x" data-redit="${r.id}" aria-label="Editar">✎</button>
-            <button class="x" data-rdel="${r.id}" aria-label="Excluir">✕</button></div>`).join("");
+            <div class="v money">${fmtIn(r.valor,r.moeda)}</div></div>`).join("");
           return _cgrp("real",c,fmt(totC),inner);
         }).join("")+`</div>`;
       })():
@@ -5734,13 +5736,12 @@ function renderCustos(){_sujo.delete("custos");
     savePessoa(me,{pessoais:x?arr.map(i=>i.id===x.id?novo:i):arr.concat([novo])});
     toast(x?"Gasto atualizado":"Gasto adicionado");},x?"Salvar":"Adicionar");
   $("#pgadd").onclick=()=>gastoModal(null);
-  $("#p-custos").querySelectorAll("[data-pedit]").forEach(b=>b.onclick=()=>
-    gastoModal((meDoc().pessoais||[]).find(i=>i.id===b.dataset.pedit)));
-  $("#p-custos").querySelectorAll("[data-pdel]").forEach(b=>b.onclick=()=>{
-    const arr=(meDoc().pessoais||[]),i=arr.findIndex(x=>x.id===b.dataset.pdel),it=arr[i];
-    if(!it)return;
-    savePessoa(me,{pessoais:arr.filter(x=>x.id!==it.id)});
-    toastUndo("Gasto excluído",()=>savePessoa(me,{pessoais:reinserir(meDoc().pessoais||[],it,i)}));});
+  $("#p-custos").querySelectorAll("[data-pgli]").forEach(el=>ligarSwipeGli(el,
+    ()=>gastoModal((meDoc().pessoais||[]).find(i=>i.id===el.dataset.pgli)),
+    ()=>{const arr=(meDoc().pessoais||[]),i=arr.findIndex(x=>x.id===el.dataset.pgli),it=arr[i];
+      if(!it)return;
+      savePessoa(me,{pessoais:arr.filter(x=>x.id!==it.id)});
+      toastUndo("Gasto excluído",()=>savePessoa(me,{pessoais:reinserir(meDoc().pessoais||[],it,i)}));}));
 
   const relModal=(x)=>openModal(x?"Editar realizado":"Gasto realizado",[
     {id:"desc",label:"O que foi pago",value:x?x.desc:"",placeholder:"Ex.: passagem aérea"},
@@ -5756,10 +5757,12 @@ function renderCustos(){_sujo.delete("custos");
     savePessoa(me,{realizados:x?arr.map(i=>i.id===x.id?novo:i):arr.concat([novo])});
     toast(x?"Atualizado":"Gasto lançado");},x?"Salvar":"Lançar");
   const ra=$("#reladd");if(ra)ra.onclick=()=>relModal(null);
-  $("#p-custos").querySelectorAll("[data-redit]").forEach(b=>b.onclick=()=>
-    relModal(meusRealizados(me).find(i=>i.id===b.dataset.redit)));
-  $("#p-custos").querySelectorAll("[data-rdel]").forEach(b=>b.onclick=()=>
-    savePessoa(me,{realizados:meusRealizados(me).filter(x=>x.id!==b.dataset.rdel)}));
+  $("#p-custos").querySelectorAll("[data-rgli]").forEach(el=>ligarSwipeGli(el,
+    ()=>relModal(meusRealizados(me).find(i=>i.id===el.dataset.rgli)),
+    ()=>{const arr=meusRealizados(me),i=arr.findIndex(x=>x.id===el.dataset.rgli),it=arr[i];
+      if(!it)return;
+      savePessoa(me,{realizados:arr.filter(x=>x.id!==el.dataset.rgli)});
+      toastUndo("Lançamento excluído",()=>savePessoa(me,{realizados:reinserir(meusRealizados(me),it,i)}));}));
 }
 
 /* ---- 12. MODAL GENÉRICO -------------------------------- */
@@ -6224,6 +6227,43 @@ function ligarGestoAtiv(el){
     if(e.button!=null&&e.button!==0)return;
     x0=e.clientX;y0=e.clientY;lastY=e.clientY;t0=Date.now();pid=e.pointerId;mode="pending";
     lp=setTimeout(()=>{if(mode==="pending")startDrag();},230);
+    document.addEventListener("pointermove",move);
+    document.addEventListener("pointerup",up);
+    document.addEventListener("pointercancel",up);
+  });
+}
+function ligarSwipeGli(el,onEdit,onDel){
+  let x0=0,y0=0,t0=0,pid=null,mode="idle",tmBlock=null;
+  const setX=v=>{el.style.transform=v?`translateX(${v}px)`:"";};
+  const block=()=>{if(tmBlock)return;tmBlock=ev=>ev.preventDefault();document.addEventListener("touchmove",tmBlock,{passive:false});};
+  const unblock=()=>{if(tmBlock){document.removeEventListener("touchmove",tmBlock,{passive:false});tmBlock=null;}};
+  const move=e=>{
+    const dx=e.clientX-x0,dy=e.clientY-y0;
+    if(mode==="pending"){
+      if(Math.abs(dx)>10&&Math.abs(dx)>Math.abs(dy)+4){mode="swipe";try{el.setPointerCapture(pid);}catch(_){}block();}
+      else if(Math.abs(dy)>10){mode="scroll";}
+    }
+    if(mode==="swipe"){e.preventDefault();let d=dx;if(d>0)d=0;if(d<-170)d=-170;setX(d);el.classList.add("swiping");el.classList.toggle("will-del",d<-70);}
+  };
+  const up=e=>{
+    document.removeEventListener("pointermove",move);
+    document.removeEventListener("pointerup",up);
+    document.removeEventListener("pointercancel",up);
+    try{el.releasePointerCapture(pid);}catch(_){}
+    unblock();
+    const dx=e.clientX-x0,dy=e.clientY-y0,dt=Date.now()-t0;
+    if(mode==="swipe"){
+      el.classList.remove("swiping","will-del");setX(0);
+      if(dx<-80)onDel();
+    }else if(mode==="pending"){
+      if(dt<600&&Math.abs(dx)<8&&Math.abs(dy)<8)onEdit();
+    }else{setX(0);}
+    mode="idle";
+  };
+  el.addEventListener("pointerdown",e=>{
+    if(e.target.closest("a,button"))return;
+    if(e.button!=null&&e.button!==0)return;
+    x0=e.clientX;y0=e.clientY;t0=Date.now();pid=e.pointerId;mode="pending";
     document.addEventListener("pointermove",move);
     document.addEventListener("pointerup",up);
     document.addEventListener("pointercancel",up);
