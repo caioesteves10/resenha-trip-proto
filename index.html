@@ -289,6 +289,20 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer;ma
 .tz-vs{font-size:11.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tz-vr{text-align:right;flex:0 0 auto}
 .tz-vc{font-size:11px;color:var(--muted);font-weight:700;margin-bottom:5px}
+.ngrp{margin-bottom:16px}
+.ngrp-h{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.ngrp-h .ngn{font-weight:800;font-size:13.5px;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ngrp-h .ngp{font-size:11.5px;color:var(--dim);margin-left:auto;flex:0 0 auto}
+.ntask{display:flex;align-items:center;gap:11px;padding:11px 12px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;cursor:pointer}
+.ntask:active{background:var(--panel2)}
+.ntask .ntk{width:20px;height:20px;border-radius:6px;border:2px solid var(--line2);flex:0 0 auto}
+.ntask .ntt{flex:1;min-width:0}
+.ntask .ntn{font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ntask .nts{font-size:11.5px;color:var(--dim)}
+.ntask .nts.atras{color:var(--danger);font-weight:700}
+.ntask .ngo{color:var(--navy);font-weight:800;font-size:18px;flex:0 0 auto}
+.notif-vazio{text-align:center;padding:22px 12px;color:var(--dim);font-size:13.5px;line-height:1.5}
+.notif-vazio .nv-big{font-size:32px;color:var(--ok);margin-bottom:6px}
 .tpl-list{display:flex;flex-direction:column;gap:8px}
 .tpl-it{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--panel2);border:1px solid var(--line);border-radius:12px}
 .tpl-info{flex:1;min-width:0}
@@ -1102,6 +1116,8 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
 .acc.danger .acc-ic{background:#FBECE9;color:var(--danger)}
 .aj-risco{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);margin:16px 6px 8px}
 .vg-top .hamb{margin-right:2px}
+.notif-btn{position:relative;flex:0 0 auto}
+.notif-badge{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;border-radius:99px;background:var(--danger);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid var(--bg);line-height:1}
 .pill-concl{display:inline-flex;align-items:center;gap:3px;background:#3f7d54;color:#fff;font-weight:800;font-size:10.5px;border-radius:7px;padding:2px 7px;margin-left:6px;vertical-align:middle}
 .pasta-acoes{position:absolute;top:40px;right:0;bottom:0;display:flex;opacity:0;transition:opacity .12s;z-index:0}
 .pasta-wrap.revelando .pasta-acoes{opacity:1}
@@ -1213,6 +1229,7 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
   <div class="vg-top">
     <button class="hamb" id="vg-hamb" aria-label="Menu"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="vg-title">Minhas viagens</div>
+    <button class="hamb notif-btn" id="vg-notifbtn" aria-label="Suas tarefas" title="Suas tarefas"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="notif-badge" id="vg-notifbadge" style="display:none">0</span></button>
   </div>
   <div class="vg-sub">Toque numa viagem pra abrir.</div>
   <div id="vg-lista" class="vg-lista"></div>
@@ -1226,6 +1243,7 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
       <button class="hamb" id="viagensbtn" aria-label="Minhas viagens" title="Minhas viagens" style="display:none"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></button>
       <button class="hamb" id="menubtn" aria-label="Menu"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
       <span class="kicker" id="tagline">Bem-vindo</span><span id="mename" style="display:none"></span>
+      <button class="hamb notif-btn" id="notifbtn" aria-label="Suas tarefas" title="Suas tarefas"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="notif-badge" id="notifbadge" style="display:none">0</span></button>
       <button class="viasw" id="viabtn" role="switch" aria-checked="false" title="Modo viagem"><span class="viasw-knob"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 3.2c.4-.9 1.6-.9 2 0l.3.8v5.3l7 4.1v1.9l-7-2.1v3.8l2 1.5v1.5l-3.3-1-3.3 1v-1.5l2-1.5v-3.8l-7 2.1v-1.9l7-4.1V4l.3-.8Z" fill="currentColor" stroke="none"/></svg></span></button>
     </div>
 
@@ -2755,6 +2773,8 @@ async function sairDaConta(){
 {const _ab=$("#aj-back");if(_ab)_ab.onclick=fecharAjustes;}
 {const _tn=$("#tripname");if(_tn){_tn.classList.add("tapname");_tn.onclick=abrirTrocadorViagem;}}
 $("#menubtn").onclick=(e)=>{e.stopPropagation();abrirPerfil();};
+{const _nb=$("#notifbtn");if(_nb)_nb.onclick=(e)=>{e.stopPropagation();abrirNotificacoes();};}
+{const _vnb=$("#vg-notifbtn");if(_vnb)_vnb.onclick=(e)=>{e.stopPropagation();abrirNotificacoes();};}
 {const _vb=$("#viagensbtn");if(_vb)_vb.onclick=(e)=>{e.stopPropagation();showViagens();};}
 function abrirPerfil(){
   const emailConta=(auth&&auth.currentUser&&auth.currentUser.email)||"";
@@ -2871,10 +2891,11 @@ function showViagens(){
 }
 async function carregarMinhasViagens(){
   await PRONTO;
-  if(MOCK){abrirViagem(VIAGEM.id);return;}
+  if(MOCK){abrirViagem(VIAGEM.id);try{atualizarBadgeNotif();}catch(e){}return;}
   let vs=await listarMinhasViagens();
   vs.sort(ordViagens);
   renderViagens(vs);
+  try{atualizarBadgeNotif();}catch(e){}
 }
 async function abrirTrocadorViagem(){
   const atual=VIAGEM.id;
@@ -3356,6 +3377,7 @@ function enterApp(){
   if(_primeiraCarga&&!MOCK){$$(".panel-v").forEach(p=>p.innerHTML=skeleton());applyTab();}
   if(!MOCK&&MEU_VINCULO&&MEU_VINCULO[VIAGEM.id])STATE.me=MEU_VINCULO[VIAGEM.id];
   $("#mename").textContent=STATE.me;
+  try{atualizarBadgeNotif();}catch(e){}
   const h=new Date().getHours(),sd=h<12?"Bom dia":h<18?"Boa tarde":"Boa noite";
   const tl=$("#tagline");if(tl&&STATE.me)tl.textContent=sd+", "+STATE.me;
   STATE.prefMoeda=(MINHAS_MOEDAS&&MINHAS_MOEDAS[VIAGEM.id])||null;
@@ -5277,6 +5299,72 @@ function _trazerAplicar(tipo,itens){
   T.salvar(novos);
   toast(`${novos.length} ${novos.length===1?"item adicionado":"itens adicionados"} \u2713`);
   return novos.length;
+}
+/* ===== Cantinho de notificações: tarefas pendentes atribuídas a mim (cross-viagem) ===== */
+let NOTIF_CACHE=null;
+function _diasAte(iso){try{const d=ymd(iso);d.setHours(0,0,0,0);const h=new Date();h.setHours(0,0,0,0);return Math.round((d-h)/86400000);}catch(e){return 99999;}}
+function _statusVia(v){const di=_diasAte(v.inicio),df=_diasAte(v.fim);
+  if(di<=0&&df>=0)return{ord:-1000,txt:"em viagem"};
+  if(di>0)return{ord:di,txt:di===1?"em 1 dia":"em "+di+" dias"};
+  return{ord:100000+Math.abs(df),txt:"concluída"};}
+function _mesAnoV(iso){try{const d=ymd(iso);const M=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];return M[d.getMonth()]+"/"+d.getFullYear();}catch(e){return"";}}
+async function carregarNotificacoes(force){
+  const minhas=(itens,nome)=>(itens||[]).filter(t=>t&&!t.feito&&t.quem&&t.quem!=="A definir"&&normNome(t.quem)===normNome(nome));
+  if(MOCK){
+    const _nome=(typeof PEOPLE!=="undefined"&&PEOPLE.includes(STATE.me))?STATE.me:((typeof PEOPLE!=="undefined"&&PEOPLE[0])||STATE.me);
+    const g=minhas(tarefasItens(),_nome);
+    NOTIF_CACHE={ts:Date.now(),total:g.length,grupos:g.length?[{v:{id:VIAGEM.id,nome:STATE.config.nome||"Viagem",inicio:STATE.config.inicio,fim:STATE.config.fim},tarefas:g}]:[]};
+    return NOTIF_CACHE;
+  }
+  if(!force&&NOTIF_CACHE&&(Date.now()-NOTIF_CACHE.ts)<3*60000)return NOTIF_CACHE;
+  let vs=[];try{vs=await listarMinhasViagens();}catch(e){}
+  const grupos=[];
+  await Promise.all((vs||[]).map(async v=>{
+    try{const nome=meuNomeNaViagem(v);if(!nome)return;
+      const sn=await FB.getDoc(FB.doc(db,"viagens",v.id,"dados","tarefas"));
+      const its=(sn.exists()&&sn.data().itens)||[];
+      const m=minhas(its,nome);
+      if(m.length)grupos.push({v,tarefas:m});
+    }catch(e){}
+  }));
+  grupos.sort((a,b)=>_statusVia(a.v).ord-_statusVia(b.v).ord);
+  grupos.forEach(g=>g.tarefas.sort((a,b)=>(a.prazo?_diasAte(a.prazo):99999)-(b.prazo?_diasAte(b.prazo):99999)));
+  NOTIF_CACHE={ts:Date.now(),total:grupos.reduce((s,g)=>s+g.tarefas.length,0),grupos};
+  return NOTIF_CACHE;
+}
+async function atualizarBadgeNotif(){
+  try{const {total}=await carregarNotificacoes(true);
+    ["notifbadge","vg-notifbadge"].forEach(id=>{const b=document.getElementById(id);if(!b)return;
+      if(total>0){b.textContent=total>99?"99+":String(total);b.style.display="";}else b.style.display="none";});
+  }catch(e){}
+}
+async function abrirNotificacoes(){
+  const close=()=>{$("#modal").innerHTML="";};
+  const wrap=(inner)=>{$("#modal").innerHTML=`<div class="modal"><div class="box"><h3>Suas tarefas</h3>${inner}</div></div>`;
+    $("#modal").querySelector(".modal").onclick=e=>{if(e.target===e.currentTarget)close();};};
+  wrap('<div class="tz-sub">Carregando…</div>');
+  const {grupos,total}=await carregarNotificacoes(true);
+  atualizarBadgeNotif();
+  if(!total){
+    wrap('<div class="notif-vazio"><div class="nv-big">\u2713</div>Nenhuma tarefa sua pendente.<br>Quando alguém te atribuir algo, aparece aqui.</div><button class="btn gh" id="nf-x" style="margin-top:8px">Fechar</button>');
+    const x=$("#nf-x");if(x)x.onclick=close;return;
+  }
+  const corpo=grupos.map(g=>{
+    const st=_statusVia(g.v);
+    const tks=g.tarefas.map(t=>{const dz=t.prazo?_diasAte(t.prazo):null, atras=dz!=null&&dz<0;
+      const sub=t.prazo?(atras?`até ${fmtDate(t.prazo)} \u00b7 atrasada`:`até ${fmtDate(t.prazo)}`):"sem prazo";
+      return `<div class="ntask" data-nvia="${esc(g.v.id)}"><div class="ntk"></div><div class="ntt"><div class="ntn">${esc(t.texto)}</div><div class="nts ${atras?"atras":""}">${esc(sub)}</div></div><div class="ngo">\u203a</div></div>`;
+    }).join("");
+    return `<div class="ngrp"><div class="ngrp-h"><span class="ngn">${esc(g.v.nome||"Viagem")}</span><span class="ngp">${esc(_mesAnoV(g.v.inicio))} \u00b7 ${esc(st.txt)}</span></div>${tks}</div>`;
+  }).join("");
+  wrap(`<div class="tz-sub">Pendentes atribuídas a você, em todas as viagens. Toque numa pra abrir.</div>${corpo}<button class="btn gh" id="nf-x" style="margin-top:6px">Fechar</button>`);
+  const x=$("#nf-x");if(x)x.onclick=close;
+  $("#modal").querySelectorAll("[data-nvia]").forEach(el=>el.onclick=async()=>{
+    const id=el.dataset.nvia;close();
+    try{checkView="tarefas";localStorage.setItem("tr27_check","tarefas");}catch(e){}
+    if(id&&id!==VIAGEM.id){await abrirViagem(id);}
+    show("check");
+  });
 }
 async function abrirTrazerViagem(tipo){
   const T=TRAZER[tipo]; if(!T)return;
