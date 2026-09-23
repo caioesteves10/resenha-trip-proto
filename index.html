@@ -7611,7 +7611,7 @@ setInterval(()=>{const k=monthKey(new Date());if(k!==ULT_MES){ULT_MES=k;renderAl
     }
     // arrasto lateral: o painel segue o dedo (com resistência nas bordas)
     if(hor){
-      const alvo=e.target.closest&&e.target.closest(".seg, .catfilter, .act[data-act], .deplist, table, input, textarea, select, .chartwrap");
+      const alvo=e.target.closest&&e.target.closest(".seg, .catfilter, .act[data-act], .gli.tapedit, .deplist, table, input, textarea, select, .chartwrap");
       if(!alvo){
         const o=ordem();
         const _pos=(typeof MONEY!=="undefined"&&MONEY.includes(curTab))?"dinheiro":curTab;
@@ -7633,7 +7633,7 @@ setInterval(()=>{const k=monthKey(new Date());if(k!==ULT_MES){ULT_MES=k;renderAl
     }else{bar.classList.remove("ready");bar.style.transform="";bar.style.opacity="0";}
     // swipe horizontal concluído?
     if(hor){
-      const alvo=e.target.closest&&e.target.closest(".seg, .catfilter, .act[data-act], .deplist, table, input, textarea, select, .chartwrap");
+      const alvo=e.target.closest&&e.target.closest(".seg, .catfilter, .act[data-act], .gli.tapedit, .deplist, table, input, textarea, select, .chartwrap");
       const vel=Math.abs(dx)/Math.max(1,dt);                    // px/ms
       const disparou=(Math.abs(dx)>44)||(vel>0.4&&Math.abs(dx)>22); // leve OU flick rápido
       if(!alvo&&disparou)irLado(dx<0?1:-1);
