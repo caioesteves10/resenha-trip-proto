@@ -1032,6 +1032,9 @@ select.au-inp{appearance:none;-webkit-appearance:none;padding-right:34px;backgro
   .modal .box{max-width:420px;width:420px;height:100vh;max-height:100vh;border-radius:0;
     animation:slideIn .26s cubic-bezier(.2,.7,.3,1);overflow-y:auto;
     display:flex;flex-direction:column;justify-content:flex-start;padding-top:26px}
+  /* painel desktop é flex-column de altura fixa: sem isto os filhos encolhem
+     (um dropdown com overflow:auto vira min-height 0 e some). O painel rola. */
+  .modal .box>*{flex-shrink:0}
   @keyframes slideIn{from{transform:translateX(30px);opacity:.4}to{transform:none;opacity:1}}
 }
 @media (min-width:1280px){
