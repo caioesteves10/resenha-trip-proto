@@ -1918,31 +1918,31 @@ function relatorioViagem(){
     `<div class="hlc"><div class="em">${esc(h.em)}</div><div><div class="n">${esc(h.n)}</div><div class="s">${esc(h.d)}</div></div></div>`
   ).join("");
 
-  /* --- mini-mapa (SVG; projeção simples lng->x, lat->y) --- */
+  /* --- mapa: real (Leaflet/OSM) com fallback esquemático offline --- */
   const geo=cs.filter(c=>isFinite(+c.lat)&&isFinite(+c.lng));
-  let mapaHTML="";
-  if(geo.length>=2){
-    const W=560,H=200,pad=42;
+  let mapaHTML="", mapHead="", mapScript="";
+  if(geo.length>=1){
+    const W=560,H=300,pad=48;
     const lats=geo.map(c=>+c.lat), lngs=geo.map(c=>+c.lng);
-    let minLa=Math.min(...lats),maxLa=Math.max(...lats),minLo=Math.min(...lngs),maxLo=Math.max(...lngs);
-    const spanLa=(maxLa-minLa)||1, spanLo=(maxLo-minLo)||1;
-    const X=lo=>pad+( (lo-minLo)/spanLo )*(W-2*pad);
-    const Y=la=>pad+( (maxLa-la)/spanLa )*(H-2*pad);
+    const minLa=Math.min(...lats),maxLa=Math.max(...lats),minLo=Math.min(...lngs),maxLo=Math.max(...lngs);
+    const spanLa=(maxLa-minLa), spanLo=(maxLo-minLo);
+    const X=lo=>spanLo?pad+((lo-minLo)/spanLo)*(W-2*pad):W/2;
+    const Y=la=>spanLa?pad+((maxLa-la)/spanLa)*(H-2*pad):H/2;
     const pts=geo.map(c=>({x:X(+c.lng),y:Y(+c.lat),n:c.n,cor:corDe(c.k)}));
     const line=pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
-    const grid=[0.25,0.5,0.75].map(f=>`<line x1="${(W*f).toFixed(0)}" y1="8" x2="${(W*f).toFixed(0)}" y2="${H-8}"/>`).join("")
-      +[0.33,0.66].map(f=>`<line x1="8" y1="${(H*f).toFixed(0)}" x2="${W-8}" y2="${(H*f).toFixed(0)}"/>`).join("");
-    const dots=pts.map((p,i)=>{
-      const anchor=p.x>W-90?"end":"start", tx=p.x>W-90?p.x-11:p.x+11;
+    const grid=[0.25,0.5,0.75].map(ff=>`<line x1="${(W*ff).toFixed(0)}" y1="8" x2="${(W*ff).toFixed(0)}" y2="${H-8}"/>`).join("")
+      +[0.33,0.66].map(ff=>`<line x1="8" y1="${(H*ff).toFixed(0)}" x2="${W-8}" y2="${(H*ff).toFixed(0)}"/>`).join("");
+    const dots=pts.map(p=>{const anchor=p.x>W-90?"end":"start", tx=p.x>W-90?p.x-11:p.x+11;
       return `<g><circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="7" fill="${p.cor}" stroke="#fff" stroke-width="2.5"/>`+
-        `<text x="${tx.toFixed(1)}" y="${(p.y+4).toFixed(1)}" text-anchor="${anchor}" class="mlbl">${esc(p.n)}</text></g>`;
-    }).join("");
-    mapaHTML=`<section><div class="sh"><h2>A rota no mapa</h2><span class="tag">${geo.length} paradas</span></div>
-      <div class="mapwrap"><svg viewBox="0 0 ${W} ${H}" class="map" role="img" aria-label="Mapa da rota">
-        <g class="mgrid">${grid}</g>
-        <polyline points="${line}" fill="none" stroke="#c4cee0" stroke-width="2.5" stroke-dasharray="3 6" stroke-linecap="round"/>
-        ${dots}
-      </svg></div></section>`;
+        `<text x="${tx.toFixed(1)}" y="${(p.y+4).toFixed(1)}" text-anchor="${anchor}" class="mlbl">${esc(p.n)}</text></g>`;}).join("");
+    const schematic=`<svg viewBox="0 0 ${W} ${H}" class="map" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Mapa da rota"><g class="mgrid">${grid}</g>`+
+      (pts.length>1?`<polyline points="${line}" fill="none" stroke="#c4cee0" stroke-width="2.5" stroke-dasharray="3 6" stroke-linecap="round"/>`:"")+dots+`</svg>`;
+    mapaHTML=`<section><div class="sh"><h2>A rota no mapa</h2><span class="tag">${geo.length} ${geo.length===1?"parada":"paradas"}</span></div>`+
+      `<div class="mapwrap"><div id="repmap" class="repmap">${schematic}</div><div class="mapnote">Mapa ao vivo quando h\u00e1 internet \u00b7 sem conex\u00e3o, mostra o esquema da rota</div></div></section>`;
+    const CT=JSON.stringify(geo.map(c=>[+c.lat,+c.lng,String(c.n),corDe(c.k)]));
+    mapHead=`<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">`;
+    mapScript=`<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>`+
+      `<script>window.addEventListener("load",function(){try{if(!window.L)return;var CT=${CT};var el=document.getElementById("repmap");if(!el)return;el.innerHTML="";el.classList.add("live");var m=L.map(el,{scrollWheelZoom:false});L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:"\u00a9 OpenStreetMap"}).addTo(m);var pts=[];CT.forEach(function(c){L.circleMarker([c[0],c[1]],{radius:7,color:"#fff",weight:2.5,fillColor:c[3],fillOpacity:1}).addTo(m).bindTooltip(c[2],{permanent:true,direction:"top",className:"reptip"});pts.push([c[0],c[1]]);});if(pts.length>1){L.polyline(pts,{color:"#1B3A6B",weight:3,opacity:.65,dashArray:"4 7"}).addTo(m);m.fitBounds(pts,{padding:[36,36]});}else{m.setView(pts[0],6);}setTimeout(function(){m.invalidateSize();},150);}catch(e){}});<\/script>`;
   }
 
   /* --- montagem das seções --- */
@@ -1968,13 +1968,18 @@ function relatorioViagem(){
       <div class="track"><div class="fill" style="width:${w}%;background:${catColor(c.cat)}"></div></div></div>`;
   }).join("");
 
+  const _hv=h=>{if(!h||h==="\u2014")return "99:99";const m=/^(\d{1,2}):(\d{2})$/.exec(String(h));return m?(("0"+m[1]).slice(-2)+":"+m[2]):"99:99";};
   const tl=dias.map(d=>{
     const r=drow(d.data), c=cityOf?cityOf(d.cidade):{n:""}, cor=corDe(d.cidade);
-    const n=(d.itens||[]).length;
-    return `<div class="d"><span class="dot" style="border-color:${cor}"></span>
-      <span class="dt">${r.wd} ${r.dd}</span>
-      <span class="tt">${esc(d.titulo||(c&&c.n)||"")}</span>
-      <span class="ac">${n} ${n===1?"ativ.":"ativ."}</span></div>`;
+    const its=(d.itens||[]).slice();
+    const anyOrd=its.some(a=>typeof a.ord==="number");
+    its.sort(anyOrd?(a,b)=>((typeof a.ord==="number"?a.ord:9999)-(typeof b.ord==="number"?b.ord:9999))||_hv(a.hora).localeCompare(_hv(b.hora)):(a,b)=>_hv(a.hora).localeCompare(_hv(b.hora)));
+    const acts=its.length?its.map(a=>`<div class="a"><span class="ah">${a.hora&&a.hora!=="\u2014"?esc(a.hora):"\u00b7"}</span><span class="an">${esc(a.titulo||"")}</span></div>`).join(""):`<div class="a livre">Dia livre</div>`;
+    return `<div class="day"><div class="dhead"><span class="dot" style="background:${cor}"></span>`+
+      `<span class="ddate">${r.wd} ${r.dd}/${r.mo}</span>`+
+      `<span class="dtitle">${esc(d.titulo||(c&&c.n)||"")}</span>`+
+      `<span class="dcity" style="color:${cor}">${esc((c&&c.n)||"")}</span></div>`+
+      `<div class="dacts">${acts}</div></div>`;
   }).join("");
 
   const hoje=new Date(), geradoEm=`${String(hoje.getDate()).padStart(2,"0")} ${MES[hoje.getMonth()]} ${hoje.getFullYear()}`;
@@ -2023,9 +2028,16 @@ section{padding:28px 40px;border-bottom:1px solid #e7ebf2}
 .city .crow .num{font-family:'Bricolage Grotesque',Inter,sans-serif;font-weight:800;font-size:21px;line-height:1}
 .city .crow .k{font-size:11px;color:#6b7892;font-weight:700;text-transform:uppercase;margin-top:3px}
 .mapwrap{border:1px solid #e7ebf2;border-radius:15px;padding:8px;background:#fbfcff}
-.map{width:100%;height:auto;display:block}
-.mgrid line{stroke:#eef2f9;stroke-width:1}
-.mlbl{font-family:'Inter',sans-serif;font-size:12px;font-weight:700;fill:#15223b}
+.repmap{height:300px;border-radius:11px;overflow:hidden;background:#e8eef7;position:relative}
+.repmap .map{width:100%;height:100%;display:block}
+.repmap.live{background:#aadaff}
+.mapnote{font-size:11px;color:#9aa6b8;text-align:center;margin-top:6px}
+.repmap.live + .mapnote{display:none}
+.mgrid line{stroke:#dfe6f1;stroke-width:1}
+.mlbl{font-family:'Inter',sans-serif;font-size:13px;font-weight:700;fill:#15223b}
+.reptip{background:#fff;border:0;box-shadow:0 1px 5px rgba(18,41,79,.25);font-weight:700;font-size:11px;color:#15223b;padding:2px 7px;border-radius:7px}
+.reptip:before{display:none}
+.leaflet-container{font-family:'Inter',sans-serif}
 .money{display:grid;grid-template-columns:1.1fr 1fr;gap:24px;align-items:center}
 .bars{display:flex;flex-direction:column;gap:11px}
 .catrow .cl{display:flex;justify-content:space-between;font-size:12.5px;font-weight:600;margin-bottom:5px}
@@ -2037,13 +2049,20 @@ section{padding:28px 40px;border-bottom:1px solid #e7ebf2}
 .mtot .pp{margin-top:11px;padding-top:11px;border-top:1px solid #e7ebf2}
 .mtot .pp .n{font-family:'Bricolage Grotesque',Inter,sans-serif;font-weight:800;font-size:22px;color:#E8722E}
 .mtot .pp .k{font-size:12px;color:#6b7892;font-weight:600}
-.tl{position:relative;margin-left:5px;padding-left:20px}
-.tl::before{content:"";position:absolute;left:4px;top:8px;bottom:8px;width:2px;background:#dde3ee}
-.d{position:relative;padding:8px 0;display:flex;align-items:center;gap:11px}
-.d .dot{position:absolute;left:-20px;top:50%;transform:translateY(-50%);width:11px;height:11px;border-radius:50%;background:#fff;border:3px solid #1B3A6B}
-.d .dt{width:54px;flex:none;font-weight:800;font-size:12.5px;color:#1B3A6B;font-variant-numeric:tabular-nums}
-.d .tt{flex:1;font-size:13.5px;font-weight:600}
-.d .ac{font-size:11.5px;color:#6b7892;font-weight:600;white-space:nowrap}
+.tl{position:relative;margin-left:5px;padding-left:22px}
+.tl::before{content:"";position:absolute;left:5px;top:12px;bottom:12px;width:2px;background:#dde3ee}
+.day{position:relative;padding:9px 0}
+.day+.day{border-top:1px solid #f0f3f8}
+.day .dot{position:absolute;left:-22px;top:16px;width:12px;height:12px;border-radius:50%;background:#1B3A6B;border:3px solid #fff;box-shadow:0 0 0 2px #dde3ee}
+.dhead{display:flex;align-items:baseline;gap:9px}
+.dhead .ddate{flex:none;font-weight:800;font-size:12.5px;color:#1B3A6B;font-variant-numeric:tabular-nums}
+.dhead .dtitle{font-family:'Bricolage Grotesque',Inter,sans-serif;font-weight:700;font-size:14.5px;flex:1;min-width:0}
+.dhead .dcity{flex:none;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+.dacts{margin:7px 0 1px;display:flex;flex-direction:column;gap:4px}
+.a{display:flex;gap:10px;font-size:12.5px;line-height:1.35}
+.a .ah{flex:none;width:44px;color:#6b7892;font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
+.a .an{flex:1;color:#15223b}
+.a.livre{color:#9aa6b8;font-style:italic;padding-left:54px}
 .hls{display:grid;grid-template-columns:repeat(2,1fr);gap:11px}
 .hlc{border:1px solid #e7ebf2;border-radius:13px;padding:13px 14px;display:flex;gap:11px;align-items:flex-start;box-shadow:0 1px 3px rgba(18,41,79,.07)}
 .hlc .em{font-size:21px;line-height:1}.hlc .n{font-weight:700;font-size:14px}.hlc .s{font-size:12px;color:#6b7892;margin-top:2px}
@@ -2061,7 +2080,7 @@ section{padding:28px 40px;border-bottom:1px solid #e7ebf2}
     `<title>Relatório · ${esc(nomeV)}</title>`+
     `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`+
     `<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">`+
-    `<style>${CSS}</style></head><body><div class="sheet">`+
+    `<style>${CSS}</style>${mapHead}</head><body><div class="sheet">`+
     `<div class="repbar"><span class="wm">Resenha Trip</span><span class="sp"></span>`+
       `<button class="rbtn ghost" onclick="${dlOnclick}">Baixar .html</button>`+
       `<button class="rbtn solid" onclick="window.print()">Salvar PDF</button>`+
@@ -2088,7 +2107,7 @@ section{padding:28px 40px;border-bottom:1px solid #e7ebf2}
     `<section><div class="sh"><h2>Dia a dia</h2><span class="tag">${nDias} dias</span></div><div class="tl">${tl}</div></section>`+
     (destHTML?`<section><div class="sh"><h2>Destaques da viagem</h2><span class="tag">o que não pode faltar</span></div><div class="hls">${destHTML}</div></section>`:"")+
     `<div class="ft"><span class="wm">Resenha Trip</span><span class="sp"></span><span>Gerado em ${geradoEm} · caioesteves10.github.io</span></div>`+
-    `</div></body></html>`;
+    `</div>`+mapScript+`</body></html>`;
 
   try{
     const blob=new Blob([html],{type:"text/html;charset=utf-8"});
