@@ -1844,6 +1844,266 @@ function exportarCustosCSV(){
 /* ---- exportar os custos em PDF (via impressão do navegador) ----
    Reusa exatamente os dados do CSV: mesma tabela, total e rateio.
    Abre uma folha pronta pra imprimir/salvar em PDF. Offline, sem lib. */
+/* ===== Exportar relatório — dashboard da viagem (v110) ===================
+   Gera um documento standalone (HTML) a partir do STATE: capa, números,
+   rota por cidade, mini-mapa, pra onde vai o dinheiro, dia a dia e destaques.
+   Abre numa aba nova com ações Imprimir/Salvar PDF, Baixar .html e Fechar.
+   Usa os mesmos helpers de dinheiro da tela (fmtCur/toBRL/custoItens) pra
+   bater com o que o app mostra. Sem dependências externas além das fontes. */
+function relatorioViagem(){
+  const cfg=(STATE&&STATE.config)||{};
+  const cur=cfg.moedaViagem||STATE.cur||"BRL";
+  const money=brl=>fmtCur(brl,cur,0);
+  const cs=(cfg.cidades||[]).slice();
+  const dias=((STATE.roteiro&&STATE.roteiro.dias)||[]).slice()
+    .sort((a,b)=>String(a.data||"").localeCompare(String(b.data||"")));
+  if(!dias.length){ toast("Monte o roteiro primeiro pra gerar o relatório"); return; }
+
+  const WD=["dom","seg","ter","qua","qui","sex","sáb"];
+  const MES=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+  const MESL=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+  const drow=iso=>{const d=ymd(iso);return {wd:WD[d.getDay()],dd:String(d.getDate()).padStart(2,"0"),mo:MES[d.getMonth()]};};
+
+  /* --- meta da viagem --- */
+  const d1=cfg.inicio?ymd(cfg.inicio):ymd(dias[0].data);
+  const d2=cfg.fim?ymd(cfg.fim):ymd(dias[dias.length-1].data);
+  const nDias=Math.max(1,Math.round((d2-d1)/86400000)+1);
+  const nCid=cs.length;
+  const nPais=new Set(cs.map(c=>c.pais).filter(Boolean)).size;
+  const totAtiv=dias.reduce((a,d)=>a+((d.itens||[]).length),0);
+  const periodo=`${d1.getDate()} a ${d2.getDate()} de ${MESL[d2.getMonth()]} de ${d2.getFullYear()}`;
+
+  /* --- cores por cidade (paleta estável por ordem) --- */
+  const PAL=["#E8722E","#1B3A6B","#3E82C4","#1E9E74","#8A6FB0","#B08A2E","#C6552B","#5B7A99"];
+  const corCid={}; cs.forEach((c,i)=>corCid[c.k]=PAL[i%PAL.length]);
+  const corDe=k=>corCid[k]||"#8B95A3";
+
+  /* --- por cidade: dias / atividades / período --- */
+  const porCidade=cs.map(c=>{
+    const ds=dias.filter(d=>d.cidade===c.k);
+    const na=ds.reduce((a,d)=>a+((d.itens||[]).length),0);
+    const de=c.de?drow(c.de):(ds[0]?drow(ds[0].data):null);
+    const ate=c.ate?drow(c.ate):(ds.length?drow(ds[ds.length-1].data):null);
+    return {k:c.k,n:c.n,pais:c.pais||"",nd:ds.length,na:na,de:de,ate:ate,cor:corDe(c.k)};
+  });
+
+  /* --- dinheiro (mesma conta da tela de Dinheiro) --- */
+  const itens=custoItens();
+  const tot=totalShared();
+  const totPess=PEOPLE.reduce((a,p)=>a+personalTotal(p),0);
+  const totalGeral=tot+totPess;
+  const byc={}; itens.forEach(it=>{const k=it.cat||"Outros"; byc[k]=(byc[k]||0)+toBRL(it.valor,it.moeda);});
+  const cats=Object.keys(byc).map(k=>({cat:k,v:byc[k]})).sort((a,b)=>b.v-a.v);
+  const maxCat=cats.length?cats[0].v:0;
+  const nViaj=PEOPLE.length||1;
+
+  /* --- destaques: 1 marcante por cidade (pula transfer/check-in) --- */
+  const PULA=/→|->|check[- ]?in|desembarque|volta|deslocamento|chegada|traslado|trem|voo|aeroporto|embarque/i;
+  const emojiDe=t=>{t=(t||"").toLowerCase();
+    if(/disney/.test(t))return "🎢"; if(/arena|est[áa]dio|parc des|allianz|futebol|jogo/.test(t))return "⚽";
+    if(/castelo|neuschwanstein|palácio|palacio/.test(t))return "🏰"; if(/museu|louvre|orsay|galeria|reichstag/.test(t))return "🖼️";
+    if(/barco|cruzeiro|rio|sena|lago/.test(t))return "⛵"; if(/torre|eiffel|mirante|vista/.test(t))return "🗼";
+    if(/muro|memorial|hist[óo]ric/.test(t))return "🏛️"; if(/compras|shopping|mercado|feira/.test(t))return "🛍️";
+    if(/jantar|almoço|almoco|restaurante|gastron|cerveja|bar\b/.test(t))return "🍽️"; return "📍";};
+  const destaques=[];
+  cs.forEach(c=>{
+    const ds=dias.filter(d=>d.cidade===c.k);
+    let pick=null, pickDia=null;
+    for(const d of ds){ for(const a of (d.itens||[])){ if(a.titulo&&!PULA.test(a.titulo)){pick=a;pickDia=d;break;} } if(pick)break; }
+    if(!pick){ for(const d of ds){ if((d.itens||[]).length){pick=d.itens[0];pickDia=d;break;} } }
+    if(pick&&pickDia){ const r=drow(pickDia.data);
+      destaques.push({em:emojiDe(pick.titulo),n:pick.titulo,d:`${r.wd} ${r.dd}/${r.mo} · ${c.n}`}); }
+  });
+  const destHTML=destaques.slice(0,6).map(h=>
+    `<div class="hlc"><div class="em">${esc(h.em)}</div><div><div class="n">${esc(h.n)}</div><div class="s">${esc(h.d)}</div></div></div>`
+  ).join("");
+
+  /* --- mini-mapa (SVG; projeção simples lng->x, lat->y) --- */
+  const geo=cs.filter(c=>isFinite(+c.lat)&&isFinite(+c.lng));
+  let mapaHTML="";
+  if(geo.length>=2){
+    const W=560,H=200,pad=42;
+    const lats=geo.map(c=>+c.lat), lngs=geo.map(c=>+c.lng);
+    let minLa=Math.min(...lats),maxLa=Math.max(...lats),minLo=Math.min(...lngs),maxLo=Math.max(...lngs);
+    const spanLa=(maxLa-minLa)||1, spanLo=(maxLo-minLo)||1;
+    const X=lo=>pad+( (lo-minLo)/spanLo )*(W-2*pad);
+    const Y=la=>pad+( (maxLa-la)/spanLa )*(H-2*pad);
+    const pts=geo.map(c=>({x:X(+c.lng),y:Y(+c.lat),n:c.n,cor:corDe(c.k)}));
+    const line=pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+    const grid=[0.25,0.5,0.75].map(f=>`<line x1="${(W*f).toFixed(0)}" y1="8" x2="${(W*f).toFixed(0)}" y2="${H-8}"/>`).join("")
+      +[0.33,0.66].map(f=>`<line x1="8" y1="${(H*f).toFixed(0)}" x2="${W-8}" y2="${(H*f).toFixed(0)}"/>`).join("");
+    const dots=pts.map((p,i)=>{
+      const anchor=p.x>W-90?"end":"start", tx=p.x>W-90?p.x-11:p.x+11;
+      return `<g><circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="7" fill="${p.cor}" stroke="#fff" stroke-width="2.5"/>`+
+        `<text x="${tx.toFixed(1)}" y="${(p.y+4).toFixed(1)}" text-anchor="${anchor}" class="mlbl">${esc(p.n)}</text></g>`;
+    }).join("");
+    mapaHTML=`<section><div class="sh"><h2>A rota no mapa</h2><span class="tag">${geo.length} paradas</span></div>
+      <div class="mapwrap"><svg viewBox="0 0 ${W} ${H}" class="map" role="img" aria-label="Mapa da rota">
+        <g class="mgrid">${grid}</g>
+        <polyline points="${line}" fill="none" stroke="#c4cee0" stroke-width="2.5" stroke-dasharray="3 6" stroke-linecap="round"/>
+        ${dots}
+      </svg></div></section>`;
+  }
+
+  /* --- montagem das seções --- */
+  const nomeV=cfg.nome||"Viagem";
+  const tagline=cfg.tagline||"";
+  const rotaChips=cs.map((c,i)=>`${i?'<span class="arr">→</span>':''}<span class="rc"><span class="fl">${esc(c.pais||"")}</span>${esc(c.n)}</span>`).join("");
+  const avs=PEOPLE.map((p,i)=>`<span class="av${i===0?" o":""}">${esc((p||"?").trim().charAt(0).toUpperCase())}</span>`).join("");
+
+  const cityCards=porCidade.map(c=>{
+    const noites=(c.de&&c.ate)?Math.max(0,Math.round((ymd(cs.find(x=>x.k===c.k).ate||dias[dias.length-1].data)-ymd(cs.find(x=>x.k===c.k).de||dias[0].data))/86400000)):c.nd;
+    const faixa=(c.de&&c.ate)?`${c.de.dd}–${c.ate.dd} ${c.ate.mo}`:`${c.nd} dias`;
+    return `<div class="city"><div class="top" style="background:${c.cor}"></div><div class="in">
+      <div class="cn">${esc(c.pais)} ${esc(c.n)}</div><div class="cd">${faixa}${noites?` · ${noites} ${noites===1?"noite":"noites"}`:""}</div>
+      <div class="crow"><div><div class="num" style="color:${c.cor}">${c.nd}</div><div class="k">dias</div></div>
+        <div><div class="num" style="color:${c.cor}">${c.na}</div><div class="k">atividades</div></div></div>
+    </div></div>`;
+  }).join("");
+
+  const bars=cats.map(c=>{
+    const pct=tot>0?Math.round(c.v/tot*100):0;
+    const w=maxCat>0?Math.max(3,Math.round(c.v/maxCat*100)):0;
+    return `<div class="catrow"><div class="cl"><span>${esc(c.cat)}</span><span class="v">${money(c.v)} · ${pct}%</span></div>
+      <div class="track"><div class="fill" style="width:${w}%;background:${catColor(c.cat)}"></div></div></div>`;
+  }).join("");
+
+  const tl=dias.map(d=>{
+    const r=drow(d.data), c=cityOf?cityOf(d.cidade):{n:""}, cor=corDe(d.cidade);
+    const n=(d.itens||[]).length;
+    return `<div class="d"><span class="dot" style="border-color:${cor}"></span>
+      <span class="dt">${r.wd} ${r.dd}</span>
+      <span class="tt">${esc(d.titulo||(c&&c.n)||"")}</span>
+      <span class="ac">${n} ${n===1?"ativ.":"ativ."}</span></div>`;
+  }).join("");
+
+  const hoje=new Date(), geradoEm=`${String(hoje.getDate()).padStart(2,"0")} ${MES[hoje.getMonth()]} ${hoje.getFullYear()}`;
+  const slug=String(nomeV).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"viagem";
+  const dlOnclick="var c=document.documentElement.cloneNode(true);var b=c.querySelector('.repbar');if(b)b.parentNode.removeChild(b);var h='<!doctype html>'+c.outerHTML;var bl=new Blob([h],{type:'text/html;charset=utf-8'});var a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download='relatorio-"+slug+".html';document.body.appendChild(a);a.click();a.parentNode.removeChild(a);";
+
+  const CSS=`
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#f4f6fb;color:#15223b;-webkit-font-smoothing:antialiased;line-height:1.5}
+.sheet{max-width:860px;margin:0 auto;background:#fff;box-shadow:0 24px 60px rgba(18,41,79,.16)}
+.repbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;padding:11px 18px;background:rgba(255,255,255,.9);backdrop-filter:blur(10px);border-bottom:1px solid #e7ebf2}
+.repbar .wm{font-family:'Bricolage Grotesque',Inter,sans-serif;font-weight:700;color:#1B3A6B;font-size:15px}
+.repbar .sp{flex:1}
+.rbtn{font-weight:700;font-size:13.5px;border:0;border-radius:11px;padding:9px 15px;cursor:pointer;font-family:inherit}
+.rbtn.ghost{background:#eef2f9;color:#1B3A6B}
+.rbtn.solid{background:#E8722E;color:#fff}
+.hero{position:relative;background:linear-gradient(145deg,#12294a 0%,#1B3A6B 55%,#244b86 100%);color:#fff;overflow:hidden;padding:40px 40px 32px}
+.hero::after{content:"";position:absolute;right:-90px;top:-90px;width:320px;height:320px;border-radius:50%;background:radial-gradient(circle at 30% 30%,rgba(232,114,46,.5),rgba(232,114,46,0) 70%)}
+.hero .kick{font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#cdd8ee}
+.hero h1{font-family:'Bricolage Grotesque',Inter,sans-serif;font-weight:800;font-size:44px;line-height:1;letter-spacing:-.02em;margin:10px 0 6px;max-width:16ch}
+.hero .sub{color:#d7e0f1;font-size:15px}
+.route{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:20px 0 4px}
+.rc{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);padding:6px 13px;border-radius:999px;font-weight:700;font-size:14px}
+.rc .fl{font-size:15px}.route .arr{opacity:.55}
+.meta{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:18px;color:#eaf0fb}
+.meta .m{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600}
+.meta .mdot{width:7px;height:7px;border-radius:50%;background:#E8722E}
+.avs{display:flex;margin-left:auto}
+.avs .av{width:33px;height:33px;border-radius:50%;background:#2b4d85;border:2px solid #1B3A6B;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;margin-left:-9px}
+.avs .av:first-child{margin-left:0}.avs .av.o{background:#E8722E;border-color:#c95f20}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid #e7ebf2}
+.stat{padding:20px 14px;text-align:center;border-right:1px solid #e7ebf2}.stat:last-child{border-right:0}
+.stat .big{font-family:'Bricolage Grotesque',Inter,sans-serif;font-weight:800;font-size:34px;line-height:1;color:#1B3A6B;letter-spacing:-.02em}
+.stat .lbl{margin-top:6px;font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#6b7892}
+.stat .ex{font-size:11px;color:#6b7892;margin-top:3px}
+section{padding:28px 40px;border-bottom:1px solid #e7ebf2}
+.sh{display:flex;align-items:baseline;gap:10px;margin-bottom:16px}
+.sh h2{font-family:'Bricolage Grotesque',Inter,sans-serif;font-weight:800;font-size:21px;letter-spacing:-.01em}
+.sh .tag{font-size:12px;font-weight:700;color:#6b7892}
+.cities{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}
+.city{border:1px solid #e7ebf2;border-radius:15px;overflow:hidden;box-shadow:0 1px 3px rgba(18,41,79,.07)}
+.city .top{height:6px}.city .in{padding:15px}
+.city .cn{font-family:'Bricolage Grotesque',Inter,sans-serif;font-weight:800;font-size:18px}
+.city .cd{font-size:12px;color:#6b7892;margin-top:2px}
+.city .crow{display:flex;gap:16px;margin-top:12px}
+.city .crow .num{font-family:'Bricolage Grotesque',Inter,sans-serif;font-weight:800;font-size:21px;line-height:1}
+.city .crow .k{font-size:11px;color:#6b7892;font-weight:700;text-transform:uppercase;margin-top:3px}
+.mapwrap{border:1px solid #e7ebf2;border-radius:15px;padding:8px;background:#fbfcff}
+.map{width:100%;height:auto;display:block}
+.mgrid line{stroke:#eef2f9;stroke-width:1}
+.mlbl{font-family:'Inter',sans-serif;font-size:12px;font-weight:700;fill:#15223b}
+.money{display:grid;grid-template-columns:1.1fr 1fr;gap:24px;align-items:center}
+.bars{display:flex;flex-direction:column;gap:11px}
+.catrow .cl{display:flex;justify-content:space-between;font-size:12.5px;font-weight:600;margin-bottom:5px}
+.catrow .cl .v{color:#6b7892;font-weight:700}
+.track{height:10px;border-radius:6px;background:#eef2f9;overflow:hidden}.fill{height:100%;border-radius:6px}
+.mtot{border:1px dashed #dde3ee;border-radius:15px;padding:18px;text-align:center;background:linear-gradient(180deg,#fff,#fbfcff)}
+.mtot .t1{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7892}
+.mtot .big{font-family:'Bricolage Grotesque',Inter,sans-serif;font-weight:800;font-size:38px;color:#1B3A6B;line-height:1.05;margin-top:4px}
+.mtot .pp{margin-top:11px;padding-top:11px;border-top:1px solid #e7ebf2}
+.mtot .pp .n{font-family:'Bricolage Grotesque',Inter,sans-serif;font-weight:800;font-size:22px;color:#E8722E}
+.mtot .pp .k{font-size:12px;color:#6b7892;font-weight:600}
+.tl{position:relative;margin-left:5px;padding-left:20px}
+.tl::before{content:"";position:absolute;left:4px;top:8px;bottom:8px;width:2px;background:#dde3ee}
+.d{position:relative;padding:8px 0;display:flex;align-items:center;gap:11px}
+.d .dot{position:absolute;left:-20px;top:50%;transform:translateY(-50%);width:11px;height:11px;border-radius:50%;background:#fff;border:3px solid #1B3A6B}
+.d .dt{width:54px;flex:none;font-weight:800;font-size:12.5px;color:#1B3A6B;font-variant-numeric:tabular-nums}
+.d .tt{flex:1;font-size:13.5px;font-weight:600}
+.d .ac{font-size:11.5px;color:#6b7892;font-weight:600;white-space:nowrap}
+.hls{display:grid;grid-template-columns:repeat(2,1fr);gap:11px}
+.hlc{border:1px solid #e7ebf2;border-radius:13px;padding:13px 14px;display:flex;gap:11px;align-items:flex-start;box-shadow:0 1px 3px rgba(18,41,79,.07)}
+.hlc .em{font-size:21px;line-height:1}.hlc .n{font-weight:700;font-size:14px}.hlc .s{font-size:12px;color:#6b7892;margin-top:2px}
+.ft{padding:20px 40px 28px;display:flex;align-items:center;gap:10px;color:#6b7892;font-size:12.5px}
+.ft .wm{font-family:'Bricolage Grotesque',Inter,sans-serif;font-weight:700;color:#1B3A6B}.ft .sp{flex:1}
+@media (max-width:720px){.hero{padding:30px 22px 26px}.hero h1{font-size:33px}section{padding:22px 22px}
+  .stats{grid-template-columns:repeat(2,1fr)}.stat:nth-child(2){border-right:0}.stat{border-bottom:1px solid #e7ebf2}
+  .cities{grid-template-columns:1fr}.money{grid-template-columns:1fr}.hls{grid-template-columns:1fr}.ft{padding:18px 22px 24px}}
+@media print{.repbar{display:none!important}body{background:#fff}.sheet{box-shadow:none;max-width:none}
+  section,.stats{break-inside:avoid}.hero::after{display:none}}
+`;
+
+  const html=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">`+
+    `<meta name="viewport" content="width=device-width,initial-scale=1">`+
+    `<title>Relatório · ${esc(nomeV)}</title>`+
+    `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`+
+    `<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">`+
+    `<style>${CSS}</style></head><body><div class="sheet">`+
+    `<div class="repbar"><span class="wm">Resenha Trip</span><span class="sp"></span>`+
+      `<button class="rbtn ghost" onclick="${dlOnclick}">Baixar .html</button>`+
+      `<button class="rbtn solid" onclick="window.print()">Salvar PDF</button>`+
+      `<button class="rbtn ghost" onclick="window.close()">Fechar</button></div>`+
+    `<div class="hero"><div class="kick">Relatório da viagem</div>`+
+      `<h1>${esc(nomeV)}</h1>${tagline?`<div class="sub">${esc(tagline)}</div>`:""}`+
+      `<div class="route">${rotaChips}</div>`+
+      `<div class="meta"><span class="m"><span class="mdot"></span>${esc(periodo)}</span>`+
+      `<span class="m"><span class="mdot"></span>${nDias} dias</span>`+
+      `<span class="m"><span class="mdot"></span>${nViaj} ${nViaj===1?"viajante":"viajantes"}</span>`+
+      `<span class="avs">${avs}</span></div></div>`+
+    `<div class="stats">`+
+      `<div class="stat"><div class="big">${nDias}</div><div class="lbl">Dias</div><div class="ex">${d1.getDate()} ${MES[d1.getMonth()]}–${d2.getDate()} ${MES[d2.getMonth()]}</div></div>`+
+      `<div class="stat"><div class="big">${nCid}</div><div class="lbl">Cidades</div><div class="ex">${nPais} ${nPais===1?"país":"países"}</div></div>`+
+      `<div class="stat"><div class="big">${totAtiv}</div><div class="lbl">Atividades</div><div class="ex">no roteiro</div></div>`+
+      `<div class="stat"><div class="big" style="font-size:26px">${money(totalGeral)}</div><div class="lbl">Total planejado</div><div class="ex">${money(totalGeral/nViaj)} / pessoa</div></div>`+
+    `</div>`+
+    `<section><div class="sh"><h2>A rota</h2><span class="tag">${nCid} cidades · ${nDias} dias</span></div><div class="cities">${cityCards}</div></section>`+
+    mapaHTML+
+    `<section><div class="sh"><h2>Pra onde vai o dinheiro</h2><span class="tag">custos do grupo</span></div>`+
+      `<div class="money"><div class="bars">${bars}</div>`+
+      `<div class="mtot"><div class="t1">Total do grupo</div><div class="big">${money(totalGeral)}</div>`+
+      `<div class="pp"><span class="n">${money(totalGeral/nViaj)}</span> <span class="k">média por pessoa (${nViaj})</span></div></div></div></section>`+
+    `<section><div class="sh"><h2>Dia a dia</h2><span class="tag">${nDias} dias</span></div><div class="tl">${tl}</div></section>`+
+    (destHTML?`<section><div class="sh"><h2>Destaques da viagem</h2><span class="tag">o que não pode faltar</span></div><div class="hls">${destHTML}</div></section>`:"")+
+    `<div class="ft"><span class="wm">Resenha Trip</span><span class="sp"></span><span>Gerado em ${geradoEm} · caioesteves10.github.io</span></div>`+
+    `</div></body></html>`;
+
+  try{
+    const blob=new Blob([html],{type:"text/html;charset=utf-8"});
+    const url=URL.createObjectURL(blob);
+    const w=window.open(url,"_blank");
+    if(!w){
+      const a=document.createElement("a");
+      a.href=url; a.download="relatorio-"+slug+".html";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      toast("Abra o arquivo pra ver o relatório");
+    }else{ toast("Relatório pronto ✓"); }
+    setTimeout(()=>URL.revokeObjectURL(url),120000);
+  }catch(e){ toast("Não foi possível gerar o relatório"); }
+}
+
 function exportarPdfCustos(){
   const itens=custoItens();
   if(!itens.length){toast("Nenhum custo pra exportar");return;}
@@ -5983,6 +6243,7 @@ function renderRoteiro(){_sujo.delete("roteiro");
     ${roteiroCidade?`<div class="note" style="text-align:center;margin-top:8px">Mostrando só ${esc(cityOf(roteiroCidade).n)} · <span class="lnk" id="cidlimpa">ver tudo</span></div>`:""}
   </div>
   ${roteiroTabsHTML()}
+  <button class="btn sec" id="rot-rel" style="width:100%;margin-bottom:10px">\uD83D\uDCCA Exportar relat\u00f3rio da viagem</button>
   ${roteiroCidade?_cardDestino(cityOf(roteiroCidade).n):""}
   ${(emV&&prox.length)?`<div class="strip" style="margin-bottom:8px">
     <div class="lbl" style="color:rgba(255,255,255,.7)">Próximo passeio</div>
@@ -6045,6 +6306,7 @@ function renderRoteiro(){_sujo.delete("roteiro");
   const sb=$("#rotbusca");
   if(sb){sb.oninput=()=>{roteiroBusca=sb.value;const p=sb.selectionStart;renderRoteiro();const n=$("#rotbusca");if(n){n.focus();try{n.setSelectionRange(p,p);}catch(e){}}};}
   const rl=$("#rotlimpa");if(rl)rl.onclick=()=>{roteiroBusca="";renderRoteiro();};
+  const _rr=$("#rot-rel");if(_rr)_rr.onclick=relatorioViagem;
   const ro=$("#rotord");if(ro)ro.onclick=()=>{roteiroOrdem=roteiroOrdem==="asc"?"desc":"asc";localStorage.setItem("tr27_rotord",roteiroOrdem);renderRoteiro();};
   wireRoteiroTabs();
   const ie=$("#icsexp");if(ie)ie.onclick=exportarICS;
