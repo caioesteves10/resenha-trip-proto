@@ -5,7 +5,7 @@
    - NUNCA intercepta o tráfego do Firestore: ele tem o próprio mecanismo offline
    Ao publicar uma versão nova, troque o número em VERSAO abaixo.            */
 
-const VERSAO = "proto-v105";
+const VERSAO = "proto-v113";
 const CACHE_APP = "app-" + VERSAO;
 const CACHE_EXT = "ext-" + VERSAO;
 
@@ -34,11 +34,13 @@ self.addEventListener("install", e => {
 });
 
 self.addEventListener("activate", e => {
-  e.waitUntil(
-    caches.keys()
-      .then(ks => Promise.all(ks.filter(k => k !== CACHE_APP && k !== CACHE_EXT).map(k => caches.delete(k))))
-      .then(() => self.clients.claim())
-  );
+  e.waitUntil((async () => {
+    const ks = await caches.keys();
+    const tinhaAntiga = ks.some(k => k !== CACHE_APP && k !== CACHE_EXT && (k.indexOf("app-") === 0 || k.indexOf("ext-") === 0));
+    await Promise.all(ks.filter(k => k !== CACHE_APP && k !== CACHE_EXT).map(k => caches.delete(k)));
+    await self.clients.claim();
+    if (tinhaAntiga) avisarAtualizacao();   // versão nova entrou em cena → avisa o app
+  })());
 });
 
 /* Marca que existe versão nova. Usa um marcador guardado no cache porque
@@ -55,11 +57,13 @@ async function avisarAtualizacao() {
 
 /* HTML: entrega do cache na hora (rápido e funciona offline)
    e revalida por trás; se mudou, avisa o app para oferecer atualizar */
-async function casco(req) {
+async function casco(e) {
   const cache = await caches.open(CACHE_APP);
   const guardado = await cache.match("./index.html");
 
-  const rede = fetch(req).then(async res => {
+  // revalida SEM passar pelo cache HTTP do navegador, senão o GitHub Pages
+  // pode devolver a versão antiga por alguns minutos e a atualização "some".
+  const rede = fetch(new Request("./index.html", { cache: "no-cache" })).then(async res => {
     if (res && res.ok) {
       const marcaAnt = guardado && (guardado.headers.get("etag") || guardado.headers.get("content-length"));
       const marcaNova = res.headers.get("etag") || res.headers.get("content-length");
@@ -68,6 +72,7 @@ async function casco(req) {
     }
     return res;
   }).catch(() => null);
+  try { e.waitUntil(rede); } catch (_) {}   // mantém o SW vivo até terminar a revalidação
 
   if (guardado) return guardado;
   const res = await rede;
@@ -117,7 +122,7 @@ self.addEventListener("fetch", e => {
 
   if (NUNCA.some(h => url.hostname.includes(h))) return;   // deixa passar direto
 
-  if (req.mode === "navigate") { e.respondWith(casco(req)); return; }
+  if (req.mode === "navigate") { e.respondWith(casco(e)); return; }
 
   if (url.origin === self.location.origin) { e.respondWith(arquivoLocal(req)); return; }
 
