@@ -225,6 +225,11 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer;ma
  padding:7px 13px;font-size:13px;font-weight:700;cursor:pointer;user-select:none}
 .chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
 .chip.solo.on{border-color:var(--par)}
+.tgl{display:flex;align-items:center;gap:10px;width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:11px 13px;cursor:pointer;font:inherit;color:var(--text);font-weight:600;font-size:14px;text-align:left;-webkit-tap-highlight-color:transparent}
+.tgl .tgl-box{width:22px;height:22px;border-radius:7px;border:2px solid var(--line2);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;flex:none;font-size:13px}
+.tgl.on{border-color:var(--orange);background:rgba(232,114,46,.09)}
+.tgl.on .tgl-box{background:var(--orange);border-color:var(--orange)}
+.act-star{color:var(--orange);margin-right:4px;font-size:12px;vertical-align:1px}
 .seg{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:3px;gap:3px;margin-bottom:12px;
  overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .seg::-webkit-scrollbar{display:none}
@@ -1905,16 +1910,21 @@ function relatorioViagem(){
     if(/barco|cruzeiro|rio|sena|lago/.test(t))return "⛵"; if(/torre|eiffel|mirante|vista/.test(t))return "🗼";
     if(/muro|memorial|hist[óo]ric/.test(t))return "🏛️"; if(/compras|shopping|mercado|feira/.test(t))return "🛍️";
     if(/jantar|almoço|almoco|restaurante|gastron|cerveja|bar\b/.test(t))return "🍽️"; return "📍";};
-  const destaques=[];
-  cs.forEach(c=>{
-    const ds=dias.filter(d=>d.cidade===c.k);
-    let pick=null, pickDia=null;
-    for(const d of ds){ for(const a of (d.itens||[])){ if(a.titulo&&!PULA.test(a.titulo)){pick=a;pickDia=d;break;} } if(pick)break; }
-    if(!pick){ for(const d of ds){ if((d.itens||[]).length){pick=d.itens[0];pickDia=d;break;} } }
-    if(pick&&pickDia){ const r=drow(pickDia.data);
-      destaques.push({em:emojiDe(pick.titulo),n:pick.titulo,d:`${r.wd} ${r.dd}/${r.mo} · ${c.n}`}); }
-  });
-  const destHTML=destaques.slice(0,6).map(h=>
+  const cityNome=k=>{const c=cs.find(x=>x.k===k);return c?c.n:"";};
+  let destaques=[];
+  dias.forEach(d=>{(d.itens||[]).forEach(a=>{ if(a.destaque&&a.titulo){ const r=drow(d.data);
+    destaques.push({em:emojiDe(a.titulo),n:a.titulo,d:`${r.wd} ${r.dd}/${r.mo} · ${cityNome(d.cidade)}`}); }});});
+  if(!destaques.length){
+    cs.forEach(c=>{
+      const ds=dias.filter(d=>d.cidade===c.k);
+      let pick=null, pickDia=null;
+      for(const d of ds){ for(const a of (d.itens||[])){ if(a.titulo&&!PULA.test(a.titulo)){pick=a;pickDia=d;break;} } if(pick)break; }
+      if(!pick){ for(const d of ds){ if((d.itens||[]).length){pick=d.itens[0];pickDia=d;break;} } }
+      if(pick&&pickDia){ const r=drow(pickDia.data);
+        destaques.push({em:emojiDe(pick.titulo),n:pick.titulo,d:`${r.wd} ${r.dd}/${r.mo} · ${c.n}`}); }
+    });
+  }
+  const destHTML=destaques.slice(0,8).map(h=>
     `<div class="hlc"><div class="em">${esc(h.em)}</div><div><div class="n">${esc(h.n)}</div><div class="s">${esc(h.d)}</div></div></div>`
   ).join("");
 
@@ -1938,11 +1948,11 @@ function relatorioViagem(){
     const schematic=`<svg viewBox="0 0 ${W} ${H}" class="map" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Mapa da rota"><g class="mgrid">${grid}</g>`+
       (pts.length>1?`<polyline points="${line}" fill="none" stroke="#c4cee0" stroke-width="2.5" stroke-dasharray="3 6" stroke-linecap="round"/>`:"")+dots+`</svg>`;
     mapaHTML=`<section><div class="sh"><h2>A rota no mapa</h2><span class="tag">${geo.length} ${geo.length===1?"parada":"paradas"}</span></div>`+
-      `<div class="mapwrap"><div id="repmap" class="repmap">${schematic}</div><div class="mapnote">Mapa ao vivo quando h\u00e1 internet \u00b7 sem conex\u00e3o, mostra o esquema da rota</div></div></section>`;
+      `<div class="mapwrap"><div id="repmap" class="repmap"><div class="repmap-live"></div><div class="repmap-fallback">${schematic}</div></div><div class="mapnote">Mapa ao vivo quando h\u00e1 internet \u00b7 sem conex\u00e3o, mostra o esquema da rota</div></div></section>`;
     const CT=JSON.stringify(geo.map(c=>[+c.lat,+c.lng,String(c.n),corDe(c.k)]));
     mapHead=`<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">`;
     mapScript=`<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>`+
-      `<script>window.addEventListener("load",function(){try{if(!window.L)return;var CT=${CT};var el=document.getElementById("repmap");if(!el)return;el.innerHTML="";el.classList.add("live");var m=L.map(el,{scrollWheelZoom:false});L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:"\u00a9 OpenStreetMap"}).addTo(m);var pts=[];CT.forEach(function(c){L.circleMarker([c[0],c[1]],{radius:7,color:"#fff",weight:2.5,fillColor:c[3],fillOpacity:1}).addTo(m).bindTooltip(c[2],{permanent:true,direction:"top",className:"reptip"});pts.push([c[0],c[1]]);});if(pts.length>1){L.polyline(pts,{color:"#1B3A6B",weight:3,opacity:.65,dashArray:"4 7"}).addTo(m);m.fitBounds(pts,{padding:[36,36]});}else{m.setView(pts[0],6);}setTimeout(function(){m.invalidateSize();},150);}catch(e){}});<\/script>`;
+      `<script>window.addEventListener("load",function(){try{if(!window.L)return;var CT=${CT};var host=document.getElementById("repmap");var el=host&&host.querySelector(".repmap-live");if(!el)return;host.classList.add("live");var m=L.map(el,{scrollWheelZoom:false});window.repMap=m;L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:"\u00a9 OpenStreetMap"}).addTo(m);var pts=[];CT.forEach(function(c){L.circleMarker([c[0],c[1]],{radius:7,color:"#fff",weight:2.5,fillColor:c[3],fillOpacity:1}).addTo(m).bindTooltip(c[2],{permanent:true,direction:"top",className:"reptip"});pts.push([c[0],c[1]]);});if(pts.length>1){L.polyline(pts,{color:"#1B3A6B",weight:3,opacity:.65,dashArray:"4 7"}).addTo(m);m.fitBounds(pts,{padding:[36,36]});}else{m.setView(pts[0],6);}setTimeout(function(){m.invalidateSize();},150);}catch(e){}});<\/script>`;
   }
 
   /* --- montagem das seções --- */
@@ -1985,13 +1995,18 @@ function relatorioViagem(){
   const hoje=new Date(), geradoEm=`${String(hoje.getDate()).padStart(2,"0")} ${MES[hoje.getMonth()]} ${hoje.getFullYear()}`;
   const slug=String(nomeV).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"viagem";
   const dlOnclick="var c=document.documentElement.cloneNode(true);var b=c.querySelector('.repbar');if(b)b.parentNode.removeChild(b);var h='<!doctype html>'+c.outerHTML;var bl=new Blob([h],{type:'text/html;charset=utf-8'});var a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download='relatorio-"+slug+".html';document.body.appendChild(a);a.click();a.parentNode.removeChild(a);";
+  const _h2c=`<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>`;
+  const _shareJS=`<script>window.repShare=function(){var sheet=document.querySelector(".sheet");if(!sheet)return;var map=document.getElementById("repmap");var wasLive=map&&map.classList.contains("live");function restore(){if(wasLive&&map){map.classList.add("live");if(window.repMap){setTimeout(function(){try{window.repMap.invalidateSize();}catch(e){}},60);}}}if(typeof html2canvas!=="function"){alert("N\u00e3o consegui carregar o gerador de imagem. Confira a conex\u00e3o e tente de novo.");return;}if(wasLive&&map)map.classList.remove("live");var sc=Math.min(2,14000/Math.max(1,sheet.scrollHeight));html2canvas(sheet,{scale:sc,backgroundColor:"#ffffff",useCORS:true,windowWidth:sheet.scrollWidth,ignoreElements:function(el){return el.classList&&el.classList.contains("repbar");}}).then(function(canvas){restore();canvas.toBlob(function(blob){if(!blob){alert("N\u00e3o consegui gerar a imagem.");return;}var fname="relatorio-${slug}.png";var file=null;try{file=new File([blob],fname,{type:"image/png"});}catch(e){}function dl(){var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=fname;document.body.appendChild(a);a.click();a.parentNode.removeChild(a);}if(file&&navigator.canShare&&navigator.canShare({files:[file]})){navigator.share({files:[file],title:${JSON.stringify(nomeV)},text:${JSON.stringify(nomeV)}}).catch(function(){dl();});}else{dl();}},"image/png");}).catch(function(e){restore();alert("N\u00e3o consegui gerar a imagem para compartilhar.");});};<\/script>`;
+  const footScripts=(mapScript||"")+_h2c+_shareJS;
 
   const CSS=`
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Inter',system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#f4f6fb;color:#15223b;-webkit-font-smoothing:antialiased;line-height:1.5}
 .sheet{max-width:860px;margin:0 auto;background:#fff;box-shadow:0 24px 60px rgba(18,41,79,.16)}
 .repbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;padding:11px 18px;background:rgba(255,255,255,.9);backdrop-filter:blur(10px);border-bottom:1px solid #e7ebf2}
+.repbar{flex-wrap:wrap}
 .repbar .wm{font-family:'Bricolage Grotesque',Inter,sans-serif;font-weight:700;color:#1B3A6B;font-size:15px}
+.rbtn.wa{background:#1E9E74;color:#fff}
 .repbar .sp{flex:1}
 .rbtn{font-weight:700;font-size:13.5px;border:0;border-radius:11px;padding:9px 15px;cursor:pointer;font-family:inherit}
 .rbtn.ghost{background:#eef2f9;color:#1B3A6B}
@@ -2029,6 +2044,10 @@ section{padding:28px 40px;border-bottom:1px solid #e7ebf2}
 .city .crow .k{font-size:11px;color:#6b7892;font-weight:700;text-transform:uppercase;margin-top:3px}
 .mapwrap{border:1px solid #e7ebf2;border-radius:15px;padding:8px;background:#fbfcff}
 .repmap{height:300px;border-radius:11px;overflow:hidden;background:#e8eef7;position:relative}
+.repmap-live{display:none;width:100%;height:100%}
+.repmap-fallback{width:100%;height:100%}
+.repmap.live .repmap-live{display:block}
+.repmap.live .repmap-fallback{display:none}
 .repmap .map{width:100%;height:100%;display:block}
 .repmap.live{background:#aadaff}
 .mapnote{font-size:11px;color:#9aa6b8;text-align:center;margin-top:6px}
@@ -2082,6 +2101,7 @@ section{padding:28px 40px;border-bottom:1px solid #e7ebf2}
     `<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">`+
     `<style>${CSS}</style>${mapHead}</head><body><div class="sheet">`+
     `<div class="repbar"><span class="wm">Resenha Trip</span><span class="sp"></span>`+
+      `<button class="rbtn wa" onclick="window.repShare()">📱 Compartilhar</button>`+
       `<button class="rbtn ghost" onclick="${dlOnclick}">Baixar .html</button>`+
       `<button class="rbtn solid" onclick="window.print()">Salvar PDF</button>`+
       `<button class="rbtn ghost" onclick="window.close()">Fechar</button></div>`+
@@ -2107,7 +2127,7 @@ section{padding:28px 40px;border-bottom:1px solid #e7ebf2}
     `<section><div class="sh"><h2>Dia a dia</h2><span class="tag">${nDias} dias</span></div><div class="tl">${tl}</div></section>`+
     (destHTML?`<section><div class="sh"><h2>Destaques da viagem</h2><span class="tag">o que não pode faltar</span></div><div class="hls">${destHTML}</div></section>`:"")+
     `<div class="ft"><span class="wm">Resenha Trip</span><span class="sp"></span><span>Gerado em ${geradoEm} · caioesteves10.github.io</span></div>`+
-    `</div>`+mapScript+`</body></html>`;
+    `</div>`+footScripts+`</body></html>`;
 
   try{
     const blob=new Blob([html],{type:"text/html;charset=utf-8"});
@@ -6069,6 +6089,8 @@ function openModal(title,fields,onSave,saveLabel){
       return `<div class="fld"><label class="f">${esc(f.label)}</label>
         <div class="au-wrap"><input id="m_${f.id}" type="text" value="${esc(f.value==null?"":f.value)}" placeholder="${esc(f.placeholder||"")}" autocomplete="off"><div id="m_${f.id}_sug" class="geo-sug"></div></div></div>`;
     }
+    if(f.type==="toggle")
+      return `<div class="fld"><button type="button" class="tgl ${f.value?"on":""}" id="m_${f.id}"><span class="tgl-box">${f.value?"\u2713":""}</span><span>${esc(f.text||f.label)}</span></button></div>`;
     const t=f.type==="money"?"text":(f.type||"text");
     return `<div class="fld"><label class="f">${esc(f.label)}</label><input id="m_${f.id}" type="${t}" ${f.type==="money"?'inputmode="decimal"':""} value="${esc(f.value==null?"":f.value)}" placeholder="${esc(f.placeholder||"")}"></div>`;
   }).join("");
@@ -6084,6 +6106,7 @@ function openModal(title,fields,onSave,saveLabel){
   fields.filter(f=>f.type==="cat").forEach(f=>{
     const sel=$("#m_"+f.id),inp=$("#m_"+f.id+"_nova");
     sel.onchange=()=>{const nova=sel.value==="__nova__";inp.style.display=nova?"block":"none";if(nova)inp.focus();};});
+  fields.filter(f=>f.type==="toggle").forEach(f=>{const b=$("#m_"+f.id);if(!b)return;b.onclick=()=>{const on=!b.classList.contains("on");b.classList.toggle("on",on);const bx=b.querySelector(".tgl-box");if(bx)bx.textContent=on?"\u2713":"";};});
   fields.filter(f=>f.type==="geo").forEach(f=>{
     const inp=$("#m_"+f.id),sug=$("#m_"+f.id+"_sug");if(!inp||!sug)return;
     let t;
@@ -6104,6 +6127,7 @@ function openModal(title,fields,onSave,saveLabel){
     fields.forEach(f=>{
       if(f.type==="chips")out[f.id]=Array.from($("#m_"+f.id).querySelectorAll(".chip.on")).map(c=>c.dataset.p);
       else if(f.type==="money")out[f.id]=parseMoney($("#m_"+f.id).value);
+      else if(f.type==="toggle")out[f.id]=$("#m_"+f.id).classList.contains("on");
       else if(f.type==="cat"){const sel=$("#m_"+f.id);
         out[f.id]=sel.value==="__nova__"?($("#m_"+f.id+"_nova").value.trim()||"Outros"):sel.value;}
       else out[f.id]=$("#m_"+f.id).value.trim();
@@ -6297,7 +6321,7 @@ function renderRoteiro(){_sujo.delete("roteiro");
       ${reservasDoDia(d.data)}
       ${itensOrd.map(a=>{const _pill=(a.hora&&a.hora!=="—")?`<span class="act-t">${esc(a.hora)}</span>`:`<span class="act-t livre">livre</span>`;return `<div class="act ${feitoDe(a)?"act-done":""}${adm?" act-int":""}"${adm?` data-act="${d.id}|${a.id}"`:""}>
         ${emV?`<button class="actcheck ${feitoDe(a)?"on":""}" data-adone="${d.id}|${a.id}" aria-label="${feitoDe(a)?"Desmarcar":"Marcar como feito"}">${feitoDe(a)?"✓":""}</button>`:""}
-        <div class="b"><div class="n">${_pill}${esc(a.titulo)}</div>${a.nota?`<div class="s">${esc(a.nota)}</div>`:""}${a.local?`<div class="s">${mapBtn(a.local,d.cidade)}</div>`:""}
+        <div class="b"><div class="n">${_pill}${a.destaque?'<span class="act-star" title="N\u00e3o pode faltar">\u2605</span>':""}${esc(a.titulo)}</div>${a.nota?`<div class="s">${esc(a.nota)}</div>`:""}${a.local?`<div class="s">${mapBtn(a.local,d.cidade)}</div>`:""}
           ${Number(a.valor)>0?`<div class="s"><b style="color:var(--ber)">${fmtIn(a.valor,a.moeda||"EUR")}</b> · ${(!Array.isArray(a.quem)||a.quem.length>=PEOPLE.length)?"todos":a.quem.map(esc).join(", ")} · ${fmt(toBRL(a.valor,a.moeda||"EUR")/((Array.isArray(a.quem)&&a.quem.length)?a.quem.length:PEOPLE.length))} cada</div>`:""}</div></div>`;}).join("")}
       ${adm?`<button class="btn gh sm" data-aadd="${d.id}" style="margin:2px 0 4px">+ atividade</button>`:""}
     </div>`;}).join(""):`<div class="empty">${roteiroCidade?"Nada em "+esc(cityOf(roteiroCidade).n)+" ainda.<br>Os dias e passeios aparecem aqui quando forem montados.":"Roteiro vazio.<br>Os dias e passeios da viagem são montados por aqui."}</div>`}
@@ -6379,6 +6403,7 @@ function editarAtividade(di,ai){
     {id:"titulo",label:"O que é",value:at.titulo||""},
     {id:"local",label:"Local (abre no mapa)",type:"geo",cityKey:dia&&dia.cidade,placeholder:"Ex.: Museu do Louvre",value:at.local||""},
     {id:"nota",label:"Observação",type:"area",placeholder:"opcional",value:at.nota||""},
+    {id:"destaque",type:"toggle",label:"Destaque",text:"\u2b50 O que n\u00e3o pode faltar (destaque no relat\u00f3rio)",value:!!at.destaque},
     {id:"valor",label:"Custo total (opcional)",type:"money",placeholder:"0,00",value:Number(at.valor)>0?at.valor:""},
     {id:"moeda",label:"Moeda",type:"select",options:moedasForm(at.moeda||moedaPrincipal()),value:at.moeda||moedaPadrao()},
     {id:"quem",label:"Quem vai (e divide o custo)",type:"chips",value:quemAtual}
@@ -6386,6 +6411,7 @@ function editarAtividade(di,ai){
     if(!v.titulo){toast("Dê um nome à atividade");return false;}
     const novo=Object.assign({},at,{hora:v.hora||"—",titulo:v.titulo,nota:v.nota,local:v.local||""});
     delete novo.valor;delete novo.moeda;delete novo.quem;
+    if(v.destaque)novo.destaque=true;else delete novo.destaque;
     if(v.valor>0){novo.valor=v.valor;novo.moeda=v.moeda;
       novo.quem=(v.quem.length&&v.quem.length<PEOPLE.length)?v.quem:"todos";}
     const destino=(v.dia&&(STATE.roteiro.dias||[]).some(d=>d.id===v.dia))?v.dia:di;
